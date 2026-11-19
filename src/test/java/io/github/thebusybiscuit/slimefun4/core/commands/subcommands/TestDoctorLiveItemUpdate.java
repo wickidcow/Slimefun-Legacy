@@ -245,6 +245,59 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void oldChestItemAndCurrentTemplateExportAsExactPrivateReceiptsWithoutChangingStock() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack current = current("CARBONADO");
+        ItemStack historical = olderStyling(current, 63);
+        chest.setItem(53, historical);
+        byte[] originalBytes = historical.serializeAsBytes();
+        byte[] templateBytes = current.serializeAsBytes();
+
+        UUID owner = UUID.randomUUID();
+        var exported = DoctorLiveItemUpdate.captureContainer(chest, 53, ignored -> current, data, owner);
+        assertArrayEquals(
+                originalBytes,
+                DoctorHistoricalStackRepair.readVerifiedBackup(data, owner, exported.mainReceipt()).serializeAsBytes());
+        assertArrayEquals(
+                templateBytes,
+                DoctorHistoricalStackRepair.readVerifiedBackup(data, owner, exported.offhandReceipt()).serializeAsBytes());
+        assertArrayEquals(originalBytes, chest.getItem(53).serializeAsBytes());
+        assertArrayEquals(templateBytes, current.serializeAsBytes());
+        assertEquals(63, chest.getItem(53).getAmount());
+        assertFalse(chest.getItem(53).isSimilar(current));
+        assertNull(chest.getItem(52));
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(2L, files.count());
+        }
+    }
+
+    @Test
+    void chestEvidenceRefusesMissingItemsOrDifferentIdsBeforeWritingAnyBackup() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack current = current("CARBONADO");
+        ItemStack wrongId = olderStyling(current("CARBON_CHUNK"), 11);
+        chest.setItem(0, wrongId);
+        byte[] wrongBytes = wrongId.serializeAsBytes();
+
+        UUID owner = UUID.randomUUID();
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, -1, ignored -> current, data, owner));
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, 54, ignored -> current, data, owner));
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, 1, ignored -> current, data, owner));
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, 0, ignored -> current, data, owner));
+        assertArrayEquals(wrongBytes, chest.getItem(0).serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+
+        chest.setItem(0, current);
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, 0, ignored -> current, data, owner));
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void fullDoubleChestScanCountsSafeAndRefusedHistoricalItemsWithoutSavingOrChangingAnySlot() {
         Inventory doubleChest = Bukkit.createInventory(null, 54);
         ItemStack template = current("CARBONADO");
