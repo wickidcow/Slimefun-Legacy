@@ -18,15 +18,15 @@
     },
     "ie2": {
       "repository": "wickidcow/SF_InfinityExpansion2",
-      "source": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
-      "tree": "b7c9b2678975e9cef42059a436cd2db1273d57ea",
+      "source": "94e64236312a8c0b3fb18812143c6a02a806405b",
+      "tree": "371e740ea4b74fc0b09c4a5540836ed8cfa93f0d",
       "plugin": "InfinityExpansion2",
-      "version": "2.0.19",
-      "jar": "build/libs/SF_InfinityExpansion2.0.19.jar",
+      "version": "2.0.21",
+      "jar": "build/libs/SF_InfinityExpansion2.0.21.jar",
       "published_artifact": {
-        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.19/SF_InfinityExpansion2.0.19.jar",
-        "bytes": 1793814,
-        "sha256": "4652fc9c6d9200f46ddbe5ad6ce56d524112c6dc8a16f2da163eb7308823afbd"
+        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.21/SF_InfinityExpansion2.0.21.jar",
+        "bytes": 1795834,
+        "sha256": "7c307269b0e3afe9d32a0c0a5f7f742d8f50d4f55a31b0dfd3befdd55debb633"
       }
     }
   },

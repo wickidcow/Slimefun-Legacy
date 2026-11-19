@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "365c30bdd9fedd0bb9989c13829341c501150a5a"
+      "source_commit": "274275331f0d3087d96998aa4576ef1cc2b3a1ff"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -178,7 +178,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4"
+      "source_commit": "94e64236312a8c0b3fb18812143c6a02a806405b"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",

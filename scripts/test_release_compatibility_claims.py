@@ -96,17 +96,17 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(sha, selected[repository])
         self.assertEqual("1d46a1afd04ceae7f04c7e0849397350ce273ec5",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
+        self.assertEqual("94e64236312a8c0b3fb18812143c6a02a806405b",
                          selected["wickidcow/SF_InfinityExpansion2"])
         self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
 
 
 
-    def test_v81_eight_new_addon_releases_are_pinned_exactly(self):
-        # These are immutable official v81 source-tag commits, not arbitrary
-        # latest/master snapshots. A later source-only CI change never silently
-        # updates a released JAR, and all 36 remaining pins stay unchanged.
+    def test_r157_successor_addon_releases_are_pinned_exactly(self):
+        # Two source pins advance from immutable v4.1.81 tags to distinct, officially
+        # published addon successor tags. Never infer that the v81 ZIP changed;
+        # the remaining curated source selections stay unchanged.
         self.assertEqual(157, self.matrix["bundle_revision"])
         self.assertEqual(45, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
@@ -115,10 +115,10 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
             "wickidcow/SF_FastMachines": "ef56249ca0add00f15d1d5527e310bf5de4811e9",
             "wickidcow/SF_FinalTECH": "746b35a4c27d2ca496d6ca55b7e0b8c92d9dc087",
-            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
+            "wickidcow/SF_FluffyMachines": "274275331f0d3087d96998aa4576ef1cc2b3a1ff",
             "wickidcow/SF_FoxyMachines": "d9d76b29bea65b6ee55b7abfa3bacdc17bcbd4e7",
             "wickidcow/SF_Gastronomicon": "547b88916e35f34b683ea61361700ab300a81a72",
-            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
+            "wickidcow/SF_InfinityExpansion2": "94e64236312a8c0b3fb18812143c6a02a806405b",
             "wickidcow/SF_MagicExpansion": "1eb30acb5e52b9c7d8a78850fef9a308dda5245e",
         }
         self.assertEqual(8, len(expected_releases))
@@ -126,7 +126,7 @@ class CompatibilityClaimsTest(unittest.TestCase):
             with self.subTest(repository=repository):
                 self.assertEqual(source_sha, selected[repository])
 
-    def test_r156_retains_previous_merged_release_sources(self):
+    def test_r157_retains_other_merged_release_sources(self):
         # FlowerPower / ExtraHeads keep existing reviewed source identities.
         # The six r155 addon pins point to reviewed, published commits,
         # never draft commits. Published/historical storage locks are separate.
@@ -139,9 +139,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "365c30bdd9fedd0bb9989c13829341c501150a5a",
+            "wickidcow/SF_FluffyMachines": "274275331f0d3087d96998aa4576ef1cc2b3a1ff",
             "wickidcow/SF_NetworksExp": "1d46a1afd04ceae7f04c7e0849397350ce273ec5",
-            "wickidcow/SF_InfinityExpansion2": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4",
+            "wickidcow/SF_InfinityExpansion2": "94e64236312a8c0b3fb18812143c6a02a806405b",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
