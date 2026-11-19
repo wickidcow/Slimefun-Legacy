@@ -790,8 +790,9 @@ final class ItemIdentityProbe {
             byte[] currentBytes = Files.readAllBytes(currentFile);
             ItemStack old = ItemStack.deserializeBytes(oldBytes);
             ItemStack current = ItemStack.deserializeBytes(currentBytes);
+            ItemStack registeredNative = ItemStack.deserializeBytes(registered.getItem().serializeAsBytes());
             require(old.getAmount() == 63 && current.getAmount() == 1
-                            && !old.isSimilar(current) && current.isSimilar(registered.getItem()),
+                            && !old.isSimilar(current) && current.isSimilar(registeredNative),
                     "native chest evidence original/current identity changed after restart");
             String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
             require(tokens.length == 3, "native chest evidence receipt is malformed");
