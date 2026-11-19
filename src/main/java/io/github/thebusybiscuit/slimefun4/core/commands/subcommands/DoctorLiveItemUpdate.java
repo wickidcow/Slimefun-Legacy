@@ -196,32 +196,38 @@ final class DoctorLiveItemUpdate {
         int refused = 0;
         List<Entry> entries = new ArrayList<>();
         for (int slot = 0; slot < scanned; slot++) {
-            ItemStack old = inventory.getItem(slot);
-            if (old == null || old.getType().isAir() || itemId(old) == null) {
-                continue;
-            }
-            ItemStack template = templates.apply(old);
-            if (template == null || !sameRegisteredId(old, template)) {
+            try {
+                ItemStack old = inventory.getItem(slot);
+                if (old == null || old.getType().isAir() || itemId(old) == null) {
+                    continue;
+                }
+                ItemStack template = templates.apply(old);
+                if (template == null || !sameRegisteredId(old, template)) {
+                    refused++;
+                    continue;
+                }
+                if (DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(old, template)) {
+                    continue;
+                }
+                mismatched++;
+                ItemStack replacement = DoctorHistoricalStackRepair.prepare(old, template, template);
+                if (replacement == null || old.serializeAsBytes().length > MAX_STACK_BYTES
+                        || replacement.serializeAsBytes().length > MAX_STACK_BYTES) {
+                    refused++;
+                    continue;
+                }
+                eligible++;
+                if (entries.size() < MAX_UPDATES) {
+                    entries.add(new Entry(
+                            slot,
+                            DoctorHistoricalStackRepair.fingerprint(old),
+                            DoctorHistoricalStackRepair.fingerprint(template),
+                            DoctorHistoricalStackRepair.fingerprint(replacement)));
+                }
+            } catch (RuntimeException exception) {
+                // A malformed or addon-owned item must not suppress inspection of
+                // unrelated slots. Refuse the single slot, never mutate it.
                 refused++;
-                continue;
-            }
-            if (DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(old, template)) {
-                continue;
-            }
-            mismatched++;
-            ItemStack replacement = DoctorHistoricalStackRepair.prepare(old, template, template);
-            if (replacement == null || old.serializeAsBytes().length > MAX_STACK_BYTES
-                    || replacement.serializeAsBytes().length > MAX_STACK_BYTES) {
-                refused++;
-                continue;
-            }
-            eligible++;
-            if (entries.size() < MAX_UPDATES) {
-                entries.add(new Entry(
-                        slot,
-                        DoctorHistoricalStackRepair.fingerprint(old),
-                        DoctorHistoricalStackRepair.fingerprint(template),
-                        DoctorHistoricalStackRepair.fingerprint(replacement)));
             }
         }
         return new Preview(scanned, mismatched, eligible, refused, List.copyOf(entries));
