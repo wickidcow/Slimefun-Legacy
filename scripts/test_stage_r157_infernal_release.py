@@ -22,11 +22,11 @@ SOURCE = "06e32ea6d551c9961a50c993602d4e84cf8edcbe"
 JAR = "SF_InfernalExpansion1.1.0.jar"
 
 
-def create_jar(extra: bytes = b"") -> bytes:
+def create_jar(extra: bytes = b"", major: int = 65) -> bytes:
     stream = BytesIO()
     with zipfile.ZipFile(stream, "w") as out:
         out.writestr("plugin.yml", "name: InfernalExpansion\nversion: 1.1.0\napi-version: '1.21.11'\n")
-        out.writestr("ga/kirzu/infernalexpansion/InfernalExpansion.class", bytes.fromhex("cafebabe00000041") + extra)
+        out.writestr("ga/kirzu/infernalexpansion/InfernalExpansion.class", bytes.fromhex("cafebabe0000") + major.to_bytes(2, "big") + extra)
     return stream.getvalue()
 
 
@@ -96,7 +96,7 @@ class InfernalReleaseStagingTests(unittest.TestCase):
             stage(self.jars, self.metadata, self.official, self.lock, self.matrix, False)
 
     def test_corrupt_or_wrong_java_class_is_rejected(self):
-        bad = self.raw.replace(bytes.fromhex("cafebabe00000041"), bytes.fromhex("cafebabe00000045"))
+        bad = create_jar(b"wrong-java", major=69)
         with self.assertRaisesRegex(ValueError, "Java 21"):
             plugin_descriptor(bad)
 
