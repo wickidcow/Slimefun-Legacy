@@ -90,9 +90,8 @@ final class HistoricalItemIdentityScanner {
         if (actual == null || registered == null) {
             return false;
         }
-        List<String> oldMeaningful = actual.stream()
-                .filter(line -> line != null && !line.isBlank())
-                .toList();
+        List<String> oldMeaningful =
+                actual.stream().filter(line -> line != null && !line.isBlank()).toList();
         List<String> newMeaningful = registered.stream()
                 .filter(line -> line != null && !line.isBlank())
                 .toList();

@@ -76,8 +76,10 @@ final class DoctorIdentityCommand {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             PlainPresentation plainParts = inspectPlainPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
-            send(sender, "&7Lore differs ONLY by blank lines: "
-                    + flag(!plainParts.loreSame() && sameNonblankPlainLore(main, off)));
+            send(
+                    sender,
+                    "&7Lore differs ONLY by blank lines: "
+                            + flag(!plainParts.loreSame() && sameNonblankPlainLore(main, off)));
             send(
                     sender,
                     "&7Plain display name: " + flag(plainParts.nameSame()) + " &8| &7Plain lore: "

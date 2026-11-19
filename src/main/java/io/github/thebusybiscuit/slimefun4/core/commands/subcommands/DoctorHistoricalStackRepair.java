@@ -523,9 +523,7 @@ final class DoctorHistoricalStackRepair {
             return false;
         }
         DoctorIdentityCommand.PlainPresentation parts = DoctorIdentityCommand.inspectPlainPresentation(old, fresh);
-        return parts.nameSame()
-                && !parts.loreSame()
-                && DoctorIdentityCommand.sameNonblankPlainLore(old, fresh);
+        return parts.nameSame() && !parts.loreSame() && DoctorIdentityCommand.sameNonblankPlainLore(old, fresh);
     }
 
     /**

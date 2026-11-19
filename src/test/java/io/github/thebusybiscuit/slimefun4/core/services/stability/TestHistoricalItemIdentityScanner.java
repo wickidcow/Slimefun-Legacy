@@ -130,9 +130,8 @@ class TestHistoricalItemIdentityScanner {
     @Test
     void blankLoreOnlyDifferenceIsReportedSeparatelyWithoutMutationOrRepairPermission() {
         ItemStack template = registered();
-        template.editMeta(meta -> meta.lore(java.util.List.of(
-                Component.text(" "),
-                Component.text("Radioactive", NamedTextColor.YELLOW))));
+        template.editMeta(meta -> meta.lore(
+                java.util.List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
         ItemStack historical = new ItemStack(template);
         historical.setAmount(63);
         historical.editMeta(meta -> meta.lore(java.util.List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));

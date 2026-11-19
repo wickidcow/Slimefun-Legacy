@@ -80,9 +80,8 @@ class TestDoctorHistoricalStackRepair {
         ItemStack fresh = current();
         fresh.editMeta(meta -> meta.getPersistentDataContainer()
                 .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO"));
-        fresh.editMeta(meta -> meta.lore(List.of(
-                Component.text(" "),
-                Component.text("Radioactive", NamedTextColor.YELLOW))));
+        fresh.editMeta(
+                meta -> meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
         ItemStack old = new ItemStack(fresh);
         old.setAmount(63);
         old.editMeta(meta -> meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));
@@ -114,9 +113,8 @@ class TestDoctorHistoricalStackRepair {
             fresh.editMeta(meta -> meta.getPersistentDataContainer()
                     .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, itemId));
             ItemStack old = new ItemStack(fresh);
-            fresh.editMeta(meta -> meta.lore(List.of(
-                    Component.text(" "),
-                    Component.text("Radioactive", NamedTextColor.YELLOW))));
+            fresh.editMeta(meta ->
+                    meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
             old.editMeta(meta -> meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));
             assertNull(DoctorHistoricalStackRepair.prepareStaticLore(old, fresh, fresh), itemId);
         }
@@ -124,9 +122,8 @@ class TestDoctorHistoricalStackRepair {
         ItemStack fresh = current();
         fresh.editMeta(meta -> meta.getPersistentDataContainer()
                 .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO"));
-        fresh.editMeta(meta -> meta.lore(List.of(
-                Component.text(" "),
-                Component.text("Radioactive", NamedTextColor.YELLOW))));
+        fresh.editMeta(
+                meta -> meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
         ItemStack nameChanged = new ItemStack(fresh);
         nameChanged.editMeta(meta -> {
             meta.displayName(Component.text("Private player-renamed item"));
