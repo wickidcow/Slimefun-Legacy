@@ -13,6 +13,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -450,6 +451,72 @@ final class ItemIdentityProbe {
         Bukkit.getLogger().info("IDENTITY_EXPORT_SYNTHETIC_" + (restart ? "RESTART" : "SEED") + "_PASS");
     }
 
+    /**
+     * Emulates the pre-Adventure SlimefunItemStack text setters from v4.1.55
+     * against the ACTUAL registered modern CARBONADO template on native Paper.
+     * This is an API-path diagnostic, not a captured old AlbionMC item.
+     * The result can be MATCH, text/presentation drift, or other metadata;
+     * do not invent a mismatch when current Bukkit setters serialize equally.
+     */
+    @SuppressWarnings("deprecation")
+    private static void verifyOldBukkitTextApiCarbonado(Path folder, boolean restart) throws Exception {
+        var registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "historical Bukkit text API probe missing CARBONADO registration");
+        Path caseFolder = folder.resolve("identity-old-bukkit-text-api-carbonado");
+        Path legacyFile = caseFolder.resolve("legacy-api.bin");
+        Path currentFile = caseFolder.resolve("current.bin");
+        Path classificationFile = caseFolder.resolve("classification.txt");
+        if (restart) {
+            byte[] legacyBytes = Files.readAllBytes(legacyFile);
+            byte[] currentBytes = Files.readAllBytes(currentFile);
+            ItemStack oldApi = ItemStack.deserializeBytes(legacyBytes);
+            ItemStack modern = ItemStack.deserializeBytes(currentBytes);
+            require(oldApi.getAmount() == 31 && modern.getAmount() == 1,
+                    "old Bukkit text API CARBONADO quantities changed on separate Paper boot");
+            String expected = Files.readString(classificationFile);
+            String observed = classifyOldBukkitTextApi(oldApi, modern);
+            require(expected.equals(observed),
+                    "old Bukkit text API CARBONADO provenance classification drifted after restart");
+            require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
+                            && Arrays.equals(currentBytes, modern.serializeAsBytes()),
+                    "old Bukkit text API CARBONADO bytes changed during separate Paper restart");
+            return;
+        }
+        Files.createDirectories(caseFolder);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack modern = ItemStack.deserializeBytes(registeredBytes);
+        modern.setAmount(1);
+        ItemStack oldApi = ItemStack.deserializeBytes(registeredBytes);
+        oldApi.setAmount(31);
+        oldApi.editMeta(meta -> {
+            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&b&lCarbonado"));
+            meta.setLore(List.of("", ChatColor.translateAlternateColorCodes('&', "&7&o\\\"Black Diamond\\\"")));
+        });
+        byte[] legacyBytes = oldApi.serializeAsBytes();
+        byte[] currentBytes = modern.serializeAsBytes();
+        String classification = classifyOldBukkitTextApi(oldApi, modern);
+        require(!classification.isBlank(), "old Bukkit text API classification missing");
+        require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "old Bukkit text API probe mutated registered CARBONADO template");
+        Files.write(legacyFile, legacyBytes);
+        Files.write(currentFile, currentBytes);
+        Files.writeString(classificationFile, classification);
+        require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
+                        && Arrays.equals(currentBytes, modern.serializeAsBytes()),
+                "old Bukkit text API probe modified its detached inputs");
+    }
+
+    private static String classifyOldBukkitTextApi(ItemStack oldApi, ItemStack modern) throws Exception {
+        if (oldApi.isSimilar(modern)) {
+            return "MATCH";
+        }
+        Object evidence = historical(oldApi, modern);
+        if (!flag(evidence, "nonPresentationSame")) {
+            return "OTHER_METADATA";
+        }
+        return flag(evidence, "plainTextSame") ? "STYLE_OR_COMPONENT" : "PLAIN_TEXT_OR_LORE_LAYOUT";
+    }
+
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
@@ -459,6 +526,7 @@ final class ItemIdentityProbe {
             verifyRegisteredCarbonHistory(folder, id, restart);
         }
         verifyStaticCarbonadoLore(folder, restart);
+        verifyOldBukkitTextApiCarbonado(folder, restart);
         verifyEvidenceExport(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
