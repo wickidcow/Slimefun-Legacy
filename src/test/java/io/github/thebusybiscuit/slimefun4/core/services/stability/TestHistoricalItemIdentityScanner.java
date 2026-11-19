@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.services.stability;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -124,6 +125,33 @@ class TestHistoricalItemIdentityScanner {
         assertEquals(
                 HistoricalItemIdentityScanner.Result.OTHER_DIFFERENCE,
                 HistoricalItemIdentityScanner.inspect(old, template));
+    }
+
+    @Test
+    void blankLoreOnlyDifferenceIsReportedSeparatelyWithoutMutationOrRepairPermission() {
+        ItemStack template = registered();
+        template.editMeta(meta -> meta.lore(java.util.List.of(
+                Component.text(" "),
+                Component.text("Radioactive", NamedTextColor.YELLOW))));
+        ItemStack historical = new ItemStack(template);
+        historical.setAmount(63);
+        historical.editMeta(meta -> meta.lore(java.util.List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));
+        byte[] oldBytes = historical.serializeAsBytes();
+        byte[] freshBytes = template.serializeAsBytes();
+
+        assertFalse(historical.isSimilar(template));
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.BLANK_LORE_LAYOUT_DIFFERENCE,
+                HistoricalItemIdentityScanner.inspect(historical, template));
+        assertEquals(63, historical.getAmount());
+        assertArrayEquals(oldBytes, historical.serializeAsBytes());
+        assertArrayEquals(freshBytes, template.serializeAsBytes());
+
+        historical.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "storage"), PersistentDataType.LONG, 8L));
+        assertEquals(
+                HistoricalItemIdentityScanner.Result.OTHER_DIFFERENCE,
+                HistoricalItemIdentityScanner.inspect(historical, template));
     }
 
     @Test
