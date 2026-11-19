@@ -76,6 +76,8 @@ final class DoctorIdentityCommand {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             PlainPresentation plainParts = inspectPlainPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
+            send(sender, "&7Lore differs ONLY by blank lines: "
+                    + flag(!plainParts.loreSame() && sameNonblankPlainLore(main, off)));
             send(
                     sender,
                     "&7Plain display name: " + flag(plainParts.nameSame()) + " &8| &7Plain lore: "
@@ -196,6 +198,34 @@ final class DoctorIdentityCommand {
     }
 
     record PlainPresentation(boolean nameSame, boolean loreSame, int mainLoreLines, int offhandLoreLines) {}
+
+    /**
+     * Strict older-format hint: ignore only entirely blank lore lines. The
+     * original nonblank text and its order must be identical on both stacks;
+     * stripping or replacing any meaningful historical text is never approved.
+     */
+    static boolean sameNonblankPlainLore(ItemStack historical, ItemStack reference) {
+        if (historical == null || reference == null) {
+            return false;
+        }
+        ItemMeta historicalMeta = historical.getItemMeta();
+        ItemMeta referenceMeta = reference.getItemMeta();
+        if (historicalMeta == null || referenceMeta == null) {
+            return false;
+        }
+        java.util.List<String> oldLines = plainLore(historicalMeta.lore());
+        java.util.List<String> freshLines = plainLore(referenceMeta.lore());
+        if (oldLines == null || freshLines == null) {
+            return false;
+        }
+        java.util.List<String> oldMeaningful = oldLines.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        java.util.List<String> newMeaningful = freshLines.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        return !oldMeaningful.isEmpty() && oldMeaningful.equals(newMeaningful);
+    }
 
     private static ItemStack detachedCopy(ItemStack source) {
         // Paper CraftItemStack.isSimilar cannot accept arbitrary ItemStack
