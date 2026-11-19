@@ -210,6 +210,35 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void fullDoubleChestScanCountsSafeAndRefusedHistoricalItemsWithoutSavingOrChangingAnySlot() {
+        Inventory doubleChest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+        ItemStack styleOnly = olderStyling(template, 63);
+        ItemStack changedLore = olderStyling(template, 17);
+        changedLore.editMeta(meta -> meta.lore(List.of(Component.text("Private shop notes"))));
+        byte[] safeBytes = styleOnly.serializeAsBytes();
+        byte[] refusedBytes = changedLore.serializeAsBytes();
+        doubleChest.setItem(53, styleOnly);
+        doubleChest.setItem(52, changedLore);
+
+        // Player-inventory previews stop at slot 35 even when handed a chest.
+        var playerLimit = DoctorLiveItemUpdate.preview(doubleChest, ignored -> template);
+        assertEquals(36, playerLimit.scannedSlots());
+        assertEquals(0, playerLimit.eligible());
+
+        var inspection = DoctorLiveItemUpdate.preview(doubleChest, ignored -> template, 54);
+        assertEquals(54, inspection.scannedSlots());
+        assertEquals(2, inspection.mismatched());
+        assertEquals(1, inspection.eligible());
+        assertEquals(1, inspection.refused());
+        assertEquals(1, inspection.entries().size());
+        assertEquals(53, inspection.entries().getFirst().slot());
+        assertArrayEquals(safeBytes, doubleChest.getItem(53).serializeAsBytes());
+        assertArrayEquals(refusedBytes, doubleChest.getItem(52).serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void missingRecoveryPathRefusesBeforeWritingAnyPlayerStack() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack template = current("CARBONADO");
