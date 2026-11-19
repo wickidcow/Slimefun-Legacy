@@ -8,10 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -295,6 +298,62 @@ class TestDoctorLiveItemUpdate {
         assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
                 chest, 0, ignored -> current, data, owner));
         assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
+    void failedSecondWriteRollsBackAllAttemptedLiveStacksAndRetainsOriginalReceipts() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack oldFirst = olderStyling(template, 21);
+        ItemStack oldSecond = olderStyling(template, 42);
+        byte[] firstBytes = oldFirst.serializeAsBytes();
+        byte[] secondBytes = oldSecond.serializeAsBytes();
+        byte[] templateBytes = template.serializeAsBytes();
+        backing.setItem(0, oldFirst);
+        backing.setItem(1, oldSecond);
+
+        // Fail AFTER the second slot write, just as a third-party inventory
+        // adapter might throw after modifying one of its own slot records.
+        AtomicInteger writes = new AtomicInteger();
+        Inventory failing = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem") && writes.incrementAndGet() == 2) {
+                            throw new IllegalStateException("Synthetic post-write inventory failure");
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+
+        var preview = DoctorLiveItemUpdate.preview(failing, ignored -> template);
+        assertEquals(2, preview.entries().size());
+        UUID owner = UUID.randomUUID();
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                failing, preview, ignored -> template, data, owner));
+
+        assertTrue(writes.get() >= 4, "Both attempted slot changes must be rolled back");
+        assertArrayEquals(firstBytes, backing.getItem(0).serializeAsBytes());
+        assertArrayEquals(secondBytes, backing.getItem(1).serializeAsBytes());
+        assertArrayEquals(templateBytes, template.serializeAsBytes());
+        assertNull(backing.getItem(2));
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            var receipts = files.filter(Files::isRegularFile).toList();
+            assertEquals(2, receipts.size());
+            var originals = receipts.stream()
+                    .map(path -> {
+                        try {
+                            return Files.readAllBytes(path);
+                        } catch (IOException exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })
+                    .toList();
+            assertTrue(originals.stream().anyMatch(bytes -> java.util.Arrays.equals(firstBytes, bytes)));
+            assertTrue(originals.stream().anyMatch(bytes -> java.util.Arrays.equals(secondBytes, bytes)));
+        }
     }
 
     @Test
