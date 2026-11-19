@@ -77,11 +77,11 @@ def plugin_descriptor(jar: bytes) -> tuple[str, str, str]:
             raise ValueError("Infernal JAR missing plugin descriptor or main class")
         content = archive.read("plugin.yml").decode("utf-8")
         main_class = archive.read(CLASS_PATH)
-    if main_class[:4] != b"\\xca\\xfe\\xba\\xbe" or int.from_bytes(main_class[6:8], "big") != 65:
+    if main_class[:4] != b"\xca\xfe\xba\xbe" or int.from_bytes(main_class[6:8], "big") != 65:
         raise ValueError("Infernal JAR class must be Java 21 major version 65")
     result = []
     for key in ("name", "version", "api-version"):
-        match = re.search(rf"(?mi)^\\s*{re.escape(key)}:\\s*['\\\"]?([^'\\\"\\r\\n#]+)", content)
+        match = re.search(rf"(?mi)^\s*{re.escape(key)}:\s*['\"]?([^'\"\r\n#]+)", content)
         if not match:
             raise ValueError(f"Missing Infernal plugin descriptor {key}")
         result.append(match.group(1).strip())
@@ -137,7 +137,7 @@ def stage(jars: Path, metadata: Path, official: Path, lock: dict, matrix: dict, 
         out.write(raw)
         pending_jar = Path(out.name)
     with tempfile.NamedTemporaryFile("w", dir=metadata, encoding="utf-8", delete=False) as out:
-        out.write(json.dumps(row, indent=2) + "\\n")
+        out.write(json.dumps(row, indent=2) + "\n")
         pending_meta = Path(out.name)
     os.replace(pending_jar, jar_file)
     os.replace(pending_meta, meta_file)
