@@ -298,6 +298,42 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void chestScanSeparatesBlankLoreFromMeaningfulTextTypedDataAndWrongIds() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+
+        ItemStack blankLore = ItemStack.deserializeBytes(template.serializeAsBytes());
+        blankLore.editMeta(meta -> meta.lore(List.of(Component.empty(), Component.text("Black Diamond"))));
+        ItemStack changedText = ItemStack.deserializeBytes(template.serializeAsBytes());
+        changedText.editMeta(meta -> meta.lore(List.of(Component.text("Private owner message"))));
+        ItemStack changedTypedData = ItemStack.deserializeBytes(template.serializeAsBytes());
+        changedTypedData.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787001));
+        ItemStack otherId = olderStyling(current("CARBON_CHUNK"), 5);
+        ItemStack[] original = {blankLore, changedText, changedTypedData, otherId};
+        byte[][] originalBytes = new byte[4][];
+        for (int i = 0; i < original.length; i++) {
+            originalBytes[i] = original[i].serializeAsBytes();
+            chest.setItem(50 + i, original[i]);
+        }
+
+        var preview = DoctorLiveItemUpdate.preview(chest, ignored -> template, 54);
+        assertEquals(54, preview.scannedSlots());
+        assertEquals(3, preview.mismatched());
+        assertEquals(0, preview.eligible());
+        assertEquals(4, preview.refused());
+        assertEquals(1, preview.blankLoreOnly());
+        assertEquals(1, preview.meaningfulText());
+        assertEquals(1, preview.functionalMetadata());
+        assertEquals(1, preview.unknownIds());
+        assertTrue(preview.entries().isEmpty());
+        for (int i = 0; i < original.length; i++) {
+            assertArrayEquals(originalBytes[i], chest.getItem(50 + i).serializeAsBytes());
+        }
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void fullDoubleChestScanCountsSafeAndRefusedHistoricalItemsWithoutSavingOrChangingAnySlot() {
         Inventory doubleChest = Bukkit.createInventory(null, 54);
         ItemStack template = current("CARBONADO");
