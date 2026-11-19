@@ -15,6 +15,24 @@ A missing addon or unreadable legacy item is not evidence that its stored record
 
 Switching plugin implementations on the same Minecraft version is different from downgrading Minecraft itself. Neither same-format recognition nor a successful compile certifies an entire world-switch.
 
+## Permanent constructor regression gates
+
+`SlimefunItemStackLegacyTextTest` freezes representative full component trees
+from the v4.1.81 constructor at `d728bf04ebd738dd5779e27b2ea83c68f0edbd10`.
+It checks root decorations, nested inherited italics, reset/color boundaries,
+mixed section-sign/ampersand input, literal invalid codes and separate empty
+and whitespace-only lore lines. Expected trees are written independently of
+the parser under test, so a serializer or deprecation refactor cannot silently
+change them while retaining the same plain text and Slimefun ID.
+
+These tests protect current constructor output; they do not establish that
+v4.1.81 matches historical Bukkit output. In particular, the existing forced
+root `italic=false` is a recorded compatibility baseline, not proof of the
+right representation for every older item. An intentional baseline change
+must include old/new native-byte evidence and the historical migration
+acceptance below. Do not automatically regenerate expectations from changed
+constructor code or relax item matching to make the tests pass.
+
 ## Native historical presentation regression for v4.1.82
 
 The native `ItemIdentityProbe.verifyOldBukkitTextApiMatrix` checks **26 representative
