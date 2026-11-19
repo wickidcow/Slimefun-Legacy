@@ -261,6 +261,31 @@ SmartSpawner's public API exposes the registered spawner identity/type/location/
 stored-loot/XP balances, so Doctor does not pretend it can migrate those balances. Keep SmartSpawner installed until
 the follow-up scan reports no remaining records.
 
+#### Private old-versus-new evidence export (v4.1.82 candidate)
+
+To investigate **real, old chest/shop item bytes** instead of relying on synthetic
+fixtures, an operator on a **disposable full-backup clone** can hold a fresh
+`/sf cheat` item in the main hand and the corresponding old chest/shop item
+in the offhand, verify both resolve to the same registered Slimefun ID, and run:
+
+```text
+/sf doctor identity compare
+/sf doctor identity export
+```
+
+Export is **operator-only, explicit and non-destructive**: it serializes both
+actual held stacks into two new, exact-native-byte backup files under
+`plugins/Slimefun/recovery/identity/` and rereads each file to verify its
+contents. Receipts identify the two filenames using the executing owner's
+UUID and the two independent UUID receipts. It does **not** export automatically,
+send data online, change hands or inventories, update shops, or rewrite worlds.
+Existing local backup files are never overwritten; symlinked directories fail.
+The `.bin` contents can contain personal/owner IDs and typed PDC; keep them
+**private**, never post them to a public GitHub issue, or include them in a
+public commit. Contact project maintainers privately for old-world acceptance
+if needed. The original old item should remain saved in an untouched full
+offline backup even after evidence capture.
+
 #### Operator-only historical Carbonado lore recovery (v4.1.82 candidate)
 
 Some saved shop/chest copies of `CARBONADO` have the registered Slimefun ID, model,
