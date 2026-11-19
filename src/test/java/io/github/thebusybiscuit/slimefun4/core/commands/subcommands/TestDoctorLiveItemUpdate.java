@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -400,18 +401,35 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
-    void legacyModelMappingChangeNeverBecomesPresentationOnlyLiveUpdate() {
+    void oldSteelModelComponentIsDetectedBeforeMockBukkitLosesItDuringStackCopies() {
+        // MockBukkit 4.110.0 does not faithfully preserve modern model
+        // components through item copies / ItemMetaMock equality. Assert
+        // the model difference at the API boundary; native Paper's two-boot
+        // Steel regression proves the real inventory refusal.
+        ItemStack current = current("STEEL_INGOT");
+        var historicMeta = current.getItemMeta();
+        var model = historicMeta.getCustomModelDataComponent();
+        model.setFloats(List.of(2200080.0F));
+        historicMeta.setCustomModelDataComponent(model);
+
+        assertEquals(List.of(2200080.0F), historicMeta.getCustomModelDataComponent().getFloats());
+        assertNotEquals(
+                DoctorIdentityCommand.modelData(historicMeta),
+                DoctorIdentityCommand.modelData(current.getItemMeta()));
+    }
+
+    @Test
+    void functionalMetadataChangeInHistoricalSteelChestIsNeverPresentationOnly() {
         Inventory chest = Bukkit.createInventory(null, 54);
         ItemStack current = current("STEEL_INGOT");
-        ItemStack oldModel = olderStyling(current, 31);
-        oldModel.editMeta(meta -> {
-            var model = meta.getCustomModelDataComponent();
-            model.setFloats(List.of(2200080.0F));
-            meta.setCustomModelDataComponent(model);
-        });
-        byte[] original = oldModel.serializeAsBytes();
+        ItemStack old = olderStyling(current, 31);
+        // Typed PDC survives MockBukkit's native byte round-trip. Model
+        // components are separately covered by real Paper native tests.
+        old.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "steel_model_source"), PersistentDataType.INTEGER, 2200080));
+        byte[] original = old.serializeAsBytes();
         byte[] template = current.serializeAsBytes();
-        chest.setItem(53, oldModel);
+        chest.setItem(53, old);
 
         var plan = DoctorLiveItemUpdate.preview(chest, ignored -> current, 54);
         assertEquals(1, plan.mismatched());
