@@ -53,6 +53,11 @@ final class DoctorLiveItemUpdate {
             send(sender, "&cLive item updates require a server operator in game.");
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("export-container")) {
+            PLANS.remove(player.getUniqueId());
+            exportContainer(plugin, player, args[4]);
+            return;
+        }
         if (args.length != 4) {
             usage(sender);
             return;
@@ -130,6 +135,7 @@ final class DoctorLiveItemUpdate {
     private static void usage(CommandSender sender) {
         send(sender, "&e/sf doctor identity live scan");
         send(sender, "&e/sf doctor identity live scan-container &8(read-only, look at chest/barrel)");
+        send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
         send(sender, "&cManual and opt-in. No automatic chest, shop, player-join or machine rewrites.");
@@ -179,6 +185,101 @@ final class DoctorLiveItemUpdate {
                 }
             });
         });
+    }
+
+    /**
+     * Read-only owner-operator evidence export for one physical container slot.
+     * A separate region-owned callback avoids touching containers from the
+     * player's region in Folia. Only bounded private original/template bytes
+     * are written; inventories and shop snapshots are never modified.
+     */
+    private static void exportContainer(Slimefun plugin, Player player, String slotArgument) {
+        int slot;
+        try {
+            slot = Integer.parseInt(slotArgument);
+            if (slot < 0 || slot >= MAX_CONTAINER_SCAN_SLOTS) {
+                throw new NumberFormatException("out of bounds");
+            }
+        } catch (NumberFormatException exception) {
+            send(player, "&cSpecify a 0-based container slot from 0 through 53.");
+            return;
+        }
+        Block aimed = player.getTargetBlockExact(6);
+        if (aimed == null || aimed.getType().isAir()) {
+            send(player, "&eLook directly at a loaded physical chest/barrel within six blocks.");
+            return;
+        }
+        Location location = aimed.getLocation();
+        Slimefun.getSchedulerService().runAt(location, () -> {
+            String message;
+            try {
+                if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    message = "&cTarget chunk unloaded; no evidence was written.";
+                } else {
+                    BlockState state = location.getBlock().getState();
+                    if (!(state instanceof Container container)) {
+                        message = "&cTarget is not a physical inventory container.";
+                    } else {
+                        DoctorIdentityEvidenceExport.Evidence evidence = captureContainer(
+                                container.getInventory(),
+                                slot,
+                                DoctorLiveItemUpdate::registeredTemplate,
+                                plugin.getDataFolder().toPath(),
+                                player.getUniqueId());
+                        message = "&aPrivate chest evidence saved: &7slot &e" + slot
+                                + " &8| &7original receipt &e" + evidence.mainReceipt()
+                                + " &8| &7current template &e" + evidence.offhandReceipt()
+                                + " &8| &cKeep files PRIVATE; container and shop unchanged.";
+                    }
+                }
+            } catch (IOException | RuntimeException exception) {
+                message = "&cChest item evidence refused. Nothing in the chest/shop was changed.";
+            }
+            final String result = message;
+            Slimefun.getSchedulerService().runFor(player, () -> {
+                if (player.isOnline()) {
+                    send(player, result);
+                }
+            });
+        });
+    }
+
+    /**
+     * Exports exactly one *different* saved item and its current registered
+     * template using the established symlink-safe Doctor evidence store.
+     * No caller may promote this evidence operation into a repair preview.
+     */
+    static DoctorIdentityEvidenceExport.Evidence captureContainer(
+            Inventory inventory, int slot, Function<ItemStack, ItemStack> templates,
+            Path pluginFolder, UUID owner) throws IOException {
+        if (slot < 0 || slot >= Math.min(inventory.getSize(), MAX_CONTAINER_SCAN_SLOTS)) {
+            throw new IOException("Out-of-range physical container evidence slot");
+        }
+        try {
+            ItemStack original = inventory.getItem(slot);
+            if (original == null || original.getType().isAir() || itemId(original) == null) {
+                throw new IOException("Container slot does not contain a registered Slimefun item");
+            }
+            ItemStack template = templates.apply(original);
+            if (template == null || !sameRegisteredId(original, template)
+                    || DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(original, template)) {
+                throw new IOException("Unknown item or no historical mismatch to capture");
+            }
+            byte[] originalBytes = original.serializeAsBytes();
+            byte[] currentBytes = template.serializeAsBytes();
+            if (originalBytes.length > MAX_STACK_BYTES || currentBytes.length > MAX_STACK_BYTES) {
+                throw new IOException("Chest item evidence exceeds the native-byte safety limit");
+            }
+            DoctorIdentityEvidenceExport.Evidence receipts =
+                    DoctorIdentityEvidenceExport.capture(pluginFolder, owner, original, template);
+            if (!Arrays.equals(originalBytes, inventory.getItem(slot).serializeAsBytes())
+                    || !Arrays.equals(currentBytes, template.serializeAsBytes())) {
+                throw new IOException("Container item/template changed while saving private evidence");
+            }
+            return receipts;
+        } catch (RuntimeException exception) {
+            throw new IOException("Cannot safely capture chest item evidence", exception);
+        }
     }
 
     /**
