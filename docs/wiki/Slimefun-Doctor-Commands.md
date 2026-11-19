@@ -302,6 +302,50 @@ public commit. Contact project maintainers privately for old-world acceptance
 if needed. The original old item should remain saved in an untouched full
 offline backup even after evidence capture.
 
+#### Live player-inventory compatibility batches (v4.1.82 candidate)
+
+The initial **live update** mechanism operates on a currently online operator's
+36 player **storage** slots. It does **not** silently rewrite chests, machines,
+backpacks, QuickShop AdminShop sale-item snapshots, offline players, or dropped
+items. Future chest/shop support requires separate tests of original saved
+world/shop records and their transaction/restart behavior.
+
+This path is **manual and disabled unless an operator explicitly confirms each
+batch**. On a full-backup staging server:
+
+```text
+/sf doctor identity live scan
+/sf doctor identity live confirm
+/sf doctor identity live cancel
+```
+
+The scan is read-only, bounded to 36 storage slots, and reports the count of
+registered mismatches, strictly safe **style-only** candidates and refused
+items. A scan can prepare up to **eight** item stacks. Confirmation consumes
+an exact-slot, exact-registered-template, exact-item-fingerprint plan expiring
+after **60 seconds**. Every original native stack must first be backed up to
+`plugins/Slimefun/recovery/identity/` and independently reloaded byte-for-byte
+*before any slot is changed*. It checks that all original slots are still
+identical after disk I/O and checks each replacement after writing. A write
+failure attempts rollback only if the slot still contains the expected
+replacement; the original private receipts remain available for recovery.
+
+A candidate must retain the exact registered Slimefun ID, Minecraft material,
+all non-presentation native bytes, typed PDC/owner values, model data and
+quantity; the **plain name and all plain lore text must already match**.
+Only safe Adventure formatting/component differences can be normalized.
+Different meaningful text, unrecognized item IDs, changed typed data, and
+`CARBONADO` blank-line variants are **not** eligible for this bulk path.
+Specialized blank-line recovery remains single-held-stack only.
+
+**Do not** enable server-wide automatic item updates, transfer an unverified
+item between shops, or change QuickShop's default matcher as a workaround.
+The existence of a candidate is not proof that historical customizations are
+unimportant; capture real old/current examples first, and verify exact backups
+and restart on a separate clone before production use. This is a bounded
+live migration building block, not yet the complete old-world fix tracked by
+[issue #615](https://github.com/wickidcow/Slimefun-Legacy/issues/615).
+
 #### Operator-only historical Carbonado lore recovery (v4.1.82 candidate)
 
 Some saved shop/chest copies of `CARBONADO` have the registered Slimefun ID, model,
