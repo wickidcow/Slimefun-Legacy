@@ -29,6 +29,15 @@ Carbonado resources. Gold grades, iron-based ingots and sugar-based dusts
 also have negative checks ensuring different Slimefun IDs sharing a
 Minecraft material **never stack together**.
 
+The same native tests also compare two modern Adventure reconstructions
+against the historical Bukkit String-setter result: the default parsed
+component decorations, and the current explicitly disabled-italics root
+decoration. Each test records only the redacted MATCH/DIFFERENT outcomes
+and verifies they remain stable after a server restart. This investigates
+whether a source-construction adjustment can prevent future mismatches
+without changing global item matchers. Neither outcome alone authorizes
+changing already-persisted item bytes.
+
 This is a **source-derived synthetic compatibility matrix**, not an export
 from an older AlbionMC chest or QuickShop shop database. It must never
 be used to justify automatic replacement of custom lore, unknown
