@@ -232,14 +232,14 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.reject("addon source mismatch")
 
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
-        self.manifest["bundle_revision"] = 157
-        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156")
+        self.manifest["bundle_revision"] = 158
+        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157")
 
     def test_non_integer_revisions_are_rejected(self):
-        for value in (141.0, "141", 142.0, "142", 143.0, "143", 144.0, "144", 145.0, "145", 146.0, "146", 147.0, "147", 148.0, "148", 149.0, "149", 150.0, "150", 151.0, "151", 152.0, "152", 153.0, "153", 154.0, "154", 155.0, "155", 156.0, "156", True, None):
+        for value in (141.0, "141", 142.0, "142", 143.0, "143", 144.0, "144", 145.0, "145", 146.0, "146", 147.0, "147", 148.0, "148", 149.0, "149", 150.0, "150", 151.0, "151", 152.0, "152", 153.0, "153", 154.0, "154", 155.0, "155", 156.0, "156", 157.0, "157", True, None):
             with self.subTest(value=value):
                 self.manifest["bundle_revision"] = value
-                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156")
+                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157")
 
     def test_r141_requires_networks_1_0_59_and_its_exact_source(self):
         self.populate(141)
