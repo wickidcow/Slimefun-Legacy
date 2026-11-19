@@ -511,6 +511,10 @@ final class ItemIdentityProbe {
         ItemStack oldApi = ItemStack.deserializeBytes(registeredBytes);
         oldApi.setAmount(31);
         oldApi.editMeta(meta -> {
+            // The reviewed old definitions start without lore. Do not inherit
+            // current lore here: that would conceal future added text on IDs
+            // whose historical constructor received no lore arguments.
+            meta.lore(null);
             meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
             if (!lore.isEmpty()) {
                 meta.setLore(lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).toList());
@@ -535,6 +539,10 @@ final class ItemIdentityProbe {
         changedOwner.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 913L));
         require("OTHER_METADATA".equals(classifyOldBukkitTextApi(changedOwner, modern)),
                 "legacy API classification ignored typed owner difference: " + id);
+        ItemStack integerOwner = ItemStack.deserializeBytes(legacyBytes);
+        integerOwner.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.INTEGER, 913));
+        require("OTHER_METADATA".equals(classifyOldBukkitTextApi(integerOwner, changedOwner)),
+                "legacy API classification conflated INTEGER and LONG owner values: " + id);
         require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
                 "old Bukkit text API probe mutated registered template");
         Files.write(legacyFile, legacyBytes);
