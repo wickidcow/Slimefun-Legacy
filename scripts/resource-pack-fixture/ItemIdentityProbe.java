@@ -675,6 +675,15 @@ final class ItemIdentityProbe {
                 + "_ITALIC_OFF_" + (forcedNoItalicMatches ? "MATCH" : "DIFFERENT");
     }
 
+    /** Count-normalized, exact native identity comparison; never ignores typed data. */
+    private static boolean sameNativeItemIgnoringCount(ItemStack first, ItemStack second) {
+        ItemStack one = ItemStack.deserializeBytes(first.serializeAsBytes());
+        ItemStack two = ItemStack.deserializeBytes(second.serializeAsBytes());
+        one.setAmount(1);
+        two.setAmount(1);
+        return Arrays.equals(one.serializeAsBytes(), two.serializeAsBytes());
+    }
+
     private static void verifyLegacyStyleRecovery(
             Path folder, String id, ItemStack old, ItemStack fresh, ItemStack template, boolean restart)
             throws Exception {
@@ -702,10 +711,20 @@ final class ItemIdentityProbe {
         java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
         java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
         ItemStack verified = readDoctorBackup(folder, owner, receipt);
-        require(Arrays.equals(originalBytes, verified.serializeAsBytes())
-                        && repaired.getAmount() == 31
-                        && repaired.isSimilar(fresh) && fresh.isSimilar(repaired)
-                        && matchesDoctorBackup(verified, repaired, fresh, template),
+        boolean backupExact = Arrays.equals(originalBytes, verified.serializeAsBytes());
+        boolean quantitiesPreserved = repaired.getAmount() == 31 && verified.getAmount() == 31;
+        boolean stackingCompatible = repaired.isSimilar(fresh) && fresh.isSimilar(repaired);
+        boolean templateStable = sameNativeItemIgnoringCount(fresh, template);
+        boolean rollbackCompatible = matchesDoctorBackup(verified, repaired, fresh, template);
+        if (!backupExact || !quantitiesPreserved || !stackingCompatible || !templateStable || !rollbackCompatible) {
+            // Metadata may be owner/private: emit classification flags only,
+            // not item names, lore, PDC values, or native serialized bytes.
+            Bukkit.getLogger().warning("SFL_LEGACY_STYLE_RECOVERY_REFUSED_" + id
+                    + " backup=" + backupExact + " count=" + quantitiesPreserved
+                    + " stacks=" + stackingCompatible + " registeredTemplateStable=" + templateStable
+                    + " rollback=" + rollbackCompatible);
+        }
+        require(backupExact && quantitiesPreserved && stackingCompatible && templateStable && rollbackCompatible,
                 "legacy style backup/restart/rollback identity mismatch: " + id);
         ItemStack changedAmount = ItemStack.deserializeBytes(repaired.serializeAsBytes());
         changedAmount.setAmount(30);
