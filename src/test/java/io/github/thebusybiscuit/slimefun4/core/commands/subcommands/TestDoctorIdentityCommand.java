@@ -297,6 +297,28 @@ class TestDoctorIdentityCommand {
     }
 
     @Test
+    void historicalShopItemPlainLoreDifferenceIsDiagnosedWithoutExposingOrChangingText() {
+        ItemStack fresh = uranium();
+        ItemStack purchased = new ItemStack(fresh);
+        purchased.setAmount(63);
+        purchased.editMeta(meta -> meta.lore(java.util.List.of(Component.text("private historical shop note"))));
+        byte[] freshBytes = fresh.serializeAsBytes();
+        byte[] shopBytes = purchased.serializeAsBytes();
+
+        var plain = DoctorIdentityCommand.inspectPlainPresentation(purchased, fresh);
+        assertTrue(plain.nameSame());
+        assertFalse(plain.loreSame());
+        assertEquals(1, plain.mainLoreLines());
+        assertEquals(1, plain.offhandLoreLines());
+        var historical = DoctorIdentityCommand.inspectHistoricalPresentation(purchased, fresh);
+        assertFalse(historical.plainTextSame());
+        assertTrue(historical.nonPresentationSame());
+        assertFalse(historical.candidate());
+        assertArrayEquals(freshBytes, fresh.serializeAsBytes());
+        assertArrayEquals(shopBytes, purchased.serializeAsBytes());
+    }
+
+    @Test
     void genuinelyDifferentTextIsNotPresentationOnlyCandidate() {
         ItemStack historical = uranium();
         ItemStack fresh = uranium();
