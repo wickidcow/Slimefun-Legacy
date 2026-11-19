@@ -185,6 +185,32 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void oversizedLiveBackupBudgetRefusesWithoutMutatingAnySlot() throws Exception {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        byte[] opaqueStoragePayload = new byte[100_000];
+        new java.util.Random(20261119L).nextBytes(opaqueStoragePayload);
+        template.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "opaque_storage"), PersistentDataType.BYTE_ARRAY,
+                        opaqueStoragePayload));
+        byte[][] originalSlots = new byte[8][];
+        for (int i = 0; i < 8; i++) {
+            ItemStack old = olderStyling(template, i + 1);
+            originalSlots[i] = old.serializeAsBytes();
+            inventory.setItem(i, old);
+        }
+
+        var plan = DoctorLiveItemUpdate.preview(inventory, ignored -> template);
+        assertEquals(8, plan.eligible());
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                inventory, plan, ignored -> template, data, UUID.randomUUID()));
+        for (int i = 0; i < 8; i++) {
+            assertArrayEquals(originalSlots[i], inventory.getItem(i).serializeAsBytes());
+        }
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void missingRecoveryPathRefusesBeforeWritingAnyPlayerStack() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack template = current("CARBONADO");
