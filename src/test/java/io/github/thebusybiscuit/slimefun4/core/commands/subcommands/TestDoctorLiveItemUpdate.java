@@ -3,6 +3,7 @@ package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -96,7 +97,7 @@ class TestDoctorLiveItemUpdate {
         Inventory merged = Bukkit.createInventory(null, 9);
         assertTrue(merged.addItem(updated, template).isEmpty());
         assertEquals(64, merged.getItem(0).getAmount());
-        assertEquals(null, merged.getItem(1));
+        assertNull(merged.getItem(1));
     }
 
     @Test
@@ -136,13 +137,16 @@ class TestDoctorLiveItemUpdate {
         inventory.setItem(0, old);
         var plan = DoctorLiveItemUpdate.preview(inventory, item -> template);
 
-        inventory.getItem(0).setAmount(16);
+        ItemStack changed = inventory.getItem(0);
+        changed.setAmount(16);
+        inventory.setItem(0, changed);
         assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
                 inventory, plan, item -> template, data, UUID.randomUUID()));
         assertEquals(16, inventory.getItem(0).getAmount());
         assertFalse(Files.exists(data.resolve("recovery")));
 
-        inventory.getItem(0).setAmount(17);
+        changed.setAmount(17);
+        inventory.setItem(0, changed);
         template.editMeta(meta -> meta.lore(List.of(Component.text("new registered text"))));
         assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
                 inventory, plan, item -> template, data, UUID.randomUUID()));
