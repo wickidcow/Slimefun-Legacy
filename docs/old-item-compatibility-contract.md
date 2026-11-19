@@ -15,6 +15,29 @@ A missing addon or unreadable legacy item is not evidence that its stored record
 
 Switching plugin implementations on the same Minecraft version is different from downgrading Minecraft itself. Neither same-format recognition nor a successful compile certifies an entire world-switch.
 
+## Native historical presentation regression for v4.1.82
+
+The native `ItemIdentityProbe.verifyOldBukkitTextApiMatrix` checks **26 representative
+core item IDs** from the actual Slimefun v4.1.55 static declarations. It
+recreates only the old Bukkit display-name/lore *setter path* on detached
+copies of current registered item templates, classifies the result against
+the Adventure-based template, saves original bytes and (where strictly
+eligible) exact-source repair receipts, and verifies native equality,
+stack quantities and backup integrity after a separate JVM/server restart.
+The matrix includes dusts, alloys, gold grades, circuits and historical
+Carbonado resources. Gold grades, iron-based ingots and sugar-based dusts
+also have negative checks ensuring different Slimefun IDs sharing a
+Minecraft material **never stack together**.
+
+This is a **source-derived synthetic compatibility matrix**, not an export
+from an older AlbionMC chest or QuickShop shop database. It must never
+be used to justify automatic replacement of custom lore, unknown
+metadata, owned storage, or historical shop sale-item snapshots. Those
+still require genuine old-world item bytes, full staging backups, typed-PDC
+checks and restart/transaction/quantity-conservation acceptance. The
+live inventory candidate remains strictly presentation-only, opt-in,
+bounded and backed up; the chest/export commands are read-only.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.
