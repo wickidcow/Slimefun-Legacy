@@ -11,12 +11,15 @@ class TestItemDoctorReport {
         report.identityCompared("SMALL_URANIUM", HistoricalItemIdentityScanner.Result.MATCH);
         report.identityCompared("CARBONADO", HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE);
         report.identityCompared("CARBONADO", HistoricalItemIdentityScanner.Result.PRESENTATION_ONLY_CANDIDATE);
+        report.identityCompared("CARBONADO", HistoricalItemIdentityScanner.Result.BLANK_LORE_LAYOUT_DIFFERENCE);
         report.identityCompared("OTHER", HistoricalItemIdentityScanner.Result.OTHER_DIFFERENCE);
         report.identityCompared("UNKNOWN", HistoricalItemIdentityScanner.Result.TEMPLATE_UNAVAILABLE);
         Assertions.assertEquals(0L, report.getIdentityObserved());
-        Assertions.assertEquals(5L, report.getIdentityCompared());
+        Assertions.assertEquals(6L, report.getIdentityCompared());
         Assertions.assertEquals(1L, report.getIdentityTemplateMatches());
         Assertions.assertEquals(2L, report.getIdentityPresentationCandidates());
+        Assertions.assertEquals(1L, report.getIdentityBlankLoreVariants());
+        Assertions.assertEquals(java.util.List.of("CARBONADO"), report.getIdentityBlankLoreVariantIds());
         Assertions.assertEquals(1L, report.getIdentityOtherDifferences());
         Assertions.assertEquals(1L, report.getIdentityUnavailable());
         Assertions.assertEquals(java.util.List.of("CARBONADO"), report.getIdentityPresentationCandidateIds());

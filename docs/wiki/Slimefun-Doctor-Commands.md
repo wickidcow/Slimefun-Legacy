@@ -261,6 +261,93 @@ SmartSpawner's public API exposes the registered spawner identity/type/location/
 stored-loot/XP balances, so Doctor does not pretend it can migrate those balances. Keep SmartSpawner installed until
 the follow-up scan reports no remaining records.
 
+#### Server-wide blank-lore historical-item tally (v4.1.82 candidate)
+
+`/sf doctor scan` continues to inspect only a **bounded number of loaded,
+reachable** registered stacks. It now counts **blank-lore layout variants**
+separately from fully matching items, strict styling-only differences, other
+metadata differences, and unavailable registered templates. This category
+requires a matching item material/plain name and nonblank lore text (in the
+same order), with exact non-presentation **native bytes** after amount
+normalization. It shows bounded Slimefun **item-ID samples only**, not
+private item text, PDC, player names, coordinates, or owner metadata.
+The scan does not force-load chunks or certify offline chests and is a
+**read-only triage**, NEVER an automatic bulk migration or permission to
+change shop definitions. If variants are found, compare a genuine old
+shop/chest item and a fresh reference in a private staging clone and
+capture the original native bytes using the command below.
+
+#### Private old-versus-new evidence export (v4.1.82 candidate)
+
+To investigate **real, old chest/shop item bytes** instead of relying on synthetic
+fixtures, an operator on a **disposable full-backup clone** can hold a fresh
+`/sf cheat` item in the main hand and the corresponding old chest/shop item
+in the offhand, verify both resolve to the same registered Slimefun ID, and run:
+
+```text
+/sf doctor identity compare
+/sf doctor identity export
+```
+
+Export is **operator-only, explicit and non-destructive**: it serializes both
+actual held stacks into two new, exact-native-byte backup files under
+`plugins/Slimefun/recovery/identity/` and rereads each file to verify its
+contents. Receipts identify the two filenames using the executing owner's
+UUID and the two independent UUID receipts. It does **not** export automatically,
+send data online, change hands or inventories, update shops, or rewrite worlds.
+Existing local backup files are never overwritten; symlinked directories fail.
+The `.bin` contents can contain personal/owner IDs and typed PDC; keep them
+**private**, never post them to a public GitHub issue, or include them in a
+public commit. Contact project maintainers privately for old-world acceptance
+if needed. The original old item should remain saved in an untouched full
+offline backup even after evidence capture.
+
+#### Operator-only historical Carbonado lore recovery (v4.1.82 candidate)
+
+Some saved shop/chest copies of `CARBONADO` have the registered Slimefun ID, model,
+and non-presentation native data of the current core item but carry a different
+**plain-text lore**. A previous/current template change is not proof every old
+item is safe to rewrite. `/sf doctor identity compare` now reports **plain
+display name versus plain lore** differences separately, plus the number of
+lore lines, without exposing their text.
+
+On a **full-backup staging server**, an operator may test one held `CARBONADO`
+stack after identifying the original as an older static material (not a
+custom player-renamed object). Hold **old in main hand** and a current
+`/sf cheat` `CARBONADO` in offhand:
+
+```text
+/sf doctor identity compare
+/sf doctor identity repair scan static-lore
+/sf doctor identity repair confirm static-lore
+```
+
+This **separate explicit opt-in** is permitted only when the plain display name
+matches and **every nonblank plain-text lore line remains identical and in the
+same order**: differences can only be completely blank/whitespace lore lines.
+Any genuinely different text (including custom lore) is rejected. The Slimefun
+ID must be `CARBONADO` in both stacks and the registered template, and all
+other native item components must match byte-for-byte after removing
+display/lore and normalizing the count. The
+offhand must match the registered template exactly. This mode is **OP-only**;
+the preview/confirm are bound to exact fingerprints, expire after five minutes,
+and require the extra `static-lore` confirmation argument. Confirmation
+writes and rereads an exact native-item backup **before** replacing the held
+stack's name/lore; quantities and all typed data must survive. Save the private
+receipt and test native restart verification/rollback as documented above.
+
+**Warning:** Although meaningful nonblank lore text is never changed by
+this specialized recovery, intentionally customized blank lines and text
+styling can be replaced. It cannot automatically determine every old item's
+historical meaning and is not an approval for player custom lore or other
+Slimefun IDs. This command **does not** scan, migrate, or modify any chest,
+QuickShop sale-item snapshot, QuickShop price, stored stock, machine, Fluffy
+Barrel or other inventory. No server-wide/automatic migration is enabled.
+A current QuickShop AdminShop can retain an old persisted sale-item snapshot
+independent of its chest: update paths for those shops must be separately
+validated on a backup clone with their actual QuickShop build before use.
+See [issue #615](https://github.com/wickidcow/Slimefun-Legacy/issues/615).
+
 ## InfinityExpansion2 convenience bridge
 
 When InfinityExpansion2 is installed, Slimefun Legacy can route to its Doctor migration bridge:
