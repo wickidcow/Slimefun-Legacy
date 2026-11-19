@@ -307,9 +307,12 @@ custom player-renamed object). Hold **old in main hand** and a current
 ```
 
 This **separate explicit opt-in** is permitted only when the plain display name
-matches, the plain lore differs, the Slimefun ID is `CARBONADO` in both stacks
-and the registered template, and all other native item components match
-byte-for-byte after removing display/lore and normalizing the count. The
+matches and **every nonblank plain-text lore line remains identical and in the
+same order**: differences can only be completely blank/whitespace lore lines.
+Any genuinely different text (including custom lore) is rejected. The Slimefun
+ID must be `CARBONADO` in both stacks and the registered template, and all
+other native item components must match byte-for-byte after removing
+display/lore and normalizing the count. The
 offhand must match the registered template exactly. This mode is **OP-only**;
 the preview/confirm are bound to exact fingerprints, expire after five minutes,
 and require the extra `static-lore` confirmation argument. Confirmation
@@ -317,8 +320,9 @@ writes and rereads an exact native-item backup **before** replacing the held
 stack's name/lore; quantities and all typed data must survive. Save the private
 receipt and test native restart verification/rollback as documented above.
 
-**Warning:** This opt-in can replace historical lore text that the operator
-deliberately wants to keep. It cannot automatically determine every old item's
+**Warning:** Although meaningful nonblank lore text is never changed by
+this specialized recovery, intentionally customized blank lines and text
+styling can be replaced. It cannot automatically determine every old item's
 historical meaning and is not an approval for player custom lore or other
 Slimefun IDs. This command **does not** scan, migrate, or modify any chest,
 QuickShop sale-item snapshot, QuickShop price, stored stock, machine, Fluffy
