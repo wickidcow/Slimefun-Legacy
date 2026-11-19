@@ -321,7 +321,10 @@ batch**. On a full-backup staging server:
 
 The scan is read-only, bounded to 36 storage slots, and reports the count of
 registered mismatches, strictly safe **style-only** candidates and refused
-items. A scan can prepare up to **eight** item stacks. Confirmation consumes
+items. A scan can prepare up to **eight** item stacks. It refuses serialized
+stacks over **256 KiB**, and confirmation refuses batches requiring over
+**512 KiB** of original-byte backup writes, to protect the live server thread.
+Confirmation consumes
 an exact-slot, exact-registered-template, exact-item-fingerprint plan expiring
 after **60 seconds**. Every original native stack must first be backed up to
 `plugins/Slimefun/recovery/identity/` and independently reloaded byte-for-byte
