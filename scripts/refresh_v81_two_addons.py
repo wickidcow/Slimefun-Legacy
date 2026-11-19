@@ -19,7 +19,7 @@ REPLACEMENTS = [
     (
         "wickidcow/SF_FluffyMachines",
         "SF_FluffyMachines26.2.21.jar", "26.2.21", "365c30bdd9fedd0bb9989c13829341c501150a5a",
-        "091b2118804d480fda04136276b8b48d3cdd5eaa43172f31bb7a6f5449e341d4",
+        "d7c2cd27c5d93a70cd32d546110103c706765a5a11af5e924bbc740bb88a5d7c",
         "SF_FluffyMachines26.2.22.jar", "26.2.22", "274275331f0d3087d96998aa4576ef1cc2b3a1ff",
         "ae3eafe860523ec02b0ba435a790aa38c2dc509352eaf2cf5f7890507ec9e54e",
         389763, "FluffyMachines",
