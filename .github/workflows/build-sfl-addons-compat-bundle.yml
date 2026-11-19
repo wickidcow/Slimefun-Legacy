@@ -555,7 +555,7 @@ jobs:
               'artifact_base': base,
               'sha256': sha256,
               'paper_26_3_api': os.environ['PAPER_API_VERSION'],
-              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide', 'infernalexpansion') or slug in ('crystamaehistoria', 'mobcapturer') or slug in ('networksexp', 'infinityexpansion2') else os.environ['PAPER_API_VERSION'],
+              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide') or slug == 'infernalexpansion' or slug in ('crystamaehistoria', 'mobcapturer') or slug in ('networksexp', 'infinityexpansion2') else os.environ['PAPER_API_VERSION'],
               'primary_api_target': '26.3',
               'backwards_compatible_through': '1.21.11',
               'minimum_supported': '1.21.11',
