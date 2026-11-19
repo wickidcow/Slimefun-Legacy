@@ -23,7 +23,7 @@ def valid_public_name(name: str, minimum: str, primary: str) -> bool:
 
 def verify_r156_official_records(manifest: dict, release_lock: dict, read_jar) -> None:
     """Independent final ZIP gate: same version/source is NOT the same official JAR."""
-    if manifest.get("bundle_revision") != 156:
+    if manifest.get("bundle_revision", 0) < 156:
         return
     required = {
         "wickidcow/SF_CrystamaeHistoria": ("v1.0.3", "SF_CrystamaeHistoria1.0.3.jar"),
@@ -68,6 +68,58 @@ def verify_r156_official_records(manifest: dict, release_lock: dict, read_jar) -
             raise ValueError(f"Rebuilt JAR is not byte-identical to published release: {repo}")
 
 
+
+def verify_r157_infernal_records(manifest: dict, lock: dict, read_jar) -> None:
+    """The v1.1.0 Infernal JAR must be the exact released, SHA-256 pinned bytes."""
+    if manifest.get("bundle_revision") != 157:
+        return
+    if (lock.get("schema") != 1 or lock.get("bundle_revision") != 157
+            or lock.get("repository") != "wickidcow/SF_InfernalExpansion"
+            or lock.get("tag") != "v1.1.0"
+            or lock.get("asset") != "SF_InfernalExpansion1.1.0.jar"
+            or lock.get("source_commit") != "06e32ea6d551c9961a50c993602d4e84cf8edcbe"
+            or lock.get("sha256") != "02f3f315e6b8cce4bd7411876faac8150b9c2c0524a9669df4b0296f8ab619a2"
+            or lock.get("bytes") != 42236):
+        raise ValueError("Unexpected official Infernal Expansion release lock")
+    records = [r for r in manifest.get("addons", [])
+               if r.get("repository") == lock["repository"]]
+    if len(records) != 1:
+        raise ValueError("Exactly one Infernal Expansion record is required")
+    rec = records[0]
+    receipt = {
+        "tag": lock["tag"],
+        "source_commit": lock["source_commit"],
+        "url": f"https://github.com/{lock['repository']}/releases/download/{lock['tag']}/{lock['asset']}",
+        "sha256": lock["sha256"],
+        "bytes": lock["bytes"],
+        "verified_download": True,
+    }
+    if (rec.get("commit") != lock["source_commit"]
+            or rec.get("jar") != lock["asset"]
+            or rec.get("version") != "1.1.0"
+            or rec.get("distributable_api") != "1.21.11-R0.1-SNAPSHOT"
+            or rec.get("secondary_platforms") != []
+            or rec.get("published_artifact") != receipt
+            or rec.get("sha256") != lock["sha256"]
+            or not re.fullmatch(r"[0-9a-f]{64}", str(rec.get("source_build_sha256", "")))):
+        raise ValueError("Infernal Expansion release receipt or distributable target mismatch")
+    jar = read_jar(lock["asset"])
+    if len(jar) != lock["bytes"] or hashlib.sha256(jar).hexdigest() != lock["sha256"]:
+        raise ValueError("Infernal Expansion JAR differs from officially published release")
+    with zipfile.ZipFile(io.BytesIO(jar)) as archive:
+        if archive.testzip() is not None or "plugin.yml" not in archive.namelist():
+            raise ValueError("Infernal Expansion official JAR is corrupt")
+        descriptor = archive.read("plugin.yml").decode("utf-8")
+        clazz = archive.read("ga/kirzu/infernalexpansion/InfernalExpansion.class")
+    if clazz[:4] != bytes.fromhex("cafebabe") or int.from_bytes(clazz[6:8], "big") != 65:
+        raise ValueError("Infernal Expansion must distribute Java 21 bytecode")
+    if not all(
+        re.search(rf"(?mi)^\\s*{re.escape(key)}:\\s*['\\\"]?{re.escape(value)}['\\\"]?\\s*$", descriptor)
+        for key, value in (("name", "InfernalExpansion"), ("version", "1.1.0"), ("api-version", "1.21.11"))
+    ):
+        raise ValueError("Infernal Expansion official plugin descriptor mismatch")
+
+
 def validate_bundle(path: Path) -> dict:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -109,9 +161,12 @@ def validate_bundle(path: Path) -> dict:
                     raise ValueError(f"Corrupt or ambiguous plugin JAR: {name}")
                 if not any(d in members for d in ("plugin.yml", "paper-plugin.yml", "paper-plugin.yaml")):
                     raise ValueError(f"Plugin descriptor missing: {name}")
-        if manifest.get("bundle_revision") == 156:
+        if manifest.get("bundle_revision", 0) >= 156:
             lock_file = Path(__file__).resolve().parents[1] / "compatibility/r156-official-addon-releases.json"
             verify_r156_official_records(manifest, json.loads(lock_file.read_text(encoding="utf-8")), archive.read)
+        if manifest.get("bundle_revision") == 157:
+            infernal_lock = Path(__file__).resolve().parents[1] / "compatibility/r157-infernal-expansion-release.json"
+            verify_r157_infernal_records(manifest, json.loads(infernal_lock.read_text(encoding="utf-8")), archive.read)
         actual = {name for name in names if name.endswith(".jar")}
         if actual != expected:
             raise ValueError(f"Addon JAR set mismatch: extra={sorted(actual - expected)}, missing={sorted(expected - actual)}")
