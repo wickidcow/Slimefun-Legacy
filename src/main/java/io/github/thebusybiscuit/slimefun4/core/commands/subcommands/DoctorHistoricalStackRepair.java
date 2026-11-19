@@ -96,7 +96,7 @@ final class DoctorHistoricalStackRepair {
                 send(sender, "&8Advanced, OP-only single-stack CARBONADO lore recovery:");
                 send(sender, "&e/sf doctor identity repair scan static-lore");
                 send(sender, "&e/sf doctor identity repair confirm static-lore");
-                send(sender, "&cIt replaces unrecognized historical LORE text only and retains a full-byte backup.");
+                send(sender, "&cIt replaces old lore and possibly name styling; the original bytes are backed up.");
                 send(sender, "&cNo barrel, backpack, machine or other inventory is rewritten by this command.");
             }
         }
@@ -136,7 +136,7 @@ final class DoctorHistoricalStackRepair {
             send(
                     player,
                     staticLore
-                            ? "&eAdvanced CARBONADO preview passed: historical lore TEXT would be replaced."
+                            ? "&eAdvanced CARBONADO preview: historical lore text and possible name styling would be replaced."
                             : "&aHistorical item preview passed: only Adventure name/lore presentation would change.");
             if (staticLore) {
                 send(player, "&cOriginal lore may have been customized. Back up the server and review this item.");
@@ -228,7 +228,7 @@ final class DoctorHistoricalStackRepair {
             send(
                     player,
                     staticLore
-                            ? "&aVerified CARBONADO lore text updated; original bytes backed up and amount retained."
+                            ? "&aVerified CARBONADO presentation updated; original bytes backed up and amount retained."
                             : "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
             send(player, "&7Private rollback receipt: &e" + backupId);
