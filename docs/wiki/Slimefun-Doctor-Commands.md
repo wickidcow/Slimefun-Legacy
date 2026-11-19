@@ -329,6 +329,20 @@ snapshot, even when the target chest is attached to a shop. A later
 `live confirm` can only act on the operator's own player inventory, never
 on the scanned chest.
 
+The separate operator command `/sf doctor identity live export-container <slot>`
+captures **one 0-based slot (0–53)** from a loaded physical chest/barrel that
+the operator looks at. The selected item must have a registered Slimefun ID
+and an actual mismatch with its current registered template. It writes two
+verified exact-byte **private** receipts into
+`plugins/Slimefun/recovery/identity/`: one for the original stored stack
+(including its amount and opaque metadata), and one for the current registered
+template. It refuses unknown or mismatched IDs, empty/out-of-range slots,
+item data over 256 KiB and unsupported serialization. Inspection and capture
+run on the container-owning region under Folia. It leaves the chest item,
+registered template, QuickShop sale-item snapshot and transaction data
+unchanged. Receipts can contain owner IDs/private PDC: keep them off public
+GitHub issues and only use them with a full-backup staging world.
+
 The scan is read-only, bounded to 36 storage slots, and reports the count of
 registered mismatches, strictly safe **style-only** candidates and refused
 items. A scan can prepare up to **eight** item stacks. It refuses serialized
