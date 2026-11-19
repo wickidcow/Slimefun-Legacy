@@ -65,11 +65,11 @@ class CompatibilityClaimsTest(unittest.TestCase):
         # Reviewed r156 source selection: preserve historical native storage
         # fixtures and immutable published Networks/IE2 artifact locks. The
         # candidate matrix intentionally advances beyond those release sources.
-        self.assertEqual(156, self.matrix["bundle_revision"])
-        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(157, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
-        self.assertEqual(44, len(selected), "Duplicate addon repository")
+        self.assertEqual(45, len(selected), "Duplicate addon repository")
         expected = {
             "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
             "wickidcow/SF_BetterChests": "e80e395ca331bad234fd5733eb106da3b5656545",
@@ -107,8 +107,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
         # These are immutable official v81 source-tag commits, not arbitrary
         # latest/master snapshots. A later source-only CI change never silently
         # updates a released JAR, and all 36 remaining pins stay unchanged.
-        self.assertEqual(156, self.matrix["bundle_revision"])
-        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(157, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         expected_releases = {
@@ -132,8 +132,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
         # never draft commits. Published/historical storage locks are separate.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
-        self.assertEqual(44, len(selected))
-        self.assertEqual(156, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(selected))
+        self.assertEqual(157, self.matrix["bundle_revision"])
         expected = {
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
