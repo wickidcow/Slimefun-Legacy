@@ -345,7 +345,13 @@ GitHub issues and only use them with a full-backup staging world.
 
 The scan is read-only, bounded to 36 storage slots, and reports the count of
 registered mismatches, strictly safe **style-only** candidates and refused
-items. A scan can prepare up to **eight** item stacks. It refuses serialized
+items. Both player and container previews also provide **redacted diagnostic
+counts** for mismatches attributable to blank lore-line layout, meaningful
+name/lore text differences, changed non-presentation/typed data, and
+unrecognized registered IDs. These are investigative categories only, not
+proof that an item is safe to rewrite; malformed/oversized items may remain
+refused without any further classification. A scan can prepare up to **eight**
+item stacks. It refuses serialized
 stacks over **256 KiB**, and confirmation refuses batches requiring over
 **512 KiB** of original-byte backup writes, to protect the live server thread.
 Confirmation consumes
