@@ -400,6 +400,31 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void legacyModelMappingChangeNeverBecomesPresentationOnlyLiveUpdate() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack current = current("STEEL_INGOT");
+        ItemStack oldModel = olderStyling(current, 31);
+        oldModel.editMeta(meta -> {
+            var model = meta.getCustomModelDataComponent();
+            model.setFloats(List.of(2200080.0F));
+            meta.setCustomModelDataComponent(model);
+        });
+        byte[] original = oldModel.serializeAsBytes();
+        byte[] template = current.serializeAsBytes();
+        chest.setItem(53, oldModel);
+
+        var plan = DoctorLiveItemUpdate.preview(chest, ignored -> current, 54);
+        assertEquals(1, plan.mismatched());
+        assertEquals(0, plan.eligible());
+        assertEquals(1, plan.refused());
+        assertEquals(1, plan.functionalMetadata());
+        assertTrue(plan.entries().isEmpty());
+        assertArrayEquals(original, chest.getItem(53).serializeAsBytes());
+        assertArrayEquals(template, current.serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void chestScanSeparatesBlankLoreFromMeaningfulTextTypedDataAndWrongIds() {
         Inventory chest = Bukkit.createInventory(null, 54);
         ItemStack template = current("CARBONADO");
