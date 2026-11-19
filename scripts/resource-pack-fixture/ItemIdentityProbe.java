@@ -378,6 +378,78 @@ final class ItemIdentityProbe {
                 "native CARBONADO static-lore fixture mutated original or registered templates");
     }
 
+    /** Synthetic export durability controls; never substitutes for original AlbionMC evidence. */
+    private static void verifyEvidenceExport(Path folder, boolean restart) throws Exception {
+        Path root = folder.resolve("identity-export-fixture");
+        Path receipts = root.resolve("receipts.txt");
+        Path mainFile = root.resolve("expected-main.bin");
+        Path offFile = root.resolve("expected-offhand.bin");
+        if (!restart) {
+            Files.createDirectory(root);
+            SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+            require(registered != null, "export fixture CARBONADO registration missing");
+            byte[] templateBytes = registered.getItem().serializeAsBytes();
+            ItemStack main = ItemStack.deserializeBytes(templateBytes);
+            main.setAmount(1);
+            ItemStack off = ItemStack.deserializeBytes(templateBytes);
+            off.setAmount(63);
+            off.editMeta(meta -> {
+                meta.lore(List.of(Component.text("Synthetic private custom lore, never repairable")));
+                meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L);
+            });
+            byte[] mainBytes = main.serializeAsBytes();
+            byte[] offBytes = off.serializeAsBytes();
+            java.util.UUID owner = java.util.UUID.randomUUID();
+            Class<?> exporter = Class.forName(
+                    "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityEvidenceExport");
+            Method capture = exporter.getDeclaredMethod(
+                    "capture", Path.class, java.util.UUID.class, ItemStack.class, ItemStack.class);
+            capture.setAccessible(true);
+            Object evidence = capture.invoke(null, root, owner, main, off);
+            Method mainReceipt = evidence.getClass().getDeclaredMethod("mainReceipt");
+            Method offReceipt = evidence.getClass().getDeclaredMethod("offhandReceipt");
+            mainReceipt.setAccessible(true);
+            offReceipt.setAccessible(true);
+            String first = mainReceipt.invoke(evidence).toString();
+            String second = offReceipt.invoke(evidence).toString();
+            require(!first.equals(second), "export receipts must be independent");
+            require(Arrays.equals(mainBytes, main.serializeAsBytes())
+                            && Arrays.equals(offBytes, off.serializeAsBytes())
+                            && Arrays.equals(templateBytes, registered.getItem().serializeAsBytes()),
+                    "export mutated inputs or registered template");
+            Files.write(mainFile, mainBytes);
+            Files.write(offFile, offBytes);
+            Files.write(receipts, List.of(owner.toString(), first, second));
+        }
+        // Restart must consume the original receipts and originals, with no fallback or recapture.
+        byte[] receiptBytes = Files.readAllBytes(receipts);
+        List<String> ids = Files.readAllLines(receipts);
+        require(ids.size() == 3 && !ids.get(1).equals(ids.get(2)), "export receipt index invalid");
+        java.util.UUID owner = java.util.UUID.fromString(ids.get(0));
+        Path directory = root.resolve("recovery/identity");
+        try (var files = Files.list(directory)) {
+            require(files.count() == 2, "export must retain exactly two independent original backups");
+        }
+        for (int index = 0; index < 2; index++) {
+            java.util.UUID receipt = java.util.UUID.fromString(ids.get(index + 1));
+            byte[] expected = Files.readAllBytes(index == 0 ? mainFile : offFile);
+            Path backup = directory.resolve(owner + "-" + receipt + ".bin");
+            require(Arrays.equals(expected, Files.readAllBytes(backup)), "export backup original bytes changed");
+            ItemStack restored = readDoctorBackup(root, owner, receipt);
+            require(Arrays.equals(expected, restored.serializeAsBytes())
+                            && restored.getAmount() == (index == 0 ? 1 : 63),
+                    "export native reload changed metadata or quantity");
+            if (index == 1) {
+                require(Long.valueOf(75123L).equals(restored.getItemMeta().getPersistentDataContainer()
+                                .get(OWNER, PersistentDataType.LONG)),
+                        "export lost typed owner data");
+            }
+            require(Arrays.equals(expected, Files.readAllBytes(backup)), "export readback rewrote backup");
+        }
+        require(Arrays.equals(receiptBytes, Files.readAllBytes(receipts)), "export receipt index changed");
+        Bukkit.getLogger().info("IDENTITY_EXPORT_SYNTHETIC_" + (restart ? "RESTART" : "SEED") + "_PASS");
+    }
+
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
@@ -387,6 +459,7 @@ final class ItemIdentityProbe {
             verifyRegisteredCarbonHistory(folder, id, restart);
         }
         verifyStaticCarbonadoLore(folder, restart);
+        verifyEvidenceExport(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {
