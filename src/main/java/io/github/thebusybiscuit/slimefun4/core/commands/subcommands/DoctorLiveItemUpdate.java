@@ -89,6 +89,10 @@ final class DoctorLiveItemUpdate {
                         + " &8| &7Mismatched registered stacks: &e" + preview.mismatched());
                 send(player, "&7Safe style-only candidates: &a" + preview.eligible()
                         + " &8| &7Refused/unknown: &e" + preview.refused());
+                send(player, "&7Blank-lore layout: &e" + preview.blankLoreOnly()
+                        + " &8| &7Meaningful text: &e" + preview.meaningfulText()
+                        + " &8| &7Non-presentation data: &e" + preview.functionalMetadata()
+                        + " &8| &7Unknown IDs: &e" + preview.unknownIds());
                 send(player, "&7Batch size: &e" + preview.entries().size()
                         + " &8| &7Additional safe candidates: &e"
                         + Math.max(0, preview.eligible() - preview.entries().size()));
@@ -172,6 +176,10 @@ final class DoctorLiveItemUpdate {
                                 + inspection.mismatched() + " &8| &7Style-only: &a"
                                 + inspection.eligible() + " &8| &7Refused/unknown: &e"
                                 + inspection.refused()
+                                + " &8| &7Blank lore: &e" + inspection.blankLoreOnly()
+                                + " &8| &7Text drift: &e" + inspection.meaningfulText()
+                                + " &8| &7Other data: &e" + inspection.functionalMetadata()
+                                + " &8| &7Unknown: &e" + inspection.unknownIds()
                                 + " &8| &7NO chest/shop data changed.";
                     }
                 }
@@ -295,6 +303,10 @@ final class DoctorLiveItemUpdate {
         int mismatched = 0;
         int eligible = 0;
         int refused = 0;
+        int blankLoreOnly = 0;
+        int meaningfulText = 0;
+        int functionalMetadata = 0;
+        int unknownIds = 0;
         List<Entry> entries = new ArrayList<>();
         for (int slot = 0; slot < scanned; slot++) {
             try {
@@ -305,6 +317,7 @@ final class DoctorLiveItemUpdate {
                 ItemStack template = templates.apply(old);
                 if (template == null || !sameRegisteredId(old, template)) {
                     refused++;
+                    unknownIds++;
                     continue;
                 }
                 if (DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(old, template)) {
@@ -315,6 +328,28 @@ final class DoctorLiveItemUpdate {
                 if (replacement == null || old.serializeAsBytes().length > MAX_STACK_BYTES
                         || replacement.serializeAsBytes().length > MAX_STACK_BYTES) {
                     refused++;
+                    if (replacement == null) {
+                        // These counts are hints only. They MUST NOT be treated
+                        // as approval to normalize a historical stack.
+                        try {
+                            var presentation = DoctorIdentityCommand.inspectHistoricalPresentation(old, template);
+                            if (!presentation.nonPresentationSame()) {
+                                functionalMetadata++;
+                            } else {
+                                var plain = DoctorIdentityCommand.inspectPlainPresentation(old, template);
+                                if (plain.nameSame() && !plain.loreSame()
+                                        && DoctorIdentityCommand.sameNonblankPlainLore(old, template)) {
+                                    blankLoreOnly++;
+                                } else if (!presentation.plainTextSame()) {
+                                    meaningfulText++;
+                                } else {
+                                    functionalMetadata++;
+                                }
+                            }
+                        } catch (RuntimeException ignored) {
+                            // Refused item remains refused; never expose metadata.
+                        }
+                    }
                     continue;
                 }
                 eligible++;
@@ -331,7 +366,8 @@ final class DoctorLiveItemUpdate {
                 refused++;
             }
         }
-        return new Preview(scanned, mismatched, eligible, refused, List.copyOf(entries));
+        return new Preview(scanned, mismatched, eligible, refused, List.copyOf(entries),
+                blankLoreOnly, meaningfulText, functionalMetadata, unknownIds);
     }
 
     /**
@@ -466,7 +502,16 @@ final class DoctorLiveItemUpdate {
     }
 
     record Entry(int slot, String oldHash, String templateHash, String replacementHash) {}
-    record Preview(int scannedSlots, int mismatched, int eligible, int refused, List<Entry> entries) {}
+    record Preview(
+            int scannedSlots,
+            int mismatched,
+            int eligible,
+            int refused,
+            List<Entry> entries,
+            int blankLoreOnly,
+            int meaningfulText,
+            int functionalMetadata,
+            int unknownIds) {}
     record Receipt(int slot, UUID id) {}
     private record SavedPlan(Preview preview, long expiresAtMillis) {}
     private record Prepared(Entry entry, byte[] oldBytes, ItemStack replacement) {}
