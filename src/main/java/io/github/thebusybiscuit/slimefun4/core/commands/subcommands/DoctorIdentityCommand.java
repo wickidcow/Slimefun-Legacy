@@ -72,10 +72,14 @@ final class DoctorIdentityCommand {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
             PlainPresentation plainParts = inspectPlainPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
-            send(sender, "&7Plain display name: " + flag(plainParts.nameSame())
-                    + " &8| &7Plain lore: " + flag(plainParts.loreSame()));
-            send(sender, "&7Lore lines (main/offhand): &e"
-                    + plainParts.mainLoreLines() + " &8/ &e" + plainParts.offhandLoreLines());
+            send(
+                    sender,
+                    "&7Plain display name: " + flag(plainParts.nameSame()) + " &8| &7Plain lore: "
+                            + flag(plainParts.loreSame()));
+            send(
+                    sender,
+                    "&7Lore lines (main/offhand): &e" + plainParts.mainLoreLines() + " &8/ &e"
+                            + plainParts.offhandLoreLines());
             send(
                     sender,
                     "&7Non-presentation native metadata (count ignored): " + flag(historical.nonPresentationSame()));
