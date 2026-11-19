@@ -33,6 +33,9 @@ final class DoctorLiveItemUpdate {
 
     private static final int MAX_SLOTS = 36;
     private static final int MAX_UPDATES = 8;
+    // Refuse oversized addon/storage payloads on a live owner thread.
+    private static final int MAX_STACK_BYTES = 256 * 1024;
+    private static final int MAX_BATCH_BYTES = 512 * 1024;
     private static final int MAX_PLANS = 64;
     private static final long PLAN_TTL_MILLIS = 60_000L;
     private static final NamespacedKey SLIMEFUN_ID = new NamespacedKey("slimefun", "slimefun_item");
@@ -146,7 +149,8 @@ final class DoctorLiveItemUpdate {
             }
             mismatched++;
             ItemStack replacement = DoctorHistoricalStackRepair.prepare(old, template, template);
-            if (replacement == null) {
+            if (replacement == null || old.serializeAsBytes().length > MAX_STACK_BYTES
+                    || replacement.serializeAsBytes().length > MAX_STACK_BYTES) {
                 refused++;
                 continue;
             }
@@ -175,6 +179,7 @@ final class DoctorLiveItemUpdate {
             throw new IOException("Live item update plan is empty or oversized");
         }
         List<Prepared> prepared = new ArrayList<>();
+        int totalOriginalBytes = 0;
         for (Entry entry : plan.entries()) {
             if (entry.slot() < 0 || entry.slot() >= Math.min(inventory.getStorageContents().length, MAX_SLOTS)) {
                 throw new IOException("Live item update slot is out of bounds");
@@ -191,7 +196,13 @@ final class DoctorLiveItemUpdate {
                     || !DoctorHistoricalStackRepair.matchesSavedBackup(old, replacement, template, template)) {
                 throw new IOException("Live item update candidate no longer passes strict Doctor verification");
             }
-            prepared.add(new Prepared(entry, old.serializeAsBytes(), replacement));
+            byte[] oldBytes = old.serializeAsBytes();
+            if (oldBytes.length > MAX_STACK_BYTES || replacement.serializeAsBytes().length > MAX_STACK_BYTES
+                    || totalOriginalBytes > MAX_BATCH_BYTES - oldBytes.length) {
+                throw new IOException("Live item update exceeds the bounded original-byte backup budget");
+            }
+            totalOriginalBytes += oldBytes.length;
+            prepared.add(new Prepared(entry, oldBytes, replacement));
         }
 
         List<Receipt> receipts = new ArrayList<>();
