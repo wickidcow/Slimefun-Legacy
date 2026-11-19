@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.ChatColor;
@@ -557,6 +558,7 @@ final class ItemIdentityProbe {
         Path legacyFile = caseFolder.resolve("legacy-api.bin");
         Path currentFile = caseFolder.resolve("current.bin");
         Path classificationFile = caseFolder.resolve("classification.txt");
+        Path alternativesFile = caseFolder.resolve("constructor-alternatives.txt");
         if (restart) {
             byte[] legacyBytes = Files.readAllBytes(legacyFile);
             byte[] currentBytes = Files.readAllBytes(currentFile);
@@ -571,6 +573,9 @@ final class ItemIdentityProbe {
             verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), true);
             require(expected.equals(observed),
                     "old Bukkit text API fixture provenance classification drifted after restart");
+            String alternatives = compareConstructorAlternatives(oldApi, modern, name, lore);
+            require(Files.readString(alternativesFile).equals(alternatives),
+                    "legacy Bukkit/Adventure constructor alternatives changed after restart: " + id);
             require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
                             && Arrays.equals(currentBytes, modern.serializeAsBytes()),
                     "old Bukkit text API fixture bytes changed during separate Paper restart");
@@ -595,7 +600,9 @@ final class ItemIdentityProbe {
         byte[] legacyBytes = oldApi.serializeAsBytes();
         byte[] currentBytes = modern.serializeAsBytes();
         String classification = classifyOldBukkitTextApi(oldApi, modern);
+        String alternatives = compareConstructorAlternatives(oldApi, modern, name, lore);
         Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_SEED=" + classification);
+        Bukkit.getLogger().info("SFL_LEGACY_CONSTRUCTOR_ALTERNATIVES_" + id + "=" + alternatives);
         requireLegacyTextCompatibility(id, classification);
         verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), false);
         // Negative controls make this a semantic regression gate, not merely a
@@ -621,9 +628,51 @@ final class ItemIdentityProbe {
         Files.write(legacyFile, legacyBytes);
         Files.write(currentFile, currentBytes);
         Files.writeString(classificationFile, classification);
+        Files.writeString(alternativesFile, alternatives);
         require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
                         && Arrays.equals(currentBytes, modern.serializeAsBytes()),
                 "old Bukkit text API probe modified its detached inputs");
+    }
+
+    /**
+     * Diagnoses whether historical Bukkit String setter metadata can be built
+     * identically with the modern Adventure setter, either with default
+     * decoration state or with the current explicit italic=false override.
+     * This does NOT change registration or approve a real-world migration.
+     */
+    @SuppressWarnings("deprecation")
+    private static String compareConstructorAlternatives(
+            ItemStack oldApi, ItemStack modern, String rawName, List<String> rawLore) {
+        byte[] oldBytes = oldApi.serializeAsBytes();
+        byte[] modernBytes = modern.serializeAsBytes();
+        ItemStack adventureDefault = ItemStack.deserializeBytes(modernBytes);
+        adventureDefault.setAmount(oldApi.getAmount());
+        ItemStack adventureNoItalic = ItemStack.deserializeBytes(modernBytes);
+        adventureNoItalic.setAmount(oldApi.getAmount());
+        var parser = LegacyComponentSerializer.legacySection();
+        String name = ChatColor.translateAlternateColorCodes('&', rawName);
+        List<Component> plainLore = rawLore.stream()
+                .map(line -> parser.deserialize(ChatColor.translateAlternateColorCodes('&', line)))
+                .toList();
+        adventureDefault.editMeta(meta -> {
+            meta.displayName(parser.deserialize(name));
+            meta.lore(rawLore.isEmpty() ? null : plainLore);
+        });
+        adventureNoItalic.editMeta(meta -> {
+            meta.displayName(parser.deserialize(name).decoration(TextDecoration.ITALIC, false));
+            meta.lore(rawLore.isEmpty()
+                    ? null
+                    : plainLore.stream()
+                            .map(line -> line.decoration(TextDecoration.ITALIC, false))
+                            .toList());
+        });
+        boolean defaultMatches = oldApi.isSimilar(adventureDefault);
+        boolean forcedNoItalicMatches = oldApi.isSimilar(adventureNoItalic);
+        require(Arrays.equals(oldBytes, oldApi.serializeAsBytes())
+                        && Arrays.equals(modernBytes, modern.serializeAsBytes()),
+                "legacy setter alternative comparison mutated a source item");
+        return "DEFAULT_" + (defaultMatches ? "MATCH" : "DIFFERENT")
+                + "_ITALIC_OFF_" + (forcedNoItalicMatches ? "MATCH" : "DIFFERENT");
     }
 
     private static void verifyLegacyStyleRecovery(
