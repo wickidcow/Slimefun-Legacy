@@ -175,6 +175,16 @@ final class DoctorLiveItemUpdate {
     static List<Receipt> apply(
             Inventory inventory, Preview plan, Function<ItemStack, ItemStack> templates,
             Path pluginFolder, UUID owner) throws IOException {
+        return applyWithBudget(inventory, plan, templates, pluginFolder, owner, MAX_BATCH_BYTES);
+    }
+
+    /** A testable, bounded budget; production always uses MAX_BATCH_BYTES. */
+    static List<Receipt> applyWithBudget(
+            Inventory inventory, Preview plan, Function<ItemStack, ItemStack> templates,
+            Path pluginFolder, UUID owner, int maxBatchBytes) throws IOException {
+        if (maxBatchBytes <= 0 || maxBatchBytes > MAX_BATCH_BYTES) {
+            throw new IOException("Invalid live item backup byte budget");
+        }
         if (plan.entries().isEmpty() || plan.entries().size() > MAX_UPDATES) {
             throw new IOException("Live item update plan is empty or oversized");
         }
@@ -198,7 +208,7 @@ final class DoctorLiveItemUpdate {
             }
             byte[] oldBytes = old.serializeAsBytes();
             if (oldBytes.length > MAX_STACK_BYTES || replacement.serializeAsBytes().length > MAX_STACK_BYTES
-                    || totalOriginalBytes > MAX_BATCH_BYTES - oldBytes.length) {
+                    || totalOriginalBytes > maxBatchBytes - oldBytes.length) {
                 throw new IOException("Live item update exceeds the bounded original-byte backup budget");
             }
             totalOriginalBytes += oldBytes.length;
