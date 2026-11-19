@@ -319,6 +319,16 @@ batch**. On a full-backup staging server:
 /sf doctor identity live cancel
 ```
 
+A separate `/sf doctor identity live scan-container` command lets an
+operator **look at a loaded physical chest/barrel/container within six blocks**
+and inspect up to 54 slots **without modifying the container or generating
+any update plan**. It dispatches the inspection to the container's owning
+region on Folia and returns only counts (no private item lore/PDC values)
+through the player's scheduler. This does not update any QuickShop sale
+snapshot, even when the target chest is attached to a shop. A later
+`live confirm` can only act on the operator's own player inventory, never
+on the scanned chest.
+
 The scan is read-only, bounded to 36 storage slots, and reports the count of
 registered mismatches, strictly safe **style-only** candidates and refused
 items. A scan can prepare up to **eight** item stacks. It refuses serialized
