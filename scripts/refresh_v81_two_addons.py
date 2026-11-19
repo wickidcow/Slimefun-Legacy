@@ -100,7 +100,9 @@ def repack(original: Path, new_fluffy: Path, new_ie2: Path, output: Path) -> dic
             row = by_repo.get(repo)
             require(row is not None and row.get("jar") == old_file and row.get("version") == old_version
                     and row.get("commit") == old_source and row.get("sha256") == old_sha,
-                    f"Unexpected original version or provenance for {repo}")
+                    f"Unexpected original version or provenance for {repo}: "
+                    f"jar={row.get('jar')!r}, version={row.get('version')!r}, "
+                    f"commit={row.get('commit')!r}, sha256={row.get('sha256')!r}")
             require(len(data) == new_size and digest(data) == new_sha,
                     f"New official JAR size or SHA-256 mismatch: {repo}")
             require(new_file not in names, f"New addon file already exists: {new_file}")
