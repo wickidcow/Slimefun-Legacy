@@ -36,6 +36,7 @@ legacy-fluffymachines|advisory|FluffyMachines Legacy|FluffyMachines,SF_FluffyMac
 legacy-foxymachines|advisory|FoxyMachines Legacy|FoxyMachines,SF_FoxyMachines|maintained
 legacy-flowerpower|advisory|FlowerPower Legacy|FlowerPower,SF_FlowerPower|maintained
 legacy-idreamofeasy|advisory|IDreamOfEasy Legacy|IDreamOfEasy,SF_IDreamOfEasy|maintained
+legacy-infernal-expansion|advisory|Infernal Expansion|InfernalExpansion,SF_InfernalExpansion|maintained
 legacy-gastronomicon|advisory|Gastronomicon Legacy|Gastronomicon,SF_Gastronomicon|maintained
 
 # Recognized addon families. These entries improve runtime identification only; they are not CI coverage claims.
