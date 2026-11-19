@@ -674,6 +674,104 @@ final class ItemIdentityProbe {
     }
 
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
+    /**
+     * Native 2-boot acceptance of the *actual live-batch engine* using the
+     * registered CARBONADO source on disposable Paper. The old style is
+     * synthetic; a real owner's saved shop/chest byte capture is still needed.
+     */
+    private static void verifyLivePlayerInventoryBatch(Path folder, boolean restart) throws Exception {
+        var registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "missing CARBONADO for native live-batch acceptance");
+        Path directory = folder.resolve("identity-live-player-batch");
+        Path oldFile = directory.resolve("original.bin");
+        Path freshFile = directory.resolve("fresh.bin");
+        Path updatedFile = directory.resolve("updated.bin");
+        Path receiptFile = directory.resolve("owner-receipt.txt");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            byte[] updatedBytes = Files.readAllBytes(updatedFile);
+            ItemStack original = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            ItemStack updated = ItemStack.deserializeBytes(updatedBytes);
+            require(original.getAmount() == 63 && fresh.getAmount() == 1 && updated.getAmount() == 63,
+                    "native live-batch CARBONADO amounts changed after restart");
+            require(!original.isSimilar(fresh) && updated.isSimilar(fresh),
+                    "native live-batch did not preserve original mismatch/repaired identity across restart");
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "native live-batch private receipt malformed");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID receipt = java.util.UUID.fromString(tokens[1]);
+            ItemStack saved = readDoctorBackup(directory, owner, receipt);
+            require(Arrays.equals(oldBytes, saved.serializeAsBytes())
+                            && matchesDoctorBackup(saved, updated, fresh, fresh),
+                    "native live-batch original receipt or exact rollback eligibility lost across restart");
+            var inventory = Bukkit.createInventory(null, 9);
+            require(inventory.addItem(updated, fresh).isEmpty()
+                            && inventory.getItem(0).getAmount() == 64 && inventory.getItem(1) == null,
+                    "native live-batch repaired CARBONADO 63+1 merge failed after restart");
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(updatedBytes, Files.readAllBytes(updatedFile)),
+                    "native live-batch old/new evidence changed during restart");
+            Bukkit.getLogger().info("SFL_LIVE_BATCH_CARBONADO_RESTART_PASS");
+            return;
+        }
+
+        Files.createDirectories(directory);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack fresh = ItemStack.deserializeBytes(registeredBytes);
+        fresh.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        var display = old.getItemMeta().displayName();
+        require(display != null, "native live-batch registered CARBONADO name unavailable");
+        boolean wasBold = display.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE;
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, !wasBold)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        require(!old.isSimilar(fresh), "native live-batch synthetic legacy style must differ");
+
+        var inventory = Bukkit.createInventory(null, 36);
+        inventory.setItem(0, old);
+        inventory.setItem(1, fresh);
+        java.util.function.Function<ItemStack, ItemStack> resolver = observed -> registered.getItem();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method previewMethod = engine.getDeclaredMethod(
+                "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        previewMethod.setAccessible(true);
+        Object plan = previewMethod.invoke(null, inventory, resolver);
+        Method eligibleMethod = plan.getClass().getDeclaredMethod("eligible");
+        eligibleMethod.setAccessible(true);
+        require((int) eligibleMethod.invoke(plan) == 1, "native live-batch expected one safe style candidate");
+
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        Method apply = engine.getDeclaredMethod(
+                "apply", org.bukkit.inventory.Inventory.class, plan.getClass(),
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        apply.setAccessible(true);
+        var receipts = (java.util.List<?>) apply.invoke(null, inventory, plan, resolver, directory, owner);
+        require(receipts.size() == 1, "native live-batch expected one exact-original private backup");
+        Object firstReceipt = receipts.getFirst();
+        Method receiptId = firstReceipt.getClass().getDeclaredMethod("id");
+        receiptId.setAccessible(true);
+        java.util.UUID receipt = (java.util.UUID) receiptId.invoke(firstReceipt);
+        ItemStack updated = inventory.getItem(0);
+        require(updated != null && updated.getAmount() == 63 && updated.isSimilar(fresh),
+                "native live-batch verified player slot did not become current registered CARBONADO");
+        require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, receipt).serializeAsBytes()),
+                "native live-batch original receipt was not exact");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "native live-batch altered old source or global registered template");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+        Files.write(updatedFile, updated.serializeAsBytes());
+        Files.writeString(receiptFile, owner + ":" + receipt);
+        Bukkit.getLogger().info("SFL_LIVE_BATCH_CARBONADO_SEED_PASS");
+    }
+
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
         // Paper item templates in addition to the purpose-built fixture.
@@ -684,6 +782,7 @@ final class ItemIdentityProbe {
         verifyStaticCarbonadoLore(folder, restart);
         verifyOldBukkitTextApiMatrix(folder, restart);
         verifyEvidenceExport(folder, restart);
+        verifyLivePlayerInventoryBatch(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {
