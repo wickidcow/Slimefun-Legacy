@@ -337,7 +337,16 @@ final class ItemIdentityProbe {
         fresh.setAmount(1);
         ItemStack old = ItemStack.deserializeBytes(registeredBytes);
         old.setAmount(63);
-        old.editMeta(meta -> meta.lore(List.of(Component.text("Legacy saved shop lore"))));
+        java.util.List<Component> canonicalLore = fresh.getItemMeta().lore();
+        require(canonicalLore != null, "registered CARBONADO lore missing");
+        java.util.List<Component> oldLore = canonicalLore.stream()
+                .filter(component -> !net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                        .serialize(component)
+                        .isBlank())
+                .toList();
+        require(!oldLore.isEmpty() && oldLore.size() < canonicalLore.size(),
+                "registered CARBONADO has no blank-line legacy variant to test");
+        old.editMeta(meta -> meta.lore(oldLore));
         byte[] oldBytes = old.serializeAsBytes();
         byte[] freshBytes = fresh.serializeAsBytes();
         Object before = historical(old, fresh);
