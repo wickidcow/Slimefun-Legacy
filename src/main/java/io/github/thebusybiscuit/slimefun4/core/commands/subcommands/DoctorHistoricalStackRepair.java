@@ -96,7 +96,7 @@ final class DoctorHistoricalStackRepair {
                 send(sender, "&8Advanced, OP-only single-stack CARBONADO lore recovery:");
                 send(sender, "&e/sf doctor identity repair scan static-lore");
                 send(sender, "&e/sf doctor identity repair confirm static-lore");
-                send(sender, "&cIt replaces old lore and possibly name styling; the original bytes are backed up.");
+                send(sender, "&cOnly blank-line layout may change; nonblank lore text must match exactly.");
                 send(sender, "&cNo barrel, backpack, machine or other inventory is rewritten by this command.");
             }
         }
@@ -136,10 +136,10 @@ final class DoctorHistoricalStackRepair {
             send(
                     player,
                     staticLore
-                            ? "&eAdvanced CARBONADO preview: historical lore text and possible name styling would be replaced."
+                            ? "&eCARBONADO blank-lore preview: every nonblank lore line matches."
                             : "&aHistorical item preview passed: only Adventure name/lore presentation would change.");
             if (staticLore) {
-                send(player, "&cOriginal lore may have been customized. Back up the server and review this item.");
+                send(player, "&cOnly blank lore lines differ; original item byte backup is required.");
                 send(player, "&cOnly the held CARBONADO stack can change; chests and shop records remain untouched.");
             }
             send(player, "&7Original amount: &e" + pair.old().getAmount() + " &7| New stack capacity unchanged.");
@@ -228,7 +228,7 @@ final class DoctorHistoricalStackRepair {
             send(
                     player,
                     staticLore
-                            ? "&aVerified CARBONADO presentation updated; original bytes backed up and amount retained."
+                            ? "&aCARBONADO blank-line layout updated; original bytes and amount safely retained."
                             : "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
             send(player, "&7Private rollback receipt: &e" + backupId);
@@ -496,8 +496,9 @@ final class DoctorHistoricalStackRepair {
 
     /**
      * Strictly one registered Slimefun core resource with an unchanged plain display
-     * name but a different plain lore. Unknown items, aliases, PDC changes, and
-     * custom-named items are ineligible even in explicit static-lore mode.
+     * name and the same nonblank lore lines, differing ONLY in blank-line
+     * placement. Unknown items, custom text, aliases, PDC changes, and custom
+     * names are ineligible even in explicit static-lore mode.
      * The operator knowingly replaces the original lore only after preview and
      * an independently verified native-byte backup.
      */
@@ -522,7 +523,9 @@ final class DoctorHistoricalStackRepair {
             return false;
         }
         DoctorIdentityCommand.PlainPresentation parts = DoctorIdentityCommand.inspectPlainPresentation(old, fresh);
-        return parts.nameSame() && !parts.loreSame();
+        return parts.nameSame()
+                && !parts.loreSame()
+                && DoctorIdentityCommand.sameNonblankPlainLore(old, fresh);
     }
 
     /**
