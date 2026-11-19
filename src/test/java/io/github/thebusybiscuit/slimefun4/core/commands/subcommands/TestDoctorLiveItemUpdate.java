@@ -185,27 +185,26 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
-    void oversizedLiveBackupBudgetRefusesWithoutMutatingAnySlot() throws Exception {
+    void smallBackupBudgetRefusesEligibleBatchBeforeWritingAnySlot() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack template = current("CARBONADO");
-        byte[] opaqueStoragePayload = new byte[100_000];
-        new java.util.Random(20261119L).nextBytes(opaqueStoragePayload);
-        template.editMeta(meta -> meta.getPersistentDataContainer()
-                .set(new NamespacedKey("addon", "opaque_storage"), PersistentDataType.BYTE_ARRAY,
-                        opaqueStoragePayload));
         byte[][] originalSlots = new byte[8][];
-        for (int i = 0; i < 8; i++) {
-            ItemStack old = olderStyling(template, i + 1);
-            originalSlots[i] = old.serializeAsBytes();
-            inventory.setItem(i, old);
+        for (int slot = 0; slot < 8; slot++) {
+            ItemStack old = olderStyling(template, slot + 1);
+            originalSlots[slot] = old.serializeAsBytes();
+            inventory.setItem(slot, old);
         }
 
         var plan = DoctorLiveItemUpdate.preview(inventory, ignored -> template);
         assertEquals(8, plan.eligible());
-        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
-                inventory, plan, ignored -> template, data, UUID.randomUUID()));
-        for (int i = 0; i < 8; i++) {
-            assertArrayEquals(originalSlots[i], inventory.getItem(i).serializeAsBytes());
+        assertEquals(8, plan.entries().size());
+        // Invoke the exact same production budget guard with a tiny test-only cap:
+        // a bulk rejection is deterministic and cannot be masked by MockBukkit's
+        // native round-trip refusal for large synthetic addon PDC payloads.
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.applyWithBudget(
+                inventory, plan, ignored -> template, data, UUID.randomUUID(), 1));
+        for (int slot = 0; slot < 8; slot++) {
+            assertArrayEquals(originalSlots[slot], inventory.getItem(slot).serializeAsBytes());
         }
         assertFalse(Files.exists(data.resolve("recovery")));
     }
