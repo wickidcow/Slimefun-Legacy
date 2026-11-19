@@ -14,6 +14,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Container;
+import org.bukkit.block.Block;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -32,6 +36,7 @@ import org.bukkit.persistence.PersistentDataType;
 final class DoctorLiveItemUpdate {
 
     private static final int MAX_SLOTS = 36;
+    private static final int MAX_CONTAINER_SCAN_SLOTS = 54;
     private static final int MAX_UPDATES = 8;
     // Refuse oversized addon/storage payloads on a live owner thread.
     private static final int MAX_STACK_BYTES = 256 * 1024;
@@ -59,6 +64,11 @@ final class DoctorLiveItemUpdate {
         if (action.equals("cancel")) {
             PLANS.remove(owner);
             send(player, "&aPending live item update preview canceled; no items changed.");
+            return;
+        }
+        if (action.equals("scan-container")) {
+            PLANS.remove(owner);
+            inspectContainer(player);
             return;
         }
         if (action.equals("scan")) {
@@ -119,9 +129,56 @@ final class DoctorLiveItemUpdate {
 
     private static void usage(CommandSender sender) {
         send(sender, "&e/sf doctor identity live scan");
+        send(sender, "&e/sf doctor identity live scan-container &8(read-only, look at chest/barrel)");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
         send(sender, "&cManual and opt-in. No automatic chest, shop, player-join or machine rewrites.");
+    }
+
+    /**
+     * Read-only physical container inspection dispatched to its owning location.
+     * Never stores a repair plan or accesses a container from a player's
+     * different Folia region. Report results from the player region.
+     */
+    private static void inspectContainer(Player player) {
+        Block aimed = player.getTargetBlockExact(6);
+        if (aimed == null || aimed.getType().isAir()) {
+            send(player, "&eLook directly at a loaded chest/barrel within six blocks.");
+            return;
+        }
+        Location location = aimed.getLocation();
+        Slimefun.getSchedulerService().runAt(location, () -> {
+            String message;
+            try {
+                if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    message = "&cTarget chunk unloaded. No items were inspected or changed.";
+                } else {
+                    BlockState state = location.getBlock().getState();
+                    if (!(state instanceof Container container)) {
+                        message = "&eTarget is not a physical chest/barrel/container.";
+                    } else {
+                        Preview inspection = preview(
+                                container.getInventory(),
+                                DoctorLiveItemUpdate::registeredTemplate,
+                                MAX_CONTAINER_SCAN_SLOTS);
+                        message = "&6Container item compatibility &8(read-only) &7Slots: &e"
+                                + inspection.scannedSlots() + " &8| &7Mismatches: &e"
+                                + inspection.mismatched() + " &8| &7Style-only: &a"
+                                + inspection.eligible() + " &8| &7Refused/unknown: &e"
+                                + inspection.refused()
+                                + " &8| &7NO chest/shop data changed.";
+                    }
+                }
+            } catch (RuntimeException exception) {
+                message = "&cContainer metadata could not be inspected safely. Nothing changed.";
+            }
+            final String report = message;
+            Slimefun.getSchedulerService().runFor(player, () -> {
+                if (player.isOnline()) {
+                    send(player, report);
+                }
+            });
+        });
     }
 
     /**
@@ -129,7 +186,11 @@ final class DoctorLiveItemUpdate {
      * returned by the existing fail-closed Doctor repair algorithm qualify.
      */
     static Preview preview(Inventory inventory, Function<ItemStack, ItemStack> templates) {
-        int scanned = Math.min(inventory.getStorageContents().length, MAX_SLOTS);
+        return preview(inventory, templates, MAX_SLOTS);
+    }
+
+    static Preview preview(Inventory inventory, Function<ItemStack, ItemStack> templates, int maxSlots) {
+        int scanned = Math.min(inventory.getStorageContents().length, Math.min(maxSlots, MAX_CONTAINER_SCAN_SLOTS));
         int mismatched = 0;
         int eligible = 0;
         int refused = 0;
