@@ -475,6 +475,7 @@ final class ItemIdentityProbe {
                     "old Bukkit text API CARBONADO quantities changed on separate Paper boot");
             String expected = Files.readString(classificationFile);
             String observed = classifyOldBukkitTextApi(oldApi, modern);
+            Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_CARBONADO_RESTART=" + observed);
             require(expected.equals(observed),
                     "old Bukkit text API CARBONADO provenance classification drifted after restart");
             require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
@@ -495,6 +496,7 @@ final class ItemIdentityProbe {
         byte[] legacyBytes = oldApi.serializeAsBytes();
         byte[] currentBytes = modern.serializeAsBytes();
         String classification = classifyOldBukkitTextApi(oldApi, modern);
+        Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_CARBONADO_SEED=" + classification);
         require(!classification.isBlank(), "old Bukkit text API classification missing");
         require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
                 "old Bukkit text API probe mutated registered CARBONADO template");
