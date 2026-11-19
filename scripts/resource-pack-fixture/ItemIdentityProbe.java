@@ -282,6 +282,93 @@ final class ItemIdentityProbe {
                 "native " + id + " altered registered/current/old input item");
     }
 
+    /**
+     * Disposable native Paper reproduction of a saved shop item with a different
+     * plain-text lore. The real AlbionMC item bytes are NOT available here; do
+     * not claim this synthetic variant certifies all old shops.
+     */
+    private static void verifyStaticCarbonadoLore(Path folder, boolean restart) throws Exception {
+        var registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "missing real registered CARBONADO template");
+        Path caseFolder = folder.resolve("identity-history-carbonado-static-lore");
+        Path oldFile = caseFolder.resolve("old.bin");
+        Path freshFile = caseFolder.resolve("fresh.bin");
+        Path repairedFile = caseFolder.resolve("repaired.bin");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            ItemStack original = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            ItemStack repaired = ItemStack.deserializeBytes(Files.readAllBytes(repairedFile));
+            require(original.getAmount() == 63 && fresh.getAmount() == 1 && repaired.getAmount() == 63,
+                    "native historical CARBONADO lore repair amount changed after restart");
+            require(!original.isSimilar(fresh) && repaired.isSimilar(fresh),
+                    "native historical CARBONADO old/new identity lost after restart");
+            var storage = Bukkit.createInventory(null, 9);
+            require(storage.addItem(repaired, fresh).isEmpty()
+                            && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
+                    "native historical CARBONADO repaired 63+1 would not stack after restart");
+            try (var files = Files.list(caseFolder.resolve("recovery/identity"))) {
+                var backups = files.filter(Files::isRegularFile).toList();
+                require(backups.size() == 1 && Arrays.equals(oldBytes, Files.readAllBytes(backups.getFirst())),
+                        "native historical CARBONADO original backup altered across restart");
+                String filename = backups.getFirst().getFileName().toString();
+                java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
+                java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
+                ItemStack verified = readDoctorBackup(caseFolder, owner, receipt);
+                require(Arrays.equals(oldBytes, verified.serializeAsBytes())
+                                && matchesDoctorBackup(verified, repaired, fresh, fresh),
+                        "native CARBONADO static-lore backup/rollback verification failed after restart");
+                ItemStack changed = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+                changed.setAmount(62);
+                require(!matchesDoctorBackup(verified, changed, fresh, fresh),
+                        "native CARBONADO static-lore rollback accepted changed quantity");
+            }
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
+                    "native CARBONADO static-lore verification modified immutable snapshots");
+            return;
+        }
+
+        Files.createDirectories(caseFolder);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack fresh = ItemStack.deserializeBytes(registeredBytes);
+        fresh.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        old.editMeta(meta -> meta.lore(List.of(Component.text("Legacy saved shop lore"))));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        Object before = historical(old, fresh);
+        require(!flag(before, "plainTextSame") && flag(before, "nonPresentationSame")
+                        && !flag(before, "candidate") && !old.isSimilar(fresh),
+                "native historical CARBONADO plain lore mismatch classified as safe by default");
+        require(repairCandidate(old, fresh, fresh) == null,
+                "native standard Doctor repair bypassed CARBONADO plain-text guard");
+        ItemStack fixed = repairStaticLoreCandidate(old, fresh, fresh);
+        require(fixed != null && fixed.getAmount() == 63 && fixed.isSimilar(fresh),
+                "native explicit CARBONADO lore recovery failed strict current template equivalence");
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 777L));
+        require(repairStaticLoreCandidate(typed, fresh, fresh) == null,
+                "native CARBONADO static-lore recovery would overwrite typed ownership metadata");
+        ItemStack named = ItemStack.deserializeBytes(oldBytes);
+        named.editMeta(meta -> meta.displayName(Component.text("Private renamed Carbonado")));
+        require(repairStaticLoreCandidate(named, fresh, fresh) == null,
+                "native CARBONADO static-lore recovery would erase a player-custom name");
+        Path backup = backupHistorical(caseFolder, oldBytes);
+        require(Arrays.equals(oldBytes, Files.readAllBytes(backup)),
+                "native CARBONADO static-lore original bytes not durably backed up");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+        Files.write(repairedFile, fixed.serializeAsBytes());
+        require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes())
+                        && Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes()),
+                "native CARBONADO static-lore fixture mutated original or registered templates");
+    }
+
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
@@ -290,6 +377,7 @@ final class ItemIdentityProbe {
         for (String id : List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
             verifyRegisteredCarbonHistory(folder, id, restart);
         }
+        verifyStaticCarbonadoLore(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {
@@ -389,6 +477,15 @@ final class ItemIdentityProbe {
         Class<?> doctor = Class.forName(
                 "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
         Method method = doctor.getDeclaredMethod("prepare", ItemStack.class, ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return (ItemStack) method.invoke(null, old, fresh, template);
+    }
+
+    private static ItemStack repairStaticLoreCandidate(ItemStack old, ItemStack fresh, ItemStack template)
+            throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod("prepareStaticLore", ItemStack.class, ItemStack.class, ItemStack.class);
         method.setAccessible(true);
         return (ItemStack) method.invoke(null, old, fresh, template);
     }
