@@ -29,13 +29,14 @@ SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 def validate_local(matrix: dict, lock: dict) -> list[dict]:
     if lock.get("schema") != 1 or lock.get("bundle_revision") != 156:
         raise ValueError("Unsupported addon release provenance lock")
-    if matrix.get("bundle_revision") != 156:
+    if matrix.get("bundle_revision") not in (156, 157):
         raise ValueError("Published provenance belongs to a different bundle revision")
+    expected_count = 44 if matrix["bundle_revision"] == 156 else 45
     source_rows = matrix.get("addons")
-    if not isinstance(source_rows, list) or len(source_rows) != 44:
-        raise ValueError("Expected exactly 44 maintained addon source pins")
+    if not isinstance(source_rows, list) or len(source_rows) != expected_count:
+        raise ValueError(f"Expected exactly {expected_count} maintained addon source pins")
     source = {row.get("repository"): row.get("source_commit") for row in source_rows}
-    if len(source) != 44:
+    if len(source) != expected_count:
         raise ValueError("Duplicate addon source repository")
     rows = lock.get("releases")
     if not isinstance(rows, list) or len(rows) != len(EXPECTED):
