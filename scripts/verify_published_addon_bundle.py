@@ -114,7 +114,7 @@ def verify_r157_infernal_records(manifest: dict, lock: dict, read_jar) -> None:
     if clazz[:4] != bytes.fromhex("cafebabe") or int.from_bytes(clazz[6:8], "big") != 65:
         raise ValueError("Infernal Expansion must distribute Java 21 bytecode")
     if not all(
-        re.search(rf"(?mi)^\\s*{re.escape(key)}:\\s*['\\\"]?{re.escape(value)}['\\\"]?\\s*$", descriptor)
+        re.search(rf"(?mi)^\s*{re.escape(key)}:\s*['\"]?{re.escape(value)}['\"]?\s*$", descriptor)
         for key, value in (("name", "InfernalExpansion"), ("version", "1.1.0"), ("api-version", "1.21.11"))
     ):
         raise ValueError("Infernal Expansion official plugin descriptor mismatch")
