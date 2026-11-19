@@ -38,6 +38,7 @@ final class DoctorLiveItemUpdate {
     private static final int MAX_SLOTS = 36;
     private static final int MAX_CONTAINER_SCAN_SLOTS = 54;
     private static final int MAX_UPDATES = 8;
+    private static final int MAX_SLOT_HINTS = 12;
     // Refuse oversized addon/storage payloads on a live owner thread.
     private static final int MAX_STACK_BYTES = 256 * 1024;
     private static final int MAX_BATCH_BYTES = 512 * 1024;
@@ -181,6 +182,11 @@ final class DoctorLiveItemUpdate {
                                 + " &8| &7Other data: &e" + inspection.functionalMetadata()
                                 + " &8| &7Unknown: &e" + inspection.unknownIds()
                                 + " &8| &7NO chest/shop data changed.";
+                        message += " &8| &7Different slots (0-based): &e"
+                                + inspection.differingSlots()
+                                + (inspection.mismatched() > inspection.differingSlots().size()
+                                        ? " &8(first " + MAX_SLOT_HINTS + " shown)"
+                                        : "");
                     }
                 }
             } catch (RuntimeException exception) {
@@ -308,6 +314,7 @@ final class DoctorLiveItemUpdate {
         int functionalMetadata = 0;
         int unknownIds = 0;
         List<Entry> entries = new ArrayList<>();
+        List<Integer> differingSlots = new ArrayList<>();
         for (int slot = 0; slot < scanned; slot++) {
             try {
                 ItemStack old = inventory.getItem(slot);
@@ -324,6 +331,9 @@ final class DoctorLiveItemUpdate {
                     continue;
                 }
                 mismatched++;
+                if (differingSlots.size() < MAX_SLOT_HINTS) {
+                    differingSlots.add(slot);
+                }
                 ItemStack replacement = DoctorHistoricalStackRepair.prepare(old, template, template);
                 if (replacement == null || old.serializeAsBytes().length > MAX_STACK_BYTES
                         || replacement.serializeAsBytes().length > MAX_STACK_BYTES) {
@@ -367,7 +377,7 @@ final class DoctorLiveItemUpdate {
             }
         }
         return new Preview(scanned, mismatched, eligible, refused, List.copyOf(entries),
-                blankLoreOnly, meaningfulText, functionalMetadata, unknownIds);
+                blankLoreOnly, meaningfulText, functionalMetadata, unknownIds, List.copyOf(differingSlots));
     }
 
     /**
@@ -516,7 +526,8 @@ final class DoctorLiveItemUpdate {
             int blankLoreOnly,
             int meaningfulText,
             int functionalMetadata,
-            int unknownIds) {}
+            int unknownIds,
+            List<Integer> differingSlots) {}
     record Receipt(int slot, UUID id) {}
     private record SavedPlan(Preview preview, long expiresAtMillis) {}
     private record Prepared(Entry entry, byte[] oldBytes, ItemStack replacement) {}

@@ -465,6 +465,7 @@ class TestDoctorLiveItemUpdate {
         var preview = DoctorLiveItemUpdate.preview(chest, ignored -> template, 54);
         assertEquals(54, preview.scannedSlots());
         assertEquals(3, preview.mismatched());
+        assertEquals(List.of(50, 51, 52), preview.differingSlots());
         assertEquals(0, preview.eligible());
         assertEquals(4, preview.refused());
         assertEquals(1, preview.blankLoreOnly());
@@ -498,12 +499,36 @@ class TestDoctorLiveItemUpdate {
         var inspection = DoctorLiveItemUpdate.preview(doubleChest, ignored -> template, 54);
         assertEquals(54, inspection.scannedSlots());
         assertEquals(2, inspection.mismatched());
+        assertEquals(List.of(52, 53), inspection.differingSlots());
         assertEquals(1, inspection.eligible());
         assertEquals(1, inspection.refused());
         assertEquals(1, inspection.entries().size());
         assertEquals(53, inspection.entries().getFirst().slot());
         assertArrayEquals(safeBytes, doubleChest.getItem(53).serializeAsBytes());
         assertArrayEquals(refusedBytes, doubleChest.getItem(52).serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
+    void chestScanBoundsSlotHintsWithoutChangingStoredItems() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+        byte[][] originals = new byte[13][];
+        for (int slot = 0; slot < originals.length; slot++) {
+            ItemStack old = olderStyling(template, slot + 1);
+            originals[slot] = old.serializeAsBytes();
+            chest.setItem(slot, old);
+        }
+
+        var inspection = DoctorLiveItemUpdate.preview(chest, ignored -> template, 54);
+        assertEquals(54, inspection.scannedSlots());
+        assertEquals(13, inspection.mismatched());
+        assertEquals(13, inspection.eligible());
+        assertEquals(8, inspection.entries().size());
+        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), inspection.differingSlots());
+        for (int slot = 0; slot < originals.length; slot++) {
+            assertArrayEquals(originals[slot], chest.getItem(slot).serializeAsBytes());
+        }
         assertFalse(Files.exists(data.resolve("recovery")));
     }
 

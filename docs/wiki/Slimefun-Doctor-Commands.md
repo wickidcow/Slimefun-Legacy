@@ -323,8 +323,12 @@ A separate `/sf doctor identity live scan-container` command lets an
 operator **look at a loaded physical chest/barrel/container within six blocks**
 and inspect up to 54 slots **without modifying the container or generating
 any update plan**. It dispatches the inspection to the container's owning
-region on Folia and returns only counts (no private item lore/PDC values)
-through the player's scheduler. This does not update any QuickShop sale
+region on Folia and returns redacted counts plus the **first 12 zero-based
+slots with a registered item/template mismatch** (no private item lore/PDC
+values) through the player's scheduler. These are evidence-export hints, not
+repair approvals; unknown IDs and malformed items can be refused without
+appearing in that slot list. The chest may change after inspection, so the
+export command independently validates the selected slot again. This does not update any QuickShop sale
 snapshot, even when the target chest is attached to a shop. A later
 `live confirm` can only act on the operator's own player inventory, never
 on the scanned chest.
