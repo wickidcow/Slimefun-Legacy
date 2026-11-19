@@ -210,6 +210,41 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void brokenAddonTemplateRefusesOnlyItsSlotAndNeverBlocksOtherSafeStacks() {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack safeFirst = olderStyling(template, 3);
+        ItemStack broken = olderStyling(template, 4);
+        ItemStack safeLast = olderStyling(template, 5);
+        inventory.setItem(0, safeFirst);
+        inventory.setItem(1, broken);
+        inventory.setItem(2, safeLast);
+        byte[][] before = {
+                safeFirst.serializeAsBytes(),
+                broken.serializeAsBytes(),
+                safeLast.serializeAsBytes()
+        };
+
+        var preview = DoctorLiveItemUpdate.preview(inventory, item -> {
+            if (item.getAmount() == 4) {
+                throw new IllegalArgumentException("Malformed addon metadata");
+            }
+            return template;
+        });
+        assertEquals(36, preview.scannedSlots());
+        assertEquals(2, preview.mismatched());
+        assertEquals(2, preview.eligible());
+        assertEquals(1, preview.refused());
+        assertEquals(2, preview.entries().size());
+        assertEquals(0, preview.entries().get(0).slot());
+        assertEquals(2, preview.entries().get(1).slot());
+        for (int slot = 0; slot < 3; slot++) {
+            assertArrayEquals(before[slot], inventory.getItem(slot).serializeAsBytes());
+        }
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void fullDoubleChestScanCountsSafeAndRefusedHistoricalItemsWithoutSavingOrChangingAnySlot() {
         Inventory doubleChest = Bukkit.createInventory(null, 54);
         ItemStack template = current("CARBONADO");
