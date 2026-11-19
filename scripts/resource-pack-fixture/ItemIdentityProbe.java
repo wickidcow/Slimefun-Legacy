@@ -510,10 +510,42 @@ final class ItemIdentityProbe {
         verifyOldBukkitTextApi(folder, restart, "SILVER_INGOT", "&bSilver Ingot", List.of());
         verifyOldBukkitTextApi(folder, restart, "CARBON", "&eCarbon", List.of());
         verifyOldBukkitTextApi(folder, restart, "COMPRESSED_CARBON", "&cCompressed Carbon", List.of());
+        // Reviewed unchanged static item definitions across v4.1.55 and v4.1.81.
+        // Widen the identity contract to resources, intermediate components,
+        // alloys, gold grades, and dusts (not just the reported CARBONADO).
+        verifyOldBukkitTextApi(folder, restart, "CARBON_CHUNK", "&4Carbon Chunk", List.of());
+        verifyOldBukkitTextApi(folder, restart, "RAW_CARBONADO", "&bRaw Carbonado", List.of());
+        verifyOldBukkitTextApi(folder, restart, "BASIC_CIRCUIT_BOARD", "&bBasic Circuit Board", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ADVANCED_CIRCUIT_BOARD", "&bAdvanced Circuit Board", List.of());
+        verifyOldBukkitTextApi(folder, restart, "REINFORCED_ALLOY_INGOT", "&b&lReinforced Alloy Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ALUMINUM_INGOT", "&bAluminum Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "LEAD_INGOT", "&bLead Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "STEEL_INGOT", "&bSteel Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "NICKEL_INGOT", "&bNickel Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "COBALT_INGOT", "&9Cobalt Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_18K", "&fGold Ingot &7(18-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_22K", "&fGold Ingot &7(22-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_24K", "&fGold Ingot &7(24-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_DUST", "&6Gold Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "SILVER_DUST", "&6Silver Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ALUMINUM_DUST", "&6Aluminum Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "LEAD_DUST", "&6Lead Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ZINC_DUST", "&6Zinc Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "MAGNESIUM_DUST", "&6Magnesium", List.of());
         ItemStack tin = SlimefunItem.getById("TIN_INGOT").getItem();
         ItemStack silver = SlimefunItem.getById("SILVER_INGOT").getItem();
         require(tin.getType() == silver.getType() && !tin.isSimilar(silver) && !silver.isSimilar(tin),
                 "distinct registered ingot IDs sharing a vanilla material became stack-compatible");
+        ItemStack gold18 = SlimefunItem.getById("GOLD_18K").getItem();
+        ItemStack gold24 = SlimefunItem.getById("GOLD_24K").getItem();
+        require(gold18.getType() == gold24.getType()
+                        && !gold18.isSimilar(gold24) && !gold24.isSimilar(gold18),
+                "distinct registered gold grades sharing a vanilla material became stack-compatible");
+        ItemStack silverDust = SlimefunItem.getById("SILVER_DUST").getItem();
+        ItemStack aluminumDust = SlimefunItem.getById("ALUMINUM_DUST").getItem();
+        require(silverDust.getType() == aluminumDust.getType()
+                        && !silverDust.isSimilar(aluminumDust) && !aluminumDust.isSimilar(silverDust),
+                "distinct registered dust IDs sharing a vanilla material became stack-compatible");
     }
 
     @SuppressWarnings("deprecation")
@@ -643,8 +675,10 @@ final class ItemIdentityProbe {
     }
 
     private static void requireLegacyTextCompatibility(String id, String classification) {
-        // Reviewed six-runtime baseline at 25a7d561: all seven source-derived
-        // fixtures preserve plain text. A future exact native match is welcome;
+        // Reviewed initial seven-fixture/six-runtime baseline at 25a7d561.
+        // Additional source-derived fixtures must meet the same strict rule on
+        // the current native server; do not grandfather a new text regression.
+        // A future exact native match is welcome;
         // new blank-line, meaningful-text or functional-data drift must fail CI.
         // This does not certify genuine old-world bytes or approve any repair.
         require("MATCH".equals(classification) || "STYLE_OR_COMPONENT".equals(classification),
