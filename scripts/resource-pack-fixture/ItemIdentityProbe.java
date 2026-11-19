@@ -496,6 +496,7 @@ final class ItemIdentityProbe {
             String expected = Files.readString(classificationFile);
             String observed = classifyOldBukkitTextApi(oldApi, modern);
             Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_RESTART=" + observed);
+            requireLegacyTextCompatibility(id, observed);
             require(expected.equals(observed),
                     "old Bukkit text API fixture provenance classification drifted after restart");
             require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
@@ -519,7 +520,17 @@ final class ItemIdentityProbe {
         byte[] currentBytes = modern.serializeAsBytes();
         String classification = classifyOldBukkitTextApi(oldApi, modern);
         Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_SEED=" + classification);
-        require(!classification.isBlank(), "old Bukkit text API classification missing");
+        requireLegacyTextCompatibility(id, classification);
+        // Negative controls make this a semantic regression gate, not merely a
+        // record of whatever the current constructor happens to produce.
+        ItemStack changedText = ItemStack.deserializeBytes(currentBytes);
+        changedText.editMeta(meta -> meta.displayName(Component.text("Changed meaningful name")));
+        require("MEANINGFUL_TEXT".equals(classifyOldBukkitTextApi(changedText, modern)),
+                "legacy API classification ignored changed meaningful name: " + id);
+        ItemStack changedLore = ItemStack.deserializeBytes(currentBytes);
+        changedLore.editMeta(meta -> meta.lore(List.of(Component.text("Custom player lore"))));
+        require("MEANINGFUL_TEXT".equals(classifyOldBukkitTextApi(changedLore, modern)),
+                "legacy API classification ignored changed meaningful lore: " + id);
         ItemStack changedOwner = ItemStack.deserializeBytes(legacyBytes);
         changedOwner.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 913L));
         require("OTHER_METADATA".equals(classifyOldBukkitTextApi(changedOwner, modern)),
@@ -532,6 +543,15 @@ final class ItemIdentityProbe {
         require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
                         && Arrays.equals(currentBytes, modern.serializeAsBytes()),
                 "old Bukkit text API probe modified its detached inputs");
+    }
+
+    private static void requireLegacyTextCompatibility(String id, String classification) {
+        // Reviewed six-runtime baseline at 25a7d561: all seven source-derived
+        // fixtures preserve plain text. A future exact native match is welcome;
+        // new blank-line, meaningful-text or functional-data drift must fail CI.
+        // This does not certify genuine old-world bytes or approve any repair.
+        require("MATCH".equals(classification) || "STYLE_OR_COMPONENT".equals(classification),
+                "legacy text constructor compatibility regressed for " + id + ": " + classification);
     }
 
     private static String classifyOldBukkitTextApi(ItemStack oldApi, ItemStack modern) throws Exception {
