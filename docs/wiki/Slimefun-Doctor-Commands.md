@@ -261,6 +261,22 @@ SmartSpawner's public API exposes the registered spawner identity/type/location/
 stored-loot/XP balances, so Doctor does not pretend it can migrate those balances. Keep SmartSpawner installed until
 the follow-up scan reports no remaining records.
 
+#### Server-wide blank-lore historical-item tally (v4.1.82 candidate)
+
+`/sf doctor scan` continues to inspect only a **bounded number of loaded,
+reachable** registered stacks. It now counts **blank-lore layout variants**
+separately from fully matching items, strict styling-only differences, other
+metadata differences, and unavailable registered templates. This category
+requires a matching item material/plain name and nonblank lore text (in the
+same order), with exact non-presentation **native bytes** after amount
+normalization. It shows bounded Slimefun **item-ID samples only**, not
+private item text, PDC, player names, coordinates, or owner metadata.
+The scan does not force-load chunks or certify offline chests and is a
+**read-only triage**, NEVER an automatic bulk migration or permission to
+change shop definitions. If variants are found, compare a genuine old
+shop/chest item and a fresh reference in a private staging clone and
+capture the original native bytes using the command below.
+
 #### Private old-versus-new evidence export (v4.1.82 candidate)
 
 To investigate **real, old chest/shop item bytes** instead of relying on synthetic
