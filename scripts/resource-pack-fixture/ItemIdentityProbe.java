@@ -772,6 +772,93 @@ final class ItemIdentityProbe {
         Bukkit.getLogger().info("SFL_LIVE_BATCH_CARBONADO_SEED_PASS");
     }
 
+    /**
+     * Native two-boot acceptance of the operator's private chest evidence
+     * exporter, using an actual current CARBONADO template and a synthetic
+     * legacy-styled chest copy. No live chest/QuickShop record is modified.
+     */
+    private static void verifyNativeChestEvidence(Path folder, boolean restart) throws Exception {
+        SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "native chest export registered CARBONADO unavailable");
+        Path directory = folder.resolve("identity-chest-private-evidence");
+        Path originalFile = directory.resolve("old-chest.bin");
+        Path currentFile = directory.resolve("current-template.bin");
+        Path receiptFile = directory.resolve("receipts.txt");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(originalFile);
+            byte[] currentBytes = Files.readAllBytes(currentFile);
+            ItemStack old = ItemStack.deserializeBytes(oldBytes);
+            ItemStack current = ItemStack.deserializeBytes(currentBytes);
+            require(old.getAmount() == 63 && current.getAmount() == 1
+                            && !old.isSimilar(current) && current.isSimilar(registered.getItem()),
+                    "native chest evidence original/current identity changed after restart");
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 3, "native chest evidence receipt is malformed");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID oldReceipt = java.util.UUID.fromString(tokens[1]);
+            java.util.UUID templateReceipt = java.util.UUID.fromString(tokens[2]);
+            require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, oldReceipt).serializeAsBytes())
+                            && Arrays.equals(
+                                    currentBytes,
+                                    readDoctorBackup(directory, owner, templateReceipt).serializeAsBytes()),
+                    "native chest evidence private original/template bytes changed after restart");
+            require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
+                    "native chest evidence source files were rewritten after restart");
+            Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_RESTART_PASS");
+            return;
+        }
+
+        Files.createDirectories(directory);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack current = ItemStack.deserializeBytes(registeredBytes);
+        current.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        var name = old.getItemMeta().displayName();
+        require(name != null, "native chest evidence CARBONADO display name missing");
+        boolean bold = name.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE;
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, !bold)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] currentBytes = current.serializeAsBytes();
+        var chest = Bukkit.createInventory(null, 54);
+        chest.setItem(53, old);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method export = engine.getDeclaredMethod(
+                "captureContainer",
+                org.bukkit.inventory.Inventory.class,
+                int.class,
+                java.util.function.Function.class,
+                Path.class,
+                java.util.UUID.class);
+        export.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver = observed -> registered.getItem();
+        Object receipts = export.invoke(null, chest, 53, resolver, directory, owner);
+        Method oldId = receipts.getClass().getDeclaredMethod("mainReceipt");
+        Method templateId = receipts.getClass().getDeclaredMethod("offhandReceipt");
+        oldId.setAccessible(true);
+        templateId.setAccessible(true);
+        java.util.UUID originalReceipt = (java.util.UUID) oldId.invoke(receipts);
+        java.util.UUID currentReceipt = (java.util.UUID) templateId.invoke(receipts);
+        require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, originalReceipt).serializeAsBytes())
+                        && Arrays.equals(
+                                currentBytes,
+                                readDoctorBackup(directory, owner, currentReceipt).serializeAsBytes()),
+                "native chest evidence private receipts failed exact-byte seed readback");
+        require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
+                        && chest.getItem(52) == null
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "native chest evidence export modified old stock, adjacent slots or registered template");
+        Files.write(originalFile, oldBytes);
+        Files.write(currentFile, currentBytes);
+        Files.writeString(receiptFile, owner + ":" + originalReceipt + ":" + currentReceipt);
+        Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_SEED_PASS");
+    }
+
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
         // Paper item templates in addition to the purpose-built fixture.
@@ -783,6 +870,7 @@ final class ItemIdentityProbe {
         verifyOldBukkitTextApiMatrix(folder, restart);
         verifyEvidenceExport(folder, restart);
         verifyLivePlayerInventoryBatch(folder, restart);
+        verifyNativeChestEvidence(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {
