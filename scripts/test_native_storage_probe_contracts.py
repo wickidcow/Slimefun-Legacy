@@ -92,9 +92,9 @@ class NativeStorageProbeContracts(unittest.TestCase):
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
-        if revision in (153, 154, 155, 156):
+        if revision in (153, 154, 155, 156, 157):
             expected["wickidcow/SF_FluffyMachines"] = (
-                probe.FLUFFY_R156 if revision == 156
+                probe.FLUFFY_R156 if revision in (156, 157)
                 else probe.FLUFFY_R154 if revision in (154, 155)
                 else probe.FLUFFY_R153)
         expected["wickidcow/SF_NetworksExp"] = (
@@ -109,7 +109,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
             ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
             if revision == 153 else
             ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5")
-            if revision in (154, 155, 156) else
+            if revision in (154, 155, 156, 157) else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
             ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b")
