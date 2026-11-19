@@ -652,7 +652,7 @@ final class ItemIdentityProbe {
         var parser = LegacyComponentSerializer.legacySection();
         String name = ChatColor.translateAlternateColorCodes('&', rawName);
         List<Component> plainLore = rawLore.stream()
-                .map(line -> parser.deserialize(ChatColor.translateAlternateColorCodes('&', line)))
+                .<Component>map(line -> parser.deserialize(ChatColor.translateAlternateColorCodes('&', line)))
                 .toList();
         adventureDefault.editMeta(meta -> {
             meta.displayName(parser.deserialize(name));
