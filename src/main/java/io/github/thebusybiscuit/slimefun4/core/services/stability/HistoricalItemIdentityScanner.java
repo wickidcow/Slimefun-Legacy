@@ -21,6 +21,7 @@ final class HistoricalItemIdentityScanner {
     enum Result {
         MATCH,
         PRESENTATION_ONLY_CANDIDATE,
+        BLANK_LORE_LAYOUT_DIFFERENCE,
         OTHER_DIFFERENCE,
         TEMPLATE_UNAVAILABLE
     }
@@ -52,8 +53,14 @@ final class HistoricalItemIdentityScanner {
         ItemMeta templateMeta = templateCopy.getItemMeta();
         if (actualMeta == null
                 || templateMeta == null
-                || !Objects.equals(plain(actualMeta.displayName()), plain(templateMeta.displayName()))
-                || !Objects.equals(plainLore(actualMeta.lore()), plainLore(templateMeta.lore()))) {
+                || !Objects.equals(plain(actualMeta.displayName()), plain(templateMeta.displayName()))) {
+            return Result.OTHER_DIFFERENCE;
+        }
+        List<String> actualLore = plainLore(actualMeta.lore());
+        List<String> templateLore = plainLore(templateMeta.lore());
+        boolean sameLore = Objects.equals(actualLore, templateLore);
+        boolean blankLoreOnly = !sameLore && sameNonblankLore(actualLore, templateLore);
+        if (!sameLore && !blankLoreOnly) {
             return Result.OTHER_DIFFERENCE;
         }
 
@@ -71,9 +78,25 @@ final class HistoricalItemIdentityScanner {
         // stacks may contain more. Stack identity ignores quantity.
         // Normalize only the detached template amount before strict byte comparison.
         templateCopy.setAmount(actualCopy.getAmount());
-        return Arrays.equals(actualCopy.serializeAsBytes(), templateCopy.serializeAsBytes())
-                ? Result.PRESENTATION_ONLY_CANDIDATE
-                : Result.OTHER_DIFFERENCE;
+        if (!Arrays.equals(actualCopy.serializeAsBytes(), templateCopy.serializeAsBytes())) {
+            return Result.OTHER_DIFFERENCE;
+        }
+        // A diagnostic classification, not permission to mutate old shop
+        // templates, storage or chests. The actual nonblank text is unchanged.
+        return blankLoreOnly ? Result.BLANK_LORE_LAYOUT_DIFFERENCE : Result.PRESENTATION_ONLY_CANDIDATE;
+    }
+
+    private static boolean sameNonblankLore(List<String> actual, List<String> registered) {
+        if (actual == null || registered == null) {
+            return false;
+        }
+        List<String> oldMeaningful = actual.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        List<String> newMeaningful = registered.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        return !oldMeaningful.isEmpty() && oldMeaningful.equals(newMeaningful);
     }
 
     private static @Nullable ItemStack exactNativeSnapshot(ItemStack item) {
