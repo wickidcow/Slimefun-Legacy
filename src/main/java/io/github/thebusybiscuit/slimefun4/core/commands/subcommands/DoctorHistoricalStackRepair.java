@@ -70,8 +70,7 @@ final class DoctorHistoricalStackRepair {
                     scan(player, now, staticLore);
                 }
             }
-            case "confirm" -> confirm(
-                    plugin, player, now, args.length == 5 && args[4].equalsIgnoreCase("static-lore"));
+            case "confirm" -> confirm(plugin, player, now, args.length == 5 && args[4].equalsIgnoreCase("static-lore"));
             case "verify" -> {
                 if (args.length == 5) {
                     verifySavedBackup(plugin, player, args[4], false);
@@ -160,7 +159,9 @@ final class DoctorHistoricalStackRepair {
 
     private static void confirm(Slimefun plugin, Player player, long now, boolean staticLore) {
         Plan plan = PLANS.remove(player.getUniqueId());
-        if (plan == null || plan.expiresAt() < now || plan.staticLore() != staticLore
+        if (plan == null
+                || plan.expiresAt() < now
+                || plan.staticLore() != staticLore
                 || (staticLore && !player.isOp())) {
             send(player, "&cNo matching repair preview or operator permission. Nothing changed.");
             return;
@@ -517,13 +518,10 @@ final class DoctorHistoricalStackRepair {
         String oldId = oldMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
         String freshId = freshMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
         String templateId = templateMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
-        if (!STATIC_LORE_ITEM.equals(oldId)
-                || !Objects.equals(oldId, freshId)
-                || !Objects.equals(oldId, templateId)) {
+        if (!STATIC_LORE_ITEM.equals(oldId) || !Objects.equals(oldId, freshId) || !Objects.equals(oldId, templateId)) {
             return false;
         }
-        DoctorIdentityCommand.PlainPresentation parts =
-                DoctorIdentityCommand.inspectPlainPresentation(old, fresh);
+        DoctorIdentityCommand.PlainPresentation parts = DoctorIdentityCommand.inspectPlainPresentation(old, fresh);
         return parts.nameSame() && !parts.loreSame();
     }
 
