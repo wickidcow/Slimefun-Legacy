@@ -95,6 +95,13 @@ jobs:
         run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate conservative Minecraft compatibility claims
         run: python3 -m unittest scripts.test_release_compatibility_claims -v
+      - name: Validate 45-addon r157 lock, build receipt, and source code
+        run: |
+          python3 -m py_compile scripts/stage_r157_infernal_release.py scripts/verify_published_addon_bundle.py
+          python3 -m unittest scripts.test_stage_r157_infernal_release -v
+          python3 -m unittest scripts.test_release_compatibility_claims -v
+          python3 -m unittest scripts.test_black_market_probe_contracts -v
+          python3 -m unittest scripts.test_native_storage_probe_contracts -v
       - name: Verify official released addon tag/source and raw JAR SHA-256 receipts
         env:
           GH_TOKEN: ${{ github.token }}
