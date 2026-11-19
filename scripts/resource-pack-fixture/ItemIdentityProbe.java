@@ -570,7 +570,27 @@ final class ItemIdentityProbe {
             String observed = classifyOldBukkitTextApi(oldApi, modern);
             Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_RESTART=" + observed);
             requireLegacyTextCompatibility(id, observed);
-            verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), true);
+            ItemStack registeredAfterRestart = registered.getItem();
+            if ("STEEL_INGOT".equals(id)) {
+                // This same Doctor integration deliberately clears STEEL_INGOT's
+                // resource-pack model mapping between boot 1 and boot 2.
+                // Preserve the seed-era reference for validating a previously
+                // saved repair; the NEW template must refuse the OLD model.
+                require(Slimefun.getItemTextureService().getModelData(id) == 0,
+                        "Doctor checkpoint did not retire the historical steel model");
+                require(!sameNativeItemIgnoringCount(modern, registeredAfterRestart),
+                        "Doctor checkpoint did not change the model-dependent STEEL_INGOT template");
+                require(repairCandidate(oldApi, registeredAfterRestart, registeredAfterRestart) == null,
+                        "Historical styling migration improperly bypassed Steel Ingot model transition");
+                Bukkit.getLogger().info("SFL_LEGACY_STEEL_MODEL_TRANSITION_EXPECTED_RESTART_PASS");
+            } else {
+                require(sameNativeItemIgnoringCount(modern, registeredAfterRestart),
+                        "Unexplained current registered item drift across restart: " + id);
+            }
+            // The rollback receipt is bound to the EXACT source reference
+            // captured in boot 1, not the deliberately changed template in
+            // boot 2. Do not authorize conversion to an unverified new model.
+            verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, modern, true);
             require(expected.equals(observed),
                     "old Bukkit text API fixture provenance classification drifted after restart");
             String alternatives = compareConstructorAlternatives(oldApi, modern, name, lore);
