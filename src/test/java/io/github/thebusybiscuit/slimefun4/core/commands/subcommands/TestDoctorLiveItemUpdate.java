@@ -157,6 +157,49 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void templateChangeAfterBackupsRefusesEverySlotAndKeepsExactReceipts() throws Exception {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        byte[] templateBytes = template.serializeAsBytes();
+        ItemStack changedTemplate = ItemStack.deserializeBytes(templateBytes);
+        changedTemplate.editMeta(meta -> meta.lore(List.of(Component.text("New registered text"))));
+        byte[] changedTemplateBytes = changedTemplate.serializeAsBytes();
+        byte[][] originals = new byte[2][];
+        for (int slot = 0; slot < originals.length; slot++) {
+            ItemStack old = olderStyling(template, 21 * (slot + 1));
+            originals[slot] = old.serializeAsBytes();
+            inventory.setItem(slot, old);
+        }
+        var plan = DoctorLiveItemUpdate.preview(inventory, ignored -> template);
+        assertEquals(2, plan.entries().size());
+
+        // Both preparation reads and the first post-backup read succeed. The
+        // second post-backup read observes a newly registered template, so even
+        // the already-verified first slot must remain untouched.
+        AtomicInteger templateReads = new AtomicInteger();
+        UUID owner = UUID.randomUUID();
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                inventory, plan, ignored -> templateReads.incrementAndGet() < 4 ? template : changedTemplate,
+                data, owner));
+        assertEquals("Registered item template changed while saving backups", failure.getMessage());
+        assertEquals(4, templateReads.get());
+        for (int slot = 0; slot < originals.length; slot++) {
+            assertArrayEquals(originals[slot], inventory.getItem(slot).serializeAsBytes());
+        }
+        assertNull(inventory.getItem(2));
+        assertArrayEquals(templateBytes, template.serializeAsBytes());
+        assertArrayEquals(changedTemplateBytes, changedTemplate.serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            var receipts = files.filter(Files::isRegularFile).toList();
+            assertEquals(2, receipts.size());
+            byte[] first = Files.readAllBytes(receipts.get(0));
+            byte[] second = Files.readAllBytes(receipts.get(1));
+            assertTrue(java.util.Arrays.equals(originals[0], first) || java.util.Arrays.equals(originals[0], second));
+            assertTrue(java.util.Arrays.equals(originals[1], first) || java.util.Arrays.equals(originals[1], second));
+        }
+    }
+
+    @Test
     void allEightBatchReceiptsAreWrittenAndNinthSlotLeftUnchanged() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack template = current("CARBONADO");

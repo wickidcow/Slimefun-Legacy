@@ -429,11 +429,16 @@ final class DoctorLiveItemUpdate {
             }
             receipts.add(new Receipt(item.entry().slot(), receipt));
         }
-        // Disk operations can take time; no inventory mutation if anything has moved.
+        // Disk operations can take time; refuse if a source or registered template changed.
         for (Prepared item : prepared) {
             ItemStack live = inventory.getItem(item.entry().slot());
             if (live == null || !item.entry().oldHash().equals(DoctorHistoricalStackRepair.fingerprint(live))) {
                 throw new IOException("Live inventory changed while saving backups");
+            }
+            ItemStack template = templates.apply(live);
+            if (template == null || !sameRegisteredId(live, template)
+                    || !item.entry().templateHash().equals(DoctorHistoricalStackRepair.fingerprint(template))) {
+                throw new IOException("Registered item template changed while saving backups");
             }
         }
 
