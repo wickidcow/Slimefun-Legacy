@@ -47,6 +47,7 @@ public final class ItemDoctorReport {
     private final AtomicLong identityObserved = new AtomicLong();
     private final AtomicLong identityTemplateMatches = new AtomicLong();
     private final AtomicLong identityPresentationCandidates = new AtomicLong();
+    private final AtomicLong identityBlankLoreVariants = new AtomicLong();
     private final AtomicLong identityOtherDifferences = new AtomicLong();
     private final AtomicLong identityUnavailable = new AtomicLong();
     private final Map<String, AtomicLong> legacyMigrationCandidateCounts = new ConcurrentHashMap<>();
@@ -59,6 +60,7 @@ public final class ItemDoctorReport {
     private final Set<String> unknownIdSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> unresolvedTemplateSamples = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> identityPresentationCandidateIds = Collections.synchronizedSet(new LinkedHashSet<>());
+    private final Set<String> identityBlankLoreVariantIds = Collections.synchronizedSet(new LinkedHashSet<>());
     private volatile LegacyItemSchemaProbeService.Session schemaProbeSession;
     private volatile long completedAtNanos;
 
@@ -120,6 +122,10 @@ public final class ItemDoctorReport {
             case PRESENTATION_ONLY_CANDIDATE -> {
                 identityPresentationCandidates.incrementAndGet();
                 addSample(identityPresentationCandidateIds, itemId);
+            }
+            case BLANK_LORE_LAYOUT_DIFFERENCE -> {
+                identityBlankLoreVariants.incrementAndGet();
+                addSample(identityBlankLoreVariantIds, itemId);
             }
             case OTHER_DIFFERENCE -> identityOtherDifferences.incrementAndGet();
             case TEMPLATE_UNAVAILABLE -> identityUnavailable.incrementAndGet();
@@ -415,6 +421,7 @@ public final class ItemDoctorReport {
     public long getIdentityCompared() {
         return identityTemplateMatches.get()
                 + identityPresentationCandidates.get()
+                + identityBlankLoreVariants.get()
                 + identityOtherDifferences.get()
                 + identityUnavailable.get();
     }
@@ -431,6 +438,10 @@ public final class ItemDoctorReport {
         return identityPresentationCandidates.get();
     }
 
+    public long getIdentityBlankLoreVariants() {
+        return identityBlankLoreVariants.get();
+    }
+
     public long getIdentityOtherDifferences() {
         return identityOtherDifferences.get();
     }
@@ -442,6 +453,11 @@ public final class ItemDoctorReport {
     /** Bounded item IDs only, never PDC values, item payloads or player locations. */
     public @Nonnull List<String> getIdentityPresentationCandidateIds() {
         return snapshot(identityPresentationCandidateIds);
+    }
+
+    /** Bounded Slimefun item IDs only. Never log lore text, PDC or location. */
+    public @Nonnull List<String> getIdentityBlankLoreVariantIds() {
+        return snapshot(identityBlankLoreVariantIds);
     }
 
     public long getDurationMillis() {
