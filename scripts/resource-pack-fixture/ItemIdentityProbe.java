@@ -192,6 +192,7 @@ final class ItemIdentityProbe {
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         verifyHistoricalPresentation(folder, false);
+        verifyRegisteredCloneIdentity(folder);
         Files.write(folder.resolve("identity-item.bin"), untouched);
         var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
                 .map(item -> Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
@@ -202,6 +203,44 @@ final class ItemIdentityProbe {
                 "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
         Files.writeString(folder.resolve("identity-registry.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
+    }
+
+    private static void verifyRegisteredCloneIdentity(Path folder) throws Exception {
+        var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                .sorted(java.util.Comparator.comparing(SlimefunItem::getId)).toList();
+        require(!items.isEmpty(), "registered clone identity probe has no items");
+        var results = new java.util.ArrayList<Map<String, Object>>();
+        var failures = new java.util.ArrayList<String>();
+        for (var item : items) {
+            ItemStack template = item.getItem();
+            byte[] before = template.serializeAsBytes();
+            // Intentionally exercise the public production clone implementation.
+            // SlimefunItemStack.clone reapplies item data/textures in its constructor.
+            ItemStack first = template.clone();
+            ItemStack second = first.clone();
+            boolean unchanged = Arrays.equals(before, template.serializeAsBytes());
+            boolean firstExact = Arrays.equals(before, first.serializeAsBytes());
+            boolean secondExact = Arrays.equals(before, second.serializeAsBytes());
+            boolean amounts = template.getAmount() == first.getAmount()
+                    && template.getAmount() == second.getAmount();
+            boolean passed = unchanged && firstExact && secondExact && amounts;
+            results.add(Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
+                    "template_unchanged", unchanged, "first_clone_exact", firstExact,
+                    "second_clone_exact", secondExact, "quantity_preserved", amounts,
+                    "status", passed ? "PASS" : "FAIL"));
+            if (!passed) {
+                failures.add(item.getId());
+            }
+        }
+        // IDs and booleans only; never publish item payloads or private typed PDC.
+        var report = Map.of("schema", 1, "scope", "current_registered_template_clone_only",
+                "software", Bukkit.getName(), "server_version", Bukkit.getVersion(),
+                "historical_world_acceptance", "UNTESTED", "producer_coverage", "UNTESTED",
+                "items", results);
+        Files.writeString(folder.resolve("identity-registry-clone.json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(report));
+        require(failures.isEmpty(), "registered clone identity drift: " + failures);
+        Bukkit.getLogger().info("SFL_REGISTERED_CLONE_IDENTITY_PASS items=" + results.size());
     }
 
     private static void verifyRegisteredCarbonHistory(Path folder, String id, boolean restart)
