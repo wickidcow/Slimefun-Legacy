@@ -462,14 +462,16 @@ final class DoctorHistoricalStackRepair {
                 || templateNative == null
                 || oldNative.isSimilar(freshNative)
                 || !freshNative.isSimilar(templateNative)
-                || !sameNativeBytesIgnoringAmount(freshNative, templateNative)
-                ) {
+                || !sameNativeBytesIgnoringAmount(freshNative, templateNative)) {
             return null;
         }
         DoctorIdentityCommand.HistoricalPresentation presentation =
                 DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative);
-        if (!presentation.candidate()
-                && !(staticLore && eligibleStaticLore(oldNative, freshNative, templateNative, presentation))) {
+        if (staticLore) {
+            if (!eligibleStaticLore(oldNative, freshNative, templateNative, presentation)) {
+                return null;
+            }
+        } else if (!presentation.candidate()) {
             return null;
         }
         ItemMeta referenceMeta = freshNative.getItemMeta();
