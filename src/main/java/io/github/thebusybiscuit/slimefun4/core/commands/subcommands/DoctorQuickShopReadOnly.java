@@ -4,9 +4,7 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -93,11 +91,12 @@ final class DoctorQuickShopReadOnly {
      */
     private static String inspectShop(Location location, Chest chest, int slot)
             throws IOException, ReflectiveOperationException {
-        Plugin quickShop = Arrays.stream(Bukkit.getPluginManager().getPlugins())
-                .filter(plugin -> plugin.isEnabled() && plugin.getName().toLowerCase(java.util.Locale.ROOT)
-                        .contains("quickshop"))
-                .findFirst()
-                .orElseThrow(() -> new IOException("QuickShop is not installed or enabled"));
+        // Resolve the actual Hikari core by its upstream plugin.yml name,
+        // never an unrelated QuickShop companion/addon with a similar name.
+        Plugin quickShop = Bukkit.getPluginManager().getPlugin("QuickShop-Hikari");
+        if (quickShop == null || !quickShop.isEnabled()) {
+            throw new IOException("QuickShop-Hikari is not installed or enabled");
+        }
         ClassLoader loader = quickShop.getClass().getClassLoader();
         Class<?> apiType = Class.forName("com.ghostchu.quickshop.api.QuickShopAPI", true, loader);
         Class<?> managerType = Class.forName("com.ghostchu.quickshop.api.shop.ShopManager", true, loader);
@@ -203,9 +202,12 @@ final class DoctorQuickShopReadOnly {
         try {
             var saved = classify(saleNative, referenceNative);
             var stored = stockNative == null ? null : classify(stockNative, referenceNative);
-            boolean matchCurrent = configuredShopMatcher.test(ItemStack.deserializeBytes(referenceBytes));
+            // Hikari's matcher is optional third-party code. The only objects
+            // supplied to it are detached copies; a matcher that changes even
+            // those test inputs cannot provide a stable diagnostic verdict.
+            boolean matchCurrent = matchesWithoutMutation(configuredShopMatcher, referenceBytes);
             boolean matchStock = stockNative != null
-                    && configuredShopMatcher.test(ItemStack.deserializeBytes(stockBytes));
+                    && matchesWithoutMutation(configuredShopMatcher, stockBytes);
             boolean sameSaleStock = stockNative != null
                     && DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(saleNative, stockNative);
             if (!Arrays.equals(saleBytes, saleItem.serializeAsBytes())
@@ -217,6 +219,16 @@ final class DoctorQuickShopReadOnly {
         } catch (RuntimeException exception) {
             throw new IOException("QuickShop comparison could not complete safely", exception);
         }
+    }
+
+    private static boolean matchesWithoutMutation(Predicate<ItemStack> matcher, byte[] exact)
+            throws IOException {
+        ItemStack candidate = ItemStack.deserializeBytes(exact);
+        boolean verdict = matcher.test(candidate);
+        if (!Arrays.equals(exact, candidate.serializeAsBytes())) {
+            throw new IOException("QuickShop matcher modified its detached comparison item");
+        }
+        return verdict;
     }
 
     private static DoctorHistoricalStackEvidenceAudit.Difference classify(ItemStack old, ItemStack current) {

@@ -161,6 +161,26 @@ class TestDoctorQuickShopReadOnly {
     }
 
     @Test
+    void refusesMatcherThatChangesOnlyItsDetachedTestCandidate() {
+        ItemStack template = current("CARBONADO");
+        ItemStack old = historical(template, 34);
+        byte[] beforeOld = old.serializeAsBytes();
+        byte[] beforeTemplate = template.serializeAsBytes();
+        AtomicInteger attempts = new AtomicInteger();
+
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compare(
+                old, old, template, candidate -> {
+                    attempts.incrementAndGet();
+                    candidate.setAmount(candidate.getAmount() + 1);
+                    return true;
+                }));
+
+        assertEquals(1, attempts.get());
+        assertArrayEquals(beforeOld, old.serializeAsBytes());
+        assertArrayEquals(beforeTemplate, template.serializeAsBytes());
+    }
+
+    @Test
     void emptyOrUnregisteredSaleSourceIsNeverTreatedAsCurrent() {
         ItemStack current = current("CARBONADO");
         assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compare(
