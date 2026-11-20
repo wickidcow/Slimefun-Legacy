@@ -319,6 +319,26 @@ batch**. On a full-backup staging server:
 /sf doctor identity live cancel
 ```
 
+A further read-only operator command, `/sf doctor identity live inspect-shop
+<slot>`, looks at **a loaded, single physical chest** within six blocks and
+compares its **runtime QuickShop-Hikari sale-item reference**, the selected
+physical stock slot (0–26), and today's registered Slimefun template. It
+uses only QuickShop's public `QuickShopAPI` shop lookup, `Shop.getItem()`,
+and configured `Shop.matches(ItemStack)` methods, loaded as an optional
+dependency. It reports redacted independent sale-reference and stock
+difference classes, native sale/stock parity, and the actual matcher verdict
+for both a fresh template and stock (on detached copies). A matcher accepting
+an item **never overrides** typed-PDC/Slimefun-ID safety classification and
+never creates an update plan. It checks the original shop-item bytes, stock
+bytes, registered template, shop owner identity and price again before
+reporting. Different IDs, unstable serialization, concurrent changes, missing
+or incompatible QuickShop, and double chests are refused. No price/owner,
+shop DB, inventory, or transaction mutation is performed; neither native
+stock nor private owner/PDC bytes are printed. The API's live sale-item
+reference is not by itself evidence that the persisted SQL row is identical.
+The command requires integration verification on the actual installed
+QuickShop-Hikari build and a staging restart before interpreting live results.
+
 A separate `/sf doctor identity live scan-container` command lets an
 operator **look at a loaded physical chest/barrel/container within six blocks**
 and inspect up to 54 slots **without modifying the container or generating
