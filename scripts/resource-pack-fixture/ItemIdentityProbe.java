@@ -1140,6 +1140,34 @@ final class ItemIdentityProbe {
                         && !flag(oldAndOwned, "matcherAcceptsStock"),
                 "native QuickShop model ignored a typed owner PDC difference");
 
+        // Exercise the production cached-YAML parser on the real Paper/Folia
+        // ItemStack serializer on BOTH JVM boots. Unlike the mock matcher
+        // model above, the source here is the actual world-persisted chest.
+        Method compareCache = inspector.getDeclaredMethod(
+                "compareCached", String.class, ItemStack.class, ItemStack.class, ItemStack.class);
+        compareCache.setAccessible(true);
+        org.bukkit.configuration.file.YamlConfiguration cachedYaml =
+                new org.bukkit.configuration.file.YamlConfiguration();
+        cachedYaml.set("item", old);
+        String originalCache = cachedYaml.saveToString();
+        Object cacheOldStock = compareCache.invoke(null, originalCache, old, oldStock, current);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(cacheOldStock, "cachedDifference"))
+                        && flag(cacheOldStock, "cachedMatchesView")
+                        && flag(cacheOldStock, "cachedMatchesStock"),
+                "native QuickShop cache parser lost historical matching old chest stock");
+        cachedYaml.set("item", current);
+        Object cacheFresh = compareCache.invoke(null, cachedYaml.saveToString(), old, currentStock, current);
+        require("CURRENT".equals(shopDifference(cacheFresh, "cachedDifference"))
+                        && !flag(cacheFresh, "cachedMatchesView")
+                        && flag(cacheFresh, "cachedMatchesStock"),
+                "native QuickShop cache parser confused modern internal item with event-processed old view");
+        cachedYaml.set("item", typedStock);
+        Object cacheTyped = compareCache.invoke(null, cachedYaml.saveToString(), old, typedStock, current);
+        require("FUNCTIONAL_METADATA".equals(shopDifference(cacheTyped, "cachedDifference"))
+                        && !flag(cacheTyped, "cachedMatchesView")
+                        && flag(cacheTyped, "cachedMatchesStock"),
+                "native QuickShop cache parser discarded typed owner metadata");
+
         ItemStack wrongId = ItemStack.deserializeBytes(oldBytes);
         wrongId.editMeta(meta -> meta.getPersistentDataContainer().set(
                 new NamespacedKey("slimefun", "slimefun_item"),
@@ -1152,6 +1180,23 @@ final class ItemIdentityProbe {
             refusedWrongId = exception.getCause() instanceof java.io.IOException;
         }
         require(refusedWrongId, "native QuickShop model accepted a different Slimefun ID");
+
+        cachedYaml.set("item", wrongId);
+        boolean rejectedWrongCachedId = false;
+        try {
+            compareCache.invoke(null, cachedYaml.saveToString(), old, oldStock, current);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            rejectedWrongCachedId = exception.getCause() instanceof java.io.IOException;
+        }
+        require(rejectedWrongCachedId, "native QuickShop cache accepted same-material different Slimefun ID");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(currentBytes, current.serializeAsBytes())
+                        && Arrays.equals(oldBytes, oldStock.serializeAsBytes())
+                        && Arrays.equals(currentBytes, currentStock.serializeAsBytes())
+                        && Arrays.equals(typedBytes, typedStock.serializeAsBytes()),
+                "native QuickShop cache deserialization changed a persisted source item");
+        Bukkit.getLogger().info("SFL_QUICKSHOP_CACHED_ITEM_MODEL_"
+                + (restart ? "RESTART" : "SEED") + "_PASS");
 
         boolean refusedMatcherMutation = false;
         java.util.function.Predicate<ItemStack> mutating = candidate -> {

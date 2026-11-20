@@ -133,6 +133,16 @@ price, sale view, stock and current registered template. No QuickShop
 setter, DB query, matcher override, chest write, trade or automatic repair
 is used.
 
+The existing disposable two-JVM physical-world-chest probe additionally
+calls the **production cached YAML decoder** on both boots, using synthetic
+old/current/typed-owner `ItemStack` objects actually reloaded from the
+same native chest. It asserts the cache's old/current/typed functional
+classifications, the distinction between cached-internal and
+event-processed runtime view, rejection of same-material different
+Slimefun IDs, exact untouched serialized stock and receipt persistence.
+This still does not instantiate a QuickShop shop or authenticate its
+original SQL row.
+
 The official 6.3.0.3/6.3.0.4 binary ABI contract explicitly verifies the
 cached getter. The two-JVM official plugin activation test verifies its
 public method exists, but does NOT create a real QuickShop shop or validate
