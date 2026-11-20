@@ -487,6 +487,8 @@ final class ItemIdentityProbe {
             }
             require(Arrays.equals(expected, Files.readAllBytes(backup)), "export readback rewrote backup");
         }
+        verifyPrivateEvidenceReplay(root, owner, java.util.UUID.fromString(ids.get(2)),
+                java.util.UUID.fromString(ids.get(1)), "FUNCTIONAL_METADATA", restart);
         require(Arrays.equals(receiptBytes, Files.readAllBytes(receipts)), "export receipt index changed");
         Bukkit.getLogger().info("IDENTITY_EXPORT_SYNTHETIC_" + (restart ? "RESTART" : "SEED") + "_PASS");
     }
@@ -895,9 +897,10 @@ final class ItemIdentityProbe {
     }
 
     /**
-     * Native two-boot acceptance of the operator's private chest evidence
-     * exporter, using an actual current CARBONADO template and a synthetic
-     * legacy-styled chest copy. No live chest/QuickShop record is modified.
+     * Native two-boot acceptance of the private container export engine, using
+     * a synthetic 54-slot inventory and an actual registered CARBONADO template.
+     * Restart reopens saved receipts; this does not test physical world-chest
+     * persistence or any QuickShop record. No production inventory is used.
      */
     private static void verifyNativeChestEvidence(Path folder, boolean restart) throws Exception {
         SlimefunItem registered = SlimefunItem.getById("CARBONADO");
@@ -926,6 +929,8 @@ final class ItemIdentityProbe {
                                     currentBytes,
                                     readDoctorBackup(directory, owner, templateReceipt).serializeAsBytes()),
                     "native chest evidence private original/template bytes changed after restart");
+            verifyPrivateEvidenceReplay(directory, owner, oldReceipt, templateReceipt,
+                    "STYLE_ONLY_CANDIDATE", true);
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -972,6 +977,8 @@ final class ItemIdentityProbe {
                                 currentBytes,
                                 readDoctorBackup(directory, owner, currentReceipt).serializeAsBytes()),
                 "native chest evidence private receipts failed exact-byte seed readback");
+        verifyPrivateEvidenceReplay(directory, owner, originalReceipt, currentReceipt,
+                "STYLE_ONLY_CANDIDATE", false);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -980,6 +987,74 @@ final class ItemIdentityProbe {
         Files.write(currentFile, currentBytes);
         Files.writeString(receiptFile, owner + ":" + originalReceipt + ":" + currentReceipt);
         Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_SEED_PASS");
+    }
+
+    /** Replays existing synthetic receipts on each JVM; never recaptures or repairs an item. */
+    private static void verifyPrivateEvidenceReplay(
+            Path directory, java.util.UUID owner, java.util.UUID originalReceipt,
+            java.util.UUID referenceReceipt, String expectedDifference, boolean restart) throws Exception {
+        SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "private evidence replay registered CARBONADO unavailable");
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        Path backups = directory.resolve("recovery/identity");
+        Path originalPath = backups.resolve(owner + "-" + originalReceipt + ".bin");
+        Path referencePath = backups.resolve(owner + "-" + referenceReceipt + ".bin");
+        byte[] originalBytes = Files.readAllBytes(originalPath);
+        byte[] referenceBytes = Files.readAllBytes(referencePath);
+
+        Class<?> audit = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackEvidenceAudit");
+        Method inspect = audit.getDeclaredMethod("inspect", Path.class, java.util.UUID.class,
+                java.util.UUID.class, java.util.UUID.class, java.util.function.Function.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver = ignored -> registered.getItem();
+        Object assessment = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, resolver);
+        Method difference = assessment.getClass().getDeclaredMethod("savedDifference");
+        difference.setAccessible(true);
+        require(expectedDifference.equals(difference.invoke(assessment).toString())
+                        && flag(assessment, "savedReferenceStillRegistered")
+                        && !flag(assessment, "historicalMatchesCurrent")
+                        && flag(assessment, "strictStyleOnlyCandidate")
+                                == "STYLE_ONLY_CANDIDATE".equals(expectedDifference),
+                "private evidence replay classification/eligibility drifted: " + expectedDifference);
+
+        ItemStack drifted = ItemStack.deserializeBytes(registeredBytes);
+        drifted.editMeta(meta -> meta.lore(List.of(Component.text("Synthetic changed registration"))));
+        byte[] driftedBytes = drifted.serializeAsBytes();
+        java.util.function.Function<ItemStack, ItemStack> changed = ignored -> drifted;
+        Object afterDrift = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, changed);
+        require(expectedDifference.equals(difference.invoke(afterDrift).toString())
+                        && !flag(afterDrift, "savedReferenceStillRegistered")
+                        && !flag(afterDrift, "historicalMatchesCurrent")
+                        && !flag(afterDrift, "strictStyleOnlyCandidate"),
+                "private evidence replay trusted a changed registered template");
+        java.util.function.Function<ItemStack, ItemStack> missing = ignored -> null;
+        Object afterRemoval = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, missing);
+        require(expectedDifference.equals(difference.invoke(afterRemoval).toString())
+                        && !flag(afterRemoval, "savedReferenceStillRegistered")
+                        && !flag(afterRemoval, "historicalMatchesCurrent")
+                        && !flag(afterRemoval, "strictStyleOnlyCandidate"),
+                "private evidence replay treated missing registration as repair permission");
+
+        boolean refusedOtherOwner = false;
+        try {
+            inspect.invoke(null, directory, java.util.UUID.randomUUID(), originalReceipt, referenceReceipt, resolver);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            require(exception.getCause() instanceof java.io.IOException,
+                    "private evidence wrong-owner refusal had an unexpected cause");
+            refusedOtherOwner = true;
+        }
+        require(refusedOtherOwner, "private evidence replay accepted another operator's receipt");
+        require(Arrays.equals(originalBytes, Files.readAllBytes(originalPath))
+                        && Arrays.equals(referenceBytes, Files.readAllBytes(referencePath))
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes())
+                        && Arrays.equals(driftedBytes, drifted.serializeAsBytes()),
+                "private evidence replay modified original bytes or a registered template");
+        try (var files = Files.list(backups)) {
+            require(files.count() == 2, "private evidence replay created or removed a receipt");
+        }
+        Bukkit.getLogger().info("SFL_PRIVATE_EVIDENCE_REPLAY_" + expectedDifference
+                + (restart ? "_RESTART_PASS" : "_SEED_PASS"));
     }
 
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {

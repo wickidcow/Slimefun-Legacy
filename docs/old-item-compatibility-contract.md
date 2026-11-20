@@ -65,6 +65,14 @@ checks and restart/transaction/quantity-conservation acceptance. The
 live inventory candidate remains strictly presentation-only, opt-in,
 bounded and backed up; the chest/export commands are read-only.
 
+The private container-export fixture uses a synthetic native 54-slot inventory;
+its second boot reopens original item/reference receipt files, not a persisted
+physical world chest. The receipt-audit gate invokes the production verifier on
+both boots, requiring exact unchanged receipts and current registration, refusing
+changed/missing registration and another operator's receipt. It covers style-only
+and typed-functional differences without creating a repair. Physical container
+persistence and QuickShop transactions remain separate acceptance requirements.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.
