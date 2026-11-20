@@ -349,6 +349,21 @@ intentionally conservative and may also refuse a same-chunk double chest
 touching an edge. Single chests and barrels on chunk boundaries are unaffected;
 move neither chest nor shop stock simply to bypass this refusal.
 
+After a chest export, `/sf doctor identity live verify-evidence
+<old-receipt-uuid> <template-receipt-uuid>` reads the two already-saved
+operator-owned exact-native receipts again, including **after a server
+restart**. It reports only redacted differences between the historical
+source and the saved reference, whether the saved reference still matches
+today's registered item, and whether a strict style-only candidate would
+be possible against that unchanged registration. It does not modify the
+receipts, current inventory, original chest, QuickShop, or any live item,
+and cannot read another operator's receipts. A missing addon or changed
+current template is reported as nonmatching, never migrated or assumed
+empty. This is a test aid: a candidate classification is **not approval**
+to enable chest or shop migration. Keep both receipt UUIDs and their
+private original files together in the staging server's Doctor recovery
+folder.
+
 The separate operator command `/sf doctor identity live export-container <slot>`
 captures **one 0-based slot (0–53)** from a loaded physical chest/barrel that
 the operator looks at. The selected item must have a registered Slimefun ID

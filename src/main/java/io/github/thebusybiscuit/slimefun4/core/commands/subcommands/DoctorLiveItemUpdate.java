@@ -56,6 +56,11 @@ final class DoctorLiveItemUpdate {
             send(sender, "&cLive item updates require a server operator in game.");
             return;
         }
+        if (args.length == 6 && args[3].equalsIgnoreCase("verify-evidence")) {
+            PLANS.remove(player.getUniqueId());
+            DoctorHistoricalStackEvidenceAudit.run(plugin, player, args[4], args[5]);
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("inspect-container")) {
             PLANS.remove(player.getUniqueId());
             inspectContainerSlot(player, args[4]);
@@ -149,6 +154,7 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live scan-container &8(read-only, look at chest/barrel)");
         send(sender, "&e/sf doctor identity live inspect-container <slot> &8(read-only, 0-based)");
         send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
+        send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
         send(sender, "&cManual and opt-in. No automatic chest, shop, player-join or machine rewrites.");
