@@ -219,12 +219,29 @@ def main() -> None:
         if args.quickshop_api_only:
             # Restart both plugins and their durable empty-shop database, not
             # only the ABI of a JAR. No player, trade or shop writes occur.
+            matcher_receipts = []
             for boot_number in (1, 2):
                 (proof / "quickshop-api.pass").unlink(missing_ok=True)
+                (proof / "quickshop-matcher-observed.txt").unlink(missing_ok=True)
                 process, log = boot(boot_number)
                 probe(process, boot_number, "quickshop-api")
+                receipt = proof / "quickshop-matcher-observed.txt"
+                if not receipt.is_file():
+                    raise RuntimeError("Real QuickShop matcher did not emit a native observation")
+                observed = receipt.read_text(encoding="utf-8")
+                if not re.fullmatch(
+                        r"work-type=-?[0-9]+;same=true;old-current=(true|false);"
+                        r"different-slimefun-id=(true|false);"
+                        r"different-owner-pdc-type=(true|false)\\n", observed):
+                    raise RuntimeError("Real QuickShop matcher observation is malformed")
+                matcher_receipts.append(observed)
                 stop(process, log)
-            result = ("Native QuickShop-Hikari public API activation PASS\\n"
+            if matcher_receipts[0] != matcher_receipts[1]:
+                raise RuntimeError("Real QuickShop matcher outcome changed across native JVM boots")
+            result = ("Native QuickShop-Hikari public API and matcher activation PASS\\n"
+                      "synthetic matcher observation (NOT repair authorization): "
+                      + matcher_receipts[0]
+                      + "quickshop SHA-256: "
                       "quickshop SHA-256: "
                       + hashlib.sha256((root / "plugins/QuickShop-Hikari.jar").read_bytes()).hexdigest()
                       + "\\ncore SHA-256: " + hashlib.sha256(core.read_bytes()).hexdigest()

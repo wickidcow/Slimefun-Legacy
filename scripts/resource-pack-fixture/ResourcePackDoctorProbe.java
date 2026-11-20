@@ -659,7 +659,74 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         // chest or shop fixture is created here; true trade/DB tests are separate.
         Object shop = managerClass.getMethod("getShop", Location.class).invoke(manager, block.getLocation());
         require(shop == null, "Fresh disposable chest unexpectedly has a persisted QuickShop");
+        verifyRealQuickShopMatcher(apiClass, api, loader, plugin);
         Bukkit.getLogger().info("SFL_REAL_QUICKSHOP_API_ACTIVATION_PASS");
+    }
+
+
+    /**
+     * Observes the real, configured QuickShop matcher on detached, synthetic
+     * Slimefun-like items on a native Paper server. A matcher accepting
+     * mismatched PDC/legacy presentation NEVER authorizes Doctor repair.
+     * The Python runner compares these redacted outcomes across two JVM boots.
+     */
+    private void verifyRealQuickShopMatcher(
+            Class<?> apiClass, Object api, ClassLoader loader, org.bukkit.plugin.Plugin quickShop)
+            throws Exception {
+        Class<?> matcherClass = Class.forName("com.ghostchu.quickshop.api.shop.ItemMatcher", true, loader);
+        Object matcher = apiClass.getMethod("getItemMatcher").invoke(api);
+        require(matcher != null && matcherClass.isInstance(matcher),
+                "Real QuickShop item matcher was not initialized");
+        var compare = matcherClass.getMethod("matches", ItemStack.class, ItemStack.class);
+        var old = new ItemStack(Material.PAPER);
+        var originalMeta = old.getItemMeta();
+        originalMeta.displayName(Component.text("Carbonado")
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        originalMeta.lore(List.of(Component.text("Old paper shop item")));
+        originalMeta.getPersistentDataContainer().set(
+                key("slimefun:slimefun_item"), PersistentDataType.STRING, "CARBONADO");
+        originalMeta.getPersistentDataContainer().set(
+                key("addon:stored_owner"), PersistentDataType.LONG, 72527L);
+        old.setItemMeta(originalMeta);
+        var fresh = old.clone();
+        var freshMeta = fresh.getItemMeta();
+        freshMeta.displayName(Component.text("Carbonado")
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, false));
+        fresh.setItemMeta(freshMeta);
+        var wrongId = old.clone();
+        var wrongMeta = wrongId.getItemMeta();
+        wrongMeta.getPersistentDataContainer().set(
+                key("slimefun:slimefun_item"), PersistentDataType.STRING, "CARBON_CHUNK");
+        wrongId.setItemMeta(wrongMeta);
+        var typedOwner = old.clone();
+        var typedMeta = typedOwner.getItemMeta();
+        typedMeta.getPersistentDataContainer().set(
+                key("addon:stored_owner"), PersistentDataType.INTEGER, 72527);
+        typedOwner.setItemMeta(typedMeta);
+        byte[][] originals = {
+            old.serializeAsBytes(), fresh.serializeAsBytes(),
+            wrongId.serializeAsBytes(), typedOwner.serializeAsBytes()
+        };
+
+        boolean same = (Boolean) compare.invoke(matcher, old.clone(), old.clone());
+        boolean oldFresh = (Boolean) compare.invoke(matcher, old.clone(), fresh.clone());
+        boolean oldWrongId = (Boolean) compare.invoke(matcher, old.clone(), wrongId.clone());
+        boolean oldTypedOwner = (Boolean) compare.invoke(matcher, old.clone(), typedOwner.clone());
+        require(same, "Real QuickShop matcher rejected an identical detached stack");
+        require(Arrays.equals(originals[0], old.serializeAsBytes())
+                        && Arrays.equals(originals[1], fresh.serializeAsBytes())
+                        && Arrays.equals(originals[2], wrongId.serializeAsBytes())
+                        && Arrays.equals(originals[3], typedOwner.serializeAsBytes()),
+                "Real QuickShop matcher mutated a source item");
+        int workType = ((JavaPlugin) quickShop).getConfig().getInt("matcher.work-type", -1);
+        String outcomes = "work-type=" + workType
+                + ";same=" + same
+                + ";old-current=" + oldFresh
+                + ";different-slimefun-id=" + oldWrongId
+                + ";different-owner-pdc-type=" + oldTypedOwner + "\\n";
+        Files.writeString(getDataFolder().toPath().resolve("quickshop-matcher-observed.txt"), outcomes);
+        getLogger().info("SFL_REAL_QUICKSHOP_MATCHER_OBSERVATION_PASS "
+                + outcomes.trim() + ";diagnostic-only=true");
     }
 
     private Chest chest(int x, int z) {

@@ -98,6 +98,21 @@ shop, configured matcher, persisted sale record, real player trade or real
 AlbionMC world evidence. The AlbionMC-installed QuickShop build still needs
 confirmation.
 
+
+The separate disposable native QuickShop-Hikari 6.3.0.4 two-boot
+activation now calls the **real configured QuickShop `ItemMatcher` API**,
+not only an approximate `ItemStack.isSimilar` model. It evaluates
+detached synthetic historical/current component variants, same-material
+different Slimefun PDC IDs, and different typed owner PDC values; it
+verifies source native bytes unchanged and requires the redacted matcher
+verdicts and `matcher.work-type` to remain identical across both JVM boots.
+The binary API gate also verifies `getItemMatcher()` and
+`ItemMatcher.matches(ItemStack, ItemStack)` on official 6.3.0.3 and 6.3.0.4
+releases. Any YES for different item IDs or functional owner metadata is
+**evidence about the configured matcher, not permission for Doctor to
+merge or rewrite data**. The actual AlbionMC shop, saved SQL row and active
+matcher configuration remain untested in this synthetic fixture.
+
 The production QuickShop read-only three-source **classifier** is now also
 exercised on both native boots against that chest's actual persisted old,
 current and typed-owner stock. The fixture models the default QuickShop

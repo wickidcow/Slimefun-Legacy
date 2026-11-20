@@ -19,6 +19,10 @@ CONTRACT = {
     "com.ghostchu.quickshop.api.QuickShopAPI": (
         ("getInstance", "()Lcom/ghostchu/quickshop/api/QuickShopAPI;"),
         ("getShopManager", "()Lcom/ghostchu/quickshop/api/shop/ShopManager;"),
+        ("getItemMatcher", "()Lcom/ghostchu/quickshop/api/shop/ItemMatcher;"),
+    ),
+    "com.ghostchu.quickshop.api.shop.ItemMatcher": (
+        ("matches", "(Lorg/bukkit/inventory/ItemStack;Lorg/bukkit/inventory/ItemStack;)Z"),
     ),
     "com.ghostchu.quickshop.api.shop.ShopManager": (
         ("getShop", "(Lorg/bukkit/Location;)Lcom/ghostchu/quickshop/api/shop/Shop;"),
