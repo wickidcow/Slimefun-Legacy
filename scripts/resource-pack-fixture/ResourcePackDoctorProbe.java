@@ -632,7 +632,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
      * actual plugin/service lookup on a disposable native Paper server, not
      * an item trade, configured shop matcher or persisted sale-record test.
      */
-    private static void verifyQuickShopPublicRuntime() throws Exception {
+    private void verifyQuickShopPublicRuntime() throws Exception {
         var plugin = Bukkit.getPluginManager().getPlugin("QuickShop-Hikari");
         require(plugin != null && plugin.isEnabled(), "Official QuickShop-Hikari did not enable");
         var loader = plugin.getClass().getClassLoader();
