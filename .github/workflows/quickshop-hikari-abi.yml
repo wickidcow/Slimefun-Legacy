@@ -50,3 +50,57 @@ jobs:
           python3 scripts/verify_quickshop_hikari_api.py \
             --jar "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.4.jar"
           echo 'Official QuickShop-Hikari 6.3.0.4 ABI verified; this does not test a live shop.' >> "$GITHUB_STEP_SUMMARY"
+
+  native-paper-quickshop-api:
+    name: Disposable two-boot real QuickShop-Hikari API activation
+    needs: verify-pinned-hikari-public-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build exact child-PR Slimefun JAR
+        run: |
+          set -euo pipefail
+          ./gradlew shadowJar --no-daemon
+          mkdir -p candidate
+          cp "$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)" candidate/Slimefun-Legacy-doctor.jar
+      - name: Download pinned Paper 26.2 and upstream QuickShop-Hikari JARs
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            https://fill-data.papermc.io/v1/objects/b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083/paper-26.2-129.jar \
+            candidate/server.jar
+          printf '%s  candidate/server.jar\n' \
+            b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083 | sha256sum --check --strict
+          runtime_download \
+            https://github.com/QuickShop-Community/QuickShop-Hikari/releases/download/6.3.0.4/QuickShop-Hikari-6.3.0.4.jar \
+            candidate/QuickShop-Hikari-6.3.0.4.jar
+          printf '%s  candidate/QuickShop-Hikari-6.3.0.4.jar\n' \
+            ce1e36d4bd6081b1258a9943ed28416b3e26c3bf0bbca6ec69cf0a397e320b5d | sha256sum --check --strict
+      - name: Start real QuickShop and Slimefun twice, inspect public service
+        run: |
+          set -euo pipefail
+          python3 scripts/resource_pack_doctor_probe.py \
+            --server-jar candidate/server.jar \
+            --core candidate/Slimefun-Legacy-doctor.jar \
+            --quickshop-jar candidate/QuickShop-Hikari-6.3.0.4.jar \
+            --quickshop-api-only \
+            --java-home "$JAVA_HOME" \
+            --work-dir "$RUNNER_TEMP/quickshop-disposable-native"
+      - name: Preserve evidence from native service boot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-quickshop-hikari-6.3.0.4
+          path: |
+            ${{ runner.temp }}/quickshop-disposable-native/*.log
+            ${{ runner.temp }}/quickshop-disposable-native/PASS.txt
+            ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/*.pass
+          if-no-files-found: warn

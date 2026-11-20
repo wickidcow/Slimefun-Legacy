@@ -88,9 +88,13 @@ checks the exact plugin.yml identity and uses `javap` to verify every public
 API method signature and inherited interface used by the optional reflective
 Doctor inspector. This catches upstream source-vs-distribution API drift
 without adding a hard QuickShop dependency or trusting an unverified JAR.
-It is strictly a **binary public-ABI gate**, NOT plugin enablement,
-QuickShop database/sale-record, item matcher configuration or live
-transaction validation. The AlbionMC-installed QuickShop build still needs
+The ABI workflow also stages that exact signed-and-hashed QuickShop JAR
+with the current Slimefun candidate on a **new disposable Paper 26.2
+server**, verifies its live Bukkit public service/API on **two JVM boots**,
+and refuses an unexpected pre-existing shop at a test chest location. This
+is actual plugin enablement and runtime service activation, not a created
+shop, configured matcher, persisted sale record, real player trade or real
+AlbionMC world evidence. The AlbionMC-installed QuickShop build still needs
 confirmation.
 
 The production QuickShop read-only three-source **classifier** is now also

@@ -71,6 +71,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
             try {
                 Files.createDirectories(getDataFolder().toPath());
                 switch (args[0]) {
+                    case "quickshop-api" -> verifyQuickShopPublicRuntime();
                     case "identity" -> {
                         CraftingRestrictionProbe.verify();
                         ItemIdentityProbe.verify(getDataFolder().toPath(), false);
@@ -623,6 +624,41 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 "setData", RecordKey.class, RecordSet.class);
         method.setAccessible(true);
         method.invoke(controller, key, row);
+    }
+
+
+    /**
+     * Optional real QuickShop-Hikari runtime activation test. This is an
+     * actual plugin/service lookup on a disposable native Paper server, not
+     * an item trade, configured shop matcher or persisted sale-record test.
+     */
+    private static void verifyQuickShopPublicRuntime() throws Exception {
+        var plugin = Bukkit.getPluginManager().getPlugin("QuickShop-Hikari");
+        require(plugin != null && plugin.isEnabled(), "Official QuickShop-Hikari did not enable");
+        var loader = plugin.getClass().getClassLoader();
+        Class<?> apiClass = Class.forName("com.ghostchu.quickshop.api.QuickShopAPI", true, loader);
+        Class<?> managerClass = Class.forName("com.ghostchu.quickshop.api.shop.ShopManager", true, loader);
+        Class<?> shopClass = Class.forName("com.ghostchu.quickshop.api.shop.Shop", true, loader);
+        Class<?> userClass = Class.forName("com.ghostchu.quickshop.api.obj.QUser", true, loader);
+        Object api = apiClass.getMethod("getInstance").invoke(null);
+        require(api != null, "QuickShop public service was not registered");
+        Object manager = apiClass.getMethod("getShopManager").invoke(api);
+        require(manager != null && managerClass.isInstance(manager), "QuickShop manager was not initialized");
+        for (String method : List.of("getItem", "getPrice", "getOwner", "bukkitLocation")) {
+            require(Arrays.stream(shopClass.getMethods()).anyMatch(candidate -> candidate.getName().equals(method)),
+                    "QuickShop shop public inherited method missing: " + method);
+        }
+        require(shopClass.getMethod("matches", ItemStack.class).getReturnType() == boolean.class,
+                "QuickShop matcher method is not public boolean");
+        require(userClass.getMethod("serialize").getReturnType() == String.class,
+                "QuickShop owner serializer method missing");
+        var world = Bukkit.getWorlds().getFirst();
+        var block = world.getBlockAt(3, 180, 3);
+        require(block.getType().isAir(), "QuickShop API smoke test world block already occupied");
+        block.setType(Material.CHEST);
+        Object shop = managerClass.getMethod("getShop", Location.class).invoke(manager, block.getLocation());
+        require(shop == null, "Fresh disposable chest unexpectedly has a persisted QuickShop");
+        Bukkit.getLogger().info("SFL_REAL_QUICKSHOP_API_ACTIVATION_PASS");
     }
 
     private Chest chest(int x, int z) {

@@ -66,11 +66,19 @@ def main() -> None:
     parser.add_argument("--protocol-module", type=Path,
                         help="Pinned Minecraft 26.2 client module; enables real connected-player checks")
     parser.add_argument("--verify-paxel-player", action="store_true")
+    parser.add_argument("--quickshop-jar", type=Path,
+                        help="Verified official QuickShop-Hikari binary in disposable server")
+    parser.add_argument("--quickshop-api-only", action="store_true",
+                        help="Two-boot read-only real QuickShop-Hikari public API activation check")
     args = parser.parse_args()
     if args.verify_paxel_player and not args.protocol_module:
         parser.error("--verify-paxel-player requires --protocol-module")
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
+    if args.quickshop_api_only and not args.quickshop_jar:
+        parser.error("--quickshop-api-only requires --quickshop-jar")
+    if args.quickshop_api_only and (args.protocol_module or args.verify_paxel_player):
+        parser.error("--quickshop-api-only cannot run with player producer fixtures")
     runtime_java = (args.runtime_java_home or args.java_home).resolve() / "bin/java"
     root = args.work_dir.resolve()
     root.mkdir(parents=True, exist_ok=False)  # Never replace an existing world.
@@ -103,6 +111,8 @@ def main() -> None:
         (root / "plugins/Slimefun/configSFLAddons.yml").write_text("enabled: true\n", encoding="utf-8")
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
+    if args.quickshop_jar:
+        shutil.copy2(args.quickshop_jar.resolve(), root / "plugins/QuickShop-Hikari.jar")
     port = 0
     if args.protocol_module:
         with socket.socket() as reservation:
@@ -206,6 +216,23 @@ def main() -> None:
                 raise RuntimeError("Native probe reported a task/ownership failure; inspect " + log.name)
 
     try:
+        if args.quickshop_api_only:
+            # Restart both plugins and their durable empty-shop database, not
+            # only the ABI of a JAR. No player, trade or shop writes occur.
+            for boot_number in (1, 2):
+                (proof / "quickshop-api.pass").unlink(missing_ok=True)
+                process, log = boot(boot_number)
+                probe(process, boot_number, "quickshop-api")
+                stop(process, log)
+            result = ("Native QuickShop-Hikari public API activation PASS\\n"
+                      "quickshop SHA-256: "
+                      + hashlib.sha256((root / "plugins/QuickShop-Hikari.jar").read_bytes()).hexdigest()
+                      + "\\ncore SHA-256: " + hashlib.sha256(core.read_bytes()).hexdigest()
+                      + "\\nserver SHA-256: " + hashlib.sha256((root / "server.jar").read_bytes()).hexdigest()
+                      + "\\n")
+            (root / "PASS.txt").write_text(result, encoding="utf-8")
+            print(result, flush=True)
+            return
         process, log = boot(1)
         probe(process, 1, "identity")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
