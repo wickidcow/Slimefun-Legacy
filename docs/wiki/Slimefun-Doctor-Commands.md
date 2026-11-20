@@ -319,6 +319,22 @@ batch**. On a full-backup staging server:
 /sf doctor identity live cancel
 ```
 
+The companion operator command `/sf doctor identity live export-shop <slot>`
+uses the **same loaded single QuickShop chest and the same nonmutating
+Hikari public API** to capture private, byte-verified, owner-scoped native
+receipts for the actual in-memory sale-item reference and current registered
+Slimefun template, plus the selected physical stock item and its reference
+when nonempty. An unlimited AdminShop with empty chest stock still provides
+its sale/template pair; no item is assumed to have been sold from a chest.
+The report prints only the private receipt UUIDs, no item PDC, private names
+or owner/price. It independently rechecks the sale item, chest slot, owner,
+price and registered template *after* disk I/O; racing items cause refusal
+while existing original evidence files remain recoverable. The command
+does not write shops, databases, chests or inventories, and does not read
+or certify QuickShop's durable SQL row or perform a transaction. Original
+`.bin` receipts can contain private owner/PDC and must stay off public
+issues; use a full-backup staging clone. Evidence is not repair authorization.
+
 A further read-only operator command, `/sf doctor identity live inspect-shop
 <slot>`, looks at **a loaded, single physical chest** within six blocks and
 compares its **runtime QuickShop-Hikari sale-item reference**, the selected

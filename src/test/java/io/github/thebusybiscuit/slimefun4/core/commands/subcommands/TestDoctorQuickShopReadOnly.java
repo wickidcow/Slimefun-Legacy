@@ -161,6 +161,63 @@ class TestDoctorQuickShopReadOnly {
     }
 
     @Test
+    void exportsRealSaleAndStockEvidenceWithoutChangingSourceOrTypedData() throws Exception {
+        ItemStack fresh = current("CARBONADO");
+        ItemStack sale = historical(fresh, 1);
+        ItemStack stock = historical(fresh, 63);
+        byte[] freshBytes = fresh.serializeAsBytes();
+        byte[] saleBytes = sale.serializeAsBytes();
+        byte[] stockBytes = stock.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var receipts = DoctorQuickShopReadOnly.captureEvidence(data, operator, sale, stock, fresh);
+        assertEquals(4L, countPrivateReceipts());
+        assertArrayEquals(saleBytes, saved(operator, receipts.sale()));
+        assertArrayEquals(freshBytes, saved(operator, receipts.current()));
+        assertArrayEquals(stockBytes, saved(operator, receipts.stock()));
+        assertArrayEquals(freshBytes, saved(operator, receipts.stockReference()));
+        assertArrayEquals(saleBytes, sale.serializeAsBytes());
+        assertArrayEquals(stockBytes, stock.serializeAsBytes());
+        assertArrayEquals(freshBytes, fresh.serializeAsBytes());
+        assertEquals(63, stock.getAmount());
+        assertEquals(75123L, stock.getItemMeta().getPersistentDataContainer()
+                .get(new NamespacedKey("addon", "stored_owner"), PersistentDataType.LONG));
+    }
+
+    @Test
+    void unlimitedShopWithoutPhysicalStockExportsSaleAndCurrentOnly() throws Exception {
+        ItemStack fresh = current("CARBONADO");
+        ItemStack sale = historical(fresh, 1);
+        byte[] saleBytes = sale.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var receipts = DoctorQuickShopReadOnly.captureEvidence(data, operator, sale, null, fresh);
+        assertEquals(2L, countPrivateReceipts());
+        assertArrayEquals(saleBytes, saved(operator, receipts.sale()));
+        assertArrayEquals(fresh.serializeAsBytes(), saved(operator, receipts.current()));
+        assertNull(receipts.stock());
+        assertNull(receipts.stockReference());
+        assertArrayEquals(saleBytes, sale.serializeAsBytes());
+    }
+
+    @Test
+    void differentSlimefunIdCannotCreateShopEvidenceReceipts() throws Exception {
+        ItemStack fresh = current("CARBONADO");
+        ItemStack different = current("CARBON_CHUNK");
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.captureEvidence(
+                data, UUID.randomUUID(), fresh, different, fresh));
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    private long countPrivateReceipts() throws IOException {
+        try (var stream = Files.list(data.resolve("recovery/identity"))) {
+            return stream.count();
+        }
+    }
+
+    private byte[] saved(UUID owner, UUID receipt) throws IOException {
+        return DoctorHistoricalStackRepair.readVerifiedBackup(data, owner, receipt).serializeAsBytes();
+    }
+
+    @Test
     void refusesMatcherThatChangesOnlyItsDetachedTestCandidate() {
         ItemStack template = current("CARBONADO");
         ItemStack old = historical(template, 34);

@@ -61,6 +61,11 @@ final class DoctorLiveItemUpdate {
             DoctorHistoricalStackEvidenceAudit.run(plugin, player, args[4], args[5]);
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("export-shop")) {
+            PLANS.remove(player.getUniqueId());
+            DoctorQuickShopReadOnly.export(plugin, player, args[4]);
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("inspect-shop")) {
             PLANS.remove(player.getUniqueId());
             DoctorQuickShopReadOnly.run(player, args[4]);
@@ -159,6 +164,7 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live scan-container &8(read-only, look at chest/barrel)");
         send(sender, "&e/sf doctor identity live inspect-container <slot> &8(read-only, 0-based)");
         send(sender, "&e/sf doctor identity live inspect-shop <slot> &8(read-only, QuickShop single chest)");
+        send(sender, "&e/sf doctor identity live export-shop <slot> &8(private evidence, single chest)");
         send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");

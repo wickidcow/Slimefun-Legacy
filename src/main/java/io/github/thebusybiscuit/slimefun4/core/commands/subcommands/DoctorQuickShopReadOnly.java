@@ -4,8 +4,10 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -37,6 +39,14 @@ final class DoctorQuickShopReadOnly {
     private DoctorQuickShopReadOnly() {}
 
     static void run(Player player, String slotText) {
+        run(player, slotText, null);
+    }
+
+    static void export(Slimefun plugin, Player player, String slotText) {
+        run(player, slotText, plugin.getDataFolder().toPath());
+    }
+
+    private static void run(Player player, String slotText, Path privateEvidenceFolder) {
         if (!player.isOp()) {
             send(player, "&cQuickShop inspection requires an operator.");
             return;
@@ -69,7 +79,8 @@ final class DoctorQuickShopReadOnly {
                             || data.getType() != org.bukkit.block.data.type.Chest.Type.SINGLE) {
                         message = "&cOnly loaded, single physical chests are supported. No shop data changed.";
                     } else {
-                        message = inspectShop(location, chest, slot);
+                        message = inspectShop(
+                                location, chest, slot, privateEvidenceFolder, player.getUniqueId());
                     }
                 }
             } catch (IOException | ReflectiveOperationException | LinkageError | RuntimeException exception) {
@@ -89,7 +100,8 @@ final class DoctorQuickShopReadOnly {
      * saveToInfoStorage, setItem, update, trade or inventory wrapper mutation.
      * The supplied location is the owning physical chest's block location.
      */
-    private static String inspectShop(Location location, Chest chest, int slot)
+    private static String inspectShop(
+            Location location, Chest chest, int slot, Path privateEvidenceFolder, UUID operator)
             throws IOException, ReflectiveOperationException {
         // Resolve the actual Hikari core by its upstream plugin.yml name,
         // never an unrelated QuickShop companion/addon with a similar name.
@@ -155,6 +167,12 @@ final class DoctorQuickShopReadOnly {
                 throw new IllegalStateException("QuickShop matcher unavailable", exception);
             }
         });
+        // Save only original native evidence receipts. No shop setter/update
+        // or stock inventory write is permitted. An unlimited AdminShop may
+        // have no physical stock in the selected slot.
+        ShopEvidence receipts = privateEvidenceFolder == null
+                ? null
+                : captureEvidence(privateEvidenceFolder, operator, saleItem, stock, current);
         // The matcher is third-party code; reject any concurrent shop, stock
         // or registered-template change, including quantity and private fields.
         ItemStack stockAfter = inventory.getItem(slot);
@@ -167,7 +185,7 @@ final class DoctorQuickShopReadOnly {
                         != Double.doubleToLongBits(((Number) priceGetter.invoke(shop)).doubleValue())) {
             throw new IOException("QuickShop or chest changed while inspecting");
         }
-        return "&6QuickShop stock slot &e" + slot + " &8| &7Saved sale-item vs current: &e"
+        String report = "&6QuickShop stock slot &e" + slot + " &8| &7Saved sale-item vs current: &e"
                 + comparison.saleDifference() + " &8| &7Chest stock vs current: &e"
                 + (comparison.stockPresent() ? comparison.stockDifference() : "EMPTY")
                 + " &8| &7Sale item vs stock (native): &e"
@@ -176,7 +194,58 @@ final class DoctorQuickShopReadOnly {
                 + " &8| &7QuickShop matches stock: &e"
                 + (comparison.stockPresent() ? yesNo(comparison.matcherAcceptsStock()) : "NO_STOCK")
                 + " &8| &cREAD-ONLY; no shop or stock changed, no repair authorized.";
+        if (receipts != null) {
+            report += " &8| &aPRIVATE evidence: &7sale &e" + receipts.sale()
+                    + " &7current &e" + receipts.current()
+                    + (receipts.stock() == null
+                            ? " &7stock EMPTY"
+                            : " &7stock &e" + receipts.stock()
+                                    + " &7stock-reference &e" + receipts.stockReference());
+            report += " &8| &cFiles contain private item data. Keep receipt UUIDs with a staging backup.";
+        }
+        return report;
     }
+
+    /**
+     * Export the exact historical QuickShop sale template and, when present,
+     * selected physical stock independently against the current registration.
+     * Only the private operator-owned Doctor recovery files may be created;
+     * a shop/DB/stock/price/owner is NEVER written.
+     */
+    static ShopEvidence captureEvidence(
+            Path privateFolder, UUID owner, ItemStack sale, ItemStack stock, ItemStack reference)
+            throws IOException {
+        if (privateFolder == null || owner == null) {
+            throw new IOException("Missing operator-scoped private recovery destination");
+        }
+        byte[] saleBytes = nativeBytes(sale);
+        byte[] referenceBytes = nativeBytes(reference);
+        byte[] stockBytes = stock == null || stock.getType().isAir() ? null : nativeBytes(stock);
+        ItemStack saleNative = ItemStack.deserializeBytes(saleBytes);
+        ItemStack referenceNative = ItemStack.deserializeBytes(referenceBytes);
+        ItemStack stockNative = stockBytes == null ? null : ItemStack.deserializeBytes(stockBytes);
+        if (!sameIdentity(saleNative, referenceNative)
+                || stockNative != null && !sameIdentity(stockNative, referenceNative)) {
+            throw new IOException("Private shop evidence must have one exact registered Slimefun identity");
+        }
+
+        var savedSale = DoctorIdentityEvidenceExport.capture(privateFolder, owner, sale, reference);
+        DoctorIdentityEvidenceExport.Evidence savedStock = stockNative == null
+                ? null
+                : DoctorIdentityEvidenceExport.capture(privateFolder, owner, stock, reference);
+        if (!Arrays.equals(saleBytes, sale.serializeAsBytes())
+                || !Arrays.equals(referenceBytes, reference.serializeAsBytes())
+                || stockBytes != null && !Arrays.equals(stockBytes, stock.serializeAsBytes())) {
+            throw new IOException("Shop evidence changed during private capture; do not trust these receipts");
+        }
+        return new ShopEvidence(
+                savedSale.mainReceipt(),
+                savedSale.offhandReceipt(),
+                savedStock == null ? null : savedStock.mainReceipt(),
+                savedStock == null ? null : savedStock.offhandReceipt());
+    }
+
+    record ShopEvidence(UUID sale, UUID current, UUID stock, UUID stockReference) {}
 
     /**
      * Tests three independently captured native items, with a provided matcher
