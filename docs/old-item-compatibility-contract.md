@@ -82,6 +82,17 @@ owner metadata, registered-template immutability and saved private receipt
 replay. The test uses the owning region scheduler on Folia. This validates
 disposable native chest persistence, **not real old AlbionMC saved-world item
 provenance**, QuickShop database snapshots, sale price, shop owner, or trades.
+The separate `QuickShop-Hikari Public API Contract` GitHub Action pins
+the official QuickShop-Hikari 6.3.0.4 JAR by the upstream published SHA-256,
+checks the exact plugin.yml identity and uses `javap` to verify every public
+API method signature and inherited interface used by the optional reflective
+Doctor inspector. This catches upstream source-vs-distribution API drift
+without adding a hard QuickShop dependency or trusting an unverified JAR.
+It is strictly a **binary public-ABI gate**, NOT plugin enablement,
+QuickShop database/sale-record, item matcher configuration or live
+transaction validation. The AlbionMC-installed QuickShop build still needs
+confirmation.
+
 The production QuickShop read-only three-source **classifier** is now also
 exercised on both native boots against that chest's actual persisted old,
 current and typed-owner stock. The fixture models the default QuickShop
