@@ -655,7 +655,8 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         var world = Bukkit.getWorlds().getFirst();
         var block = world.getBlockAt(3, 180, 3);
         require(block.getType().isAir(), "QuickShop API smoke test world block already occupied");
-        block.setType(Material.CHEST);
+        // Keep this activation probe strictly read-only on both boots. No
+        // chest or shop fixture is created here; true trade/DB tests are separate.
         Object shop = managerClass.getMethod("getShop", Location.class).invoke(manager, block.getLocation());
         require(shop == null, "Fresh disposable chest unexpectedly has a persisted QuickShop");
         Bukkit.getLogger().info("SFL_REAL_QUICKSHOP_API_ACTIVATION_PASS");
