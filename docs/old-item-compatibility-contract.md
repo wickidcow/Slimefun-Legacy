@@ -82,7 +82,17 @@ owner metadata, registered-template immutability and saved private receipt
 replay. The test uses the owning region scheduler on Folia. This validates
 disposable native chest persistence, **not real old AlbionMC saved-world item
 provenance**, QuickShop database snapshots, sale price, shop owner, or trades.
-Real historical and QuickShop acceptance remain required.
+The production QuickShop read-only three-source **classifier** is now also
+exercised on both native boots against that chest's actual persisted old,
+current and typed-owner stock. The fixture models the default QuickShop
+`ItemStack.isSimilar` matcher on detached Paper/Folia native stacks,
+asserting stale shop-reference/old-stock vs stale-reference/current-stock,
+typed-owner refusal, different Slimefun IDs sharing a material and a matcher
+that mutates its input. It verifies source bytes unchanged on both boots.
+This is **not a real QuickShop-Hikari plugin/database/shop transaction test**:
+no QuickShop JAR or saved shop record is loaded by the synthetic model, and the
+server's active matcher mode remains unknown. Real historical and QuickShop
+acceptance remain required.
 
 ## Reader-envelope regression
 

@@ -1042,6 +1042,9 @@ final class ItemIdentityProbe {
                     java.util.UUID.fromString(receiptLines.get(1)),
                     java.util.UUID.fromString(receiptLines.get(2)),
                     "STYLE_ONLY_CANDIDATE", true);
+            verifySyntheticShopMatcherReplay(
+                    oldBytes, currentBytes, typedBytes, contents.getItem(26), contents.getItem(25),
+                    contents.getItem(24), true);
             require(Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
                     "physical chest restart altered registered template");
             Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_RESTART_PASS");
@@ -1084,12 +1087,97 @@ final class ItemIdentityProbe {
         var referenceReceipt = (java.util.UUID) second.invoke(receiptPair);
         verifyPrivateEvidenceReplay(fixture, owner, originalReceipt, referenceReceipt,
                 "STYLE_ONLY_CANDIDATE", false);
+        verifySyntheticShopMatcherReplay(
+                oldBytes, currentBytes, typedBytes, contents.getItem(26), contents.getItem(25),
+                contents.getItem(24), false);
         require(Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
                         && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes())
                         && Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
                 "physical chest evidence capture changed stock, typed owner or registered template");
         Files.write(receiptsFile, List.of(owner.toString(), originalReceipt.toString(), referenceReceipt.toString()));
         Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_SEED_PASS");
+    }
+
+    /**
+     * Tests the production QuickShop triage classifier with native Paper/Folia
+     * ItemStack.isSimilar semantics on both JVM boots using physical chest stock.
+     * The predicate only models QuickShop's default similarity matcher: NO
+     * QuickShop-Hikari binary/API or persisted shop record is loaded by this test.
+     */
+    private static void verifySyntheticShopMatcherReplay(
+            byte[] oldBytes, byte[] currentBytes, byte[] typedBytes,
+            ItemStack oldStock, ItemStack currentStock, ItemStack typedStock, boolean restart)
+            throws Exception {
+        Class<?> inspector = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorQuickShopReadOnly");
+        Method compare = inspector.getDeclaredMethod(
+                "compare", ItemStack.class, ItemStack.class, ItemStack.class, java.util.function.Predicate.class);
+        compare.setAccessible(true);
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        java.util.function.Predicate<ItemStack> matcher = old::isSimilar;
+
+        Object oldAndOld = compare.invoke(null, old, oldStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOld, "saleDifference"))
+                        && "STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOld, "stockDifference"))
+                        && flag(oldAndOld, "saleMatchesStock")
+                        && !flag(oldAndOld, "matcherAcceptsFresh")
+                        && flag(oldAndOld, "matcherAcceptsStock"),
+                "native QuickShop model failed historical sale/reference/stock classification");
+
+        Object oldAndFresh = compare.invoke(null, old, currentStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndFresh, "saleDifference"))
+                        && "CURRENT".equals(shopDifference(oldAndFresh, "stockDifference"))
+                        && !flag(oldAndFresh, "saleMatchesStock")
+                        && !flag(oldAndFresh, "matcherAcceptsFresh")
+                        && !flag(oldAndFresh, "matcherAcceptsStock"),
+                "native QuickShop model treated fresh stock as historical shop reference");
+
+        Object oldAndOwned = compare.invoke(null, old, typedStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOwned, "saleDifference"))
+                        && "FUNCTIONAL_METADATA".equals(shopDifference(oldAndOwned, "stockDifference"))
+                        && !flag(oldAndOwned, "saleMatchesStock")
+                        && !flag(oldAndOwned, "matcherAcceptsStock"),
+                "native QuickShop model ignored a typed owner PDC difference");
+
+        ItemStack wrongId = ItemStack.deserializeBytes(oldBytes);
+        wrongId.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("slimefun", "slimefun_item"),
+                PersistentDataType.STRING, "CARBON_CHUNK"));
+        require(wrongId.getType() == old.getType(), "native wrong-ID negative control changed material");
+        boolean refusedWrongId = false;
+        try {
+            compare.invoke(null, old, wrongId, current, matcher);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            refusedWrongId = exception.getCause() instanceof java.io.IOException;
+        }
+        require(refusedWrongId, "native QuickShop model accepted a different Slimefun ID");
+
+        boolean refusedMatcherMutation = false;
+        java.util.function.Predicate<ItemStack> mutating = candidate -> {
+            candidate.setAmount(candidate.getAmount() + 1);
+            return true;
+        };
+        try {
+            compare.invoke(null, old, oldStock, current, mutating);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            refusedMatcherMutation = exception.getCause() instanceof java.io.IOException;
+        }
+        require(refusedMatcherMutation, "native QuickShop model trusted a mutating external matcher");
+
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(currentBytes, current.serializeAsBytes())
+                        && Arrays.equals(oldBytes, oldStock.serializeAsBytes())
+                        && Arrays.equals(currentBytes, currentStock.serializeAsBytes())
+                        && Arrays.equals(typedBytes, typedStock.serializeAsBytes()),
+                "native QuickShop diagnostic mutated historical stock or reference");
+        Bukkit.getLogger().info("SFL_QUICKSHOP_MATCHER_MODEL_" + (restart ? "RESTART" : "SEED") + "_PASS");
+    }
+
+    private static String shopDifference(Object comparison, String accessor) throws Exception {
+        Method method = comparison.getClass().getDeclaredMethod(accessor);
+        method.setAccessible(true);
+        return method.invoke(comparison).toString();
     }
 
     /** Replays existing synthetic receipts on each JVM; never recaptures or repairs an item. */
