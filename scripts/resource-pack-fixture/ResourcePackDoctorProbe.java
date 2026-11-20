@@ -718,7 +718,11 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                         && Arrays.equals(originals[2], wrongId.serializeAsBytes())
                         && Arrays.equals(originals[3], typedOwner.serializeAsBytes()),
                 "Real QuickShop matcher mutated a source item");
-        int workType = ((JavaPlugin) quickShop).getConfig().getInt("matcher.work-type", -1);
+        // Hikari can expose the active matcher while Bukkit JavaPlugin.getConfig()
+        // is null on a first fresh disposable boot. The matcher verdicts are the
+        // authoritative observation; an unavailable config is recorded UNKNOWN.
+        var bukkitConfig = ((JavaPlugin) quickShop).getConfig();
+        int workType = bukkitConfig == null ? -1 : bukkitConfig.getInt("matcher.work-type", -1);
         String outcomes = "work-type=" + workType
                 + ";same=" + same
                 + ";old-current=" + oldFresh

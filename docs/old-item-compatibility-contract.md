@@ -108,6 +108,14 @@ detached synthetic historical/current component variants, same-material
 different Slimefun PDC IDs, and different typed owner PDC values; it
 verifies source native bytes unchanged and requires the redacted matcher
 verdicts and `matcher.work-type` to remain identical across both JVM boots.
+The native test treats JavaPlugin.getConfig() returning null as an
+unavailable optional configuration observation (work-type `-1`), **not**
+as a failed matcher or license to assume QuickShop's default settings.
+It still requires real matcher reflexivity, exact original native bytes,
+and identical verdicts on both independent boots. This avoids a
+fresh-bootstrap NPE observed on both Paper 26.2 and 26.3 without relaxing
+item identity or source-validation gates.
+
 The binary API gate also verifies `getItemMatcher()` and
 `ItemMatcher.matches(ItemStack, ItemStack)` on official 6.3.0.3 and 6.3.0.4
 releases. Any YES for different item IDs or functional owner metadata is
