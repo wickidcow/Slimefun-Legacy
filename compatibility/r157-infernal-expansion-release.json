@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "bundle_revision": 157,
+  "repository": "wickidcow/SF_InfernalExpansion",
+  "tag": "v1.1.0",
+  "source_commit": "06e32ea6d551c9961a50c993602d4e84cf8edcbe",
+  "asset": "SF_InfernalExpansion1.1.0.jar",
+  "bytes": 42236,
+  "sha256": "02f3f315e6b8cce4bd7411876faac8150b9c2c0524a9669df4b0296f8ab619a2",
+  "plugin_name": "InfernalExpansion",
+  "plugin_version": "1.1.0",
+  "api_version": "1.21.11",
+  "java_class_major": 65
+}

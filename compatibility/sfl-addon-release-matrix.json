@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 156,
+  "bundle_revision": 157,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -168,6 +168,11 @@
       "repository": "wickidcow/SF_IDreamOfEasy",
       "slug": "idreamofeasy",
       "source_commit": "91090c398ece30dbf90ddde6124a7f1faf0f05bb"
+    },
+    {
+      "repository": "wickidcow/SF_InfernalExpansion",
+      "slug": "infernalexpansion",
+      "source_commit": "06e32ea6d551c9961a50c993602d4e84cf8edcbe"
     },
     {
       "repository": "wickidcow/SF_InfinityExpansion2",
