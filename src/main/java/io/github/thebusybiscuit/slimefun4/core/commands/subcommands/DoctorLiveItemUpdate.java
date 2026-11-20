@@ -207,7 +207,6 @@ final class DoctorLiveItemUpdate {
         });
     }
 
-
     /**
      * Inspect one explicitly selected physical container slot on its owning
      * region. No private name/lore/PDC values are printed and no repair plan
@@ -240,8 +239,8 @@ final class DoctorLiveItemUpdate {
                     if (!(state instanceof Container container)) {
                         message = "&cTarget is not a physical inventory container.";
                     } else {
-                        SlotStatus status =
-                                classifyStoredSlot(container.getInventory(), slot, DoctorLiveItemUpdate::registeredTemplate);
+                        SlotStatus status = classifyStoredSlot(
+                                container.getInventory(), slot, DoctorLiveItemUpdate::registeredTemplate);
                         message = "&6Historical chest slot &e" + slot + " &8| &7Read-only classification: &e"
                                 + status + " &8| &7No data changed. No repair authorized.";
                     }
@@ -283,6 +282,18 @@ final class DoctorLiveItemUpdate {
             }
             byte[] templateBytes = template.serializeAsBytes();
             if (originalBytes.length > MAX_STACK_BYTES || templateBytes.length > MAX_STACK_BYTES) {
+                return SlotStatus.UNSAFE;
+            }
+            // Unsupported native serialization must be UNKNOWN/UNSAFE rather than
+            // falsely diagnosed as a real difference in functional item metadata.
+            ItemStack storedNative = ItemStack.deserializeBytes(originalBytes);
+            ItemStack templateNative = ItemStack.deserializeBytes(templateBytes);
+            if (storedNative.getType() != stored.getType()
+                    || templateNative.getType() != template.getType()
+                    || storedNative.getAmount() != stored.getAmount()
+                    || templateNative.getAmount() != template.getAmount()
+                    || !Arrays.equals(originalBytes, storedNative.serializeAsBytes())
+                    || !Arrays.equals(templateBytes, templateNative.serializeAsBytes())) {
                 return SlotStatus.UNSAFE;
             }
             SlotStatus status;

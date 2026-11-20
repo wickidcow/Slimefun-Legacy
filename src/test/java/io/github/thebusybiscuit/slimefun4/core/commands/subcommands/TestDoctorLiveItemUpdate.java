@@ -509,7 +509,6 @@ class TestDoctorLiveItemUpdate {
         assertFalse(Files.exists(data.resolve("recovery")));
     }
 
-
     @Test
     void inspectOneStoredChestSlotReportsRedactedMismatchClassWithoutAnyMutation() {
         Inventory chest = Bukkit.createInventory(null, 54);
@@ -562,6 +561,7 @@ class TestDoctorLiveItemUpdate {
         ItemStack template = current("CARBONADO");
         ItemStack historical = olderStyling(template, 31);
         byte[] original = historical.serializeAsBytes();
+        byte[] registeredBytes = template.serializeAsBytes();
         chest.setItem(0, historical);
         assertEquals(DoctorLiveItemUpdate.SlotStatus.UNSAFE,
                 DoctorLiveItemUpdate.classifyStoredSlot(chest, 0, ignored -> {
@@ -574,7 +574,7 @@ class TestDoctorLiveItemUpdate {
                 }));
         assertEquals(30, chest.getItem(0).getAmount());
         assertFalse(java.util.Arrays.equals(original, chest.getItem(0).serializeAsBytes()));
-        assertArrayEquals(template.serializeAsBytes(), template.serializeAsBytes());
+        assertArrayEquals(registeredBytes, template.serializeAsBytes());
         assertFalse(Files.exists(data.resolve("recovery")));
     }
 
