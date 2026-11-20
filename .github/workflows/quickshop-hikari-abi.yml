@@ -51,9 +51,34 @@ jobs:
             --jar "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.4.jar"
           echo 'Official QuickShop-Hikari 6.3.0.4 ABI verified; this does not test a live shop.' >> "$GITHUB_STEP_SUMMARY"
 
+  verify-older-albionmc-hikari:
+    name: Verify official 6.3.0.3 legacy installed ABI
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download exact published 6.3.0.3 binary and verify SHA-256
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            https://github.com/QuickShop-Community/QuickShop-Hikari/releases/download/6.3.0.3/QuickShop-Hikari-6.3.0.3.jar \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar"
+          printf '%s  %s\n' \
+            eb65b63d803b2c61be6827f803572ba71f56bbad9f1cd5959b9b746df0669c3a \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar" | sha256sum --check --strict
+      - name: Verify every Doctor public API signature on 6.3.0.3
+        run: |
+          python3 scripts/verify_quickshop_hikari_api.py \
+            --jar "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar"
+
   native-paper-quickshop-api:
     name: Disposable two-boot real QuickShop-Hikari API activation
-    needs: verify-pinned-hikari-public-api
+    needs: [verify-pinned-hikari-public-api, verify-older-albionmc-hikari]
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:

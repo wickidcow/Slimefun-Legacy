@@ -81,7 +81,12 @@ def main() -> None:
     parser.add_argument("--javap", default="javap")
     args = parser.parse_args()
     check_binary(args.jar, args.javap)
-    print("SFL_QUICKSHOP_HIKARI_6_3_0_4_PUBLIC_ABI_PASS", flush=True)
+    # Artifact identity is pinned by the caller's SHA-256 check; never
+    # describe a different installed QuickShop build as independently tested.
+    version = re.fullmatch(r"QuickShop-Hikari-(6\\.3\\.0\\.[34])\\.jar", args.jar.name)
+    if version is None:
+        raise ValueError("Unrecognized QuickShop-Hikari release filename")
+    print("SFL_QUICKSHOP_HIKARI_" + version.group(1).replace(".", "_") + "_PUBLIC_ABI_PASS", flush=True)
 
 
 if __name__ == "__main__":

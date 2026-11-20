@@ -83,10 +83,11 @@ replay. The test uses the owning region scheduler on Folia. This validates
 disposable native chest persistence, **not real old AlbionMC saved-world item
 provenance**, QuickShop database snapshots, sale price, shop owner, or trades.
 The separate `QuickShop-Hikari Public API Contract` GitHub Action pins
-the official QuickShop-Hikari 6.3.0.4 JAR by the upstream published SHA-256,
-checks the exact plugin.yml identity and uses `javap` to verify every public
-API method signature and inherited interface used by the optional reflective
-Doctor inspector. This catches upstream source-vs-distribution API drift
+both the official QuickShop-Hikari **6.3.0.3** (seen in an older AlbionMC
+startup log) and **6.3.0.4** JARs by their independent upstream published
+SHA-256 digests, checks plugin.yml identities and uses `javap` to verify
+every public API method signature and inherited interface used by the
+optional reflective Doctor inspector. This catches upstream source-vs-distribution API drift
 without adding a hard QuickShop dependency or trusting an unverified JAR.
 The ABI workflow also stages that exact signed-and-hashed QuickShop JAR
 with the current Slimefun candidate on a **new disposable Paper 26.2
