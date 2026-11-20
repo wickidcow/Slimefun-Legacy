@@ -1,0 +1,154 @@
+name: Refresh v4.1.81 published addon ZIP (Networks 1.0.65 only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/refresh-v81-networks-archive.yml'
+      - 'scripts/refresh_v81_networks.py'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/refresh-v81-networks-archive.yml'
+      - 'scripts/refresh_v81_networks.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v4.1.81-addon-asset-replacement
+  cancel-in-progress: false
+
+jobs:
+  verify-and-replace:
+    name: Guarded existing v81 ZIP Networks refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v4.1.81
+      BUNDLE: SF_Addons_1.21.11-26.3.zip
+      ORIGINAL_SHA256: 274635576ce574e5e2fde0126795d0c0bfa678cae6e93ae5937b1f30b706e863
+      NEW_NETWORKS_SHA256: 114bfa0d2bc5a12f65e320640691bfa075470ddc9ff021969ade85e92333277f
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download exact current v81 archive and official Networks 1.0.65 JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "wickidcow/Slimefun-Legacy"
+          mkdir -p original official dist verified
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$BUNDLE" --dir original
+          gh release download v1.0.65 --repo wickidcow/SF_NetworksExp \
+            --pattern SF_Networks1.0.65.jar --dir official
+          echo "$ORIGINAL_SHA256  original/$BUNDLE" | sha256sum -c
+          echo "$NEW_NETWORKS_SHA256  official/SF_Networks1.0.65.jar" | sha256sum -c
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > original/release-before.json
+
+      - name: Verify the original release's four precise assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          j = json.load(open("original/release-before.json"))
+          assert j["tag_name"] == "v4.1.81"
+          assert j["target_commitish"] == "d728bf04ebd738dd5779e27b2ea83c68f0edbd10"
+          expected = {
+              "SF_Addons_1.21.11-26.3.zip": ("274635576ce574e5e2fde0126795d0c0bfa678cae6e93ae5937b1f30b706e863", 769604482),
+              "Slimefun-Legacy4.1.81.jar": ("9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1", 765571354),
+              "SlimefunLegacyRP.zip": ("1b856fff90fe78b7d5964a86a8ed281517d073a082db485d73f31cd07aa64a83", 765571350),
+              "SlimefunLegacyRP_Geyser.zip": ("e11e5f8e6ede75a17421039e50178e83e11e9cf7f020e99596cfc078801b8c58", 765571352),
+          }
+          assets = {a["name"]: a for a in j["assets"]}
+          assert set(assets) == set(expected), f"Unexpected release asset inventory: {set(assets) ^ set(expected)}"
+          for name, (sha, asset_id) in expected.items():
+              assert assets[name]["id"] == asset_id and assets[name]["digest"] == "sha256:" + sha, name
+          print("Original v81 core, tag, resource packs, and IE2/Fluffy-refreshed ZIP matched exact pinned bytes.")
+          PY
+
+      - name: Repack Networks only and independently validate 44-member addon ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/refresh_v81_networks.py \
+            "original/$BUNDLE" official/SF_Networks1.0.65.jar "dist/$BUNDLE"
+          unzip -tqq "dist/$BUNDLE"
+          python3 scripts/verify_published_addon_bundle.py "dist/$BUNDLE"
+          unzip -Z1 "dist/$BUNDLE" | grep -E '\.jar$' | wc -l | grep -Fx 44
+          sha256sum "dist/$BUNDLE"
+
+      - name: Back up the current published ZIP before any release mutation
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-v4.1.81-addons-before-networks-1065
+          path: original/SF_Addons_1.21.11-26.3.zip
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish a PR-only candidate for inspection
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v4.1.81-networks-1.0.65
+          path: dist/SF_Addons_1.21.11-26.3.zip
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Replace only the existing ZIP after master merge and verify live release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        shell: bash
+        run: |
+          set -eEuo pipefail
+          # Concurrent release writers are serialized and all existing assets were pinned above.
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > original/release-preupload.json
+          cmp original/release-before.json original/release-preupload.json
+          expected="sha256:$(sha256sum "dist/$BUNDLE" | cut -d' ' -f1)"
+          mutating=false
+          rollback() {
+            code=$?
+            trap - ERR
+            if test "$mutating" = true; then
+              echo "::warning::Post-upload verification failed; restoring original v81 Networks 1.0.64 ZIP"
+              gh release upload "$TAG" "original/$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber ||
+                echo "::error::Automatic rollback failed; recover the original from the 90-day workflow artifact."
+            fi
+            exit "$code"
+          }
+          trap rollback ERR
+          mutating=true
+          gh release upload "$TAG" "dist/$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > verified/release-after.json
+          python3 - "$expected" <<'PY'
+          import json
+          import sys
+          before = json.load(open("original/release-before.json"))
+          after = json.load(open("verified/release-after.json"))
+          expected_zip = sys.argv[1]
+          assert after["tag_name"] == before["tag_name"] == "v4.1.81"
+          assert after["target_commitish"] == before["target_commitish"]
+          old = {a["name"]: a for a in before["assets"]}
+          new = {a["name"]: a for a in after["assets"]}
+          assert set(old) == set(new)
+          name = "SF_Addons_1.21.11-26.3.zip"
+          assert new[name]["digest"] == expected_zip
+          assert new[name]["id"] != old[name]["id"]
+          for other in set(old) - {name}:
+              assert new[other]["id"] == old[other]["id"], f"Unrelated release asset ID changed: {other}"
+              assert new[other]["digest"] == old[other]["digest"], f"Unrelated release asset checksum changed: {other}"
+              assert new[other]["size"] == old[other]["size"], f"Unrelated release asset size changed: {other}"
+          print("Confirmed: only v81 addon ZIP changed; core/tag/resource packs byte-identical.")
+          PY
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$BUNDLE" --dir verified
+          cmp "dist/$BUNDLE" "verified/$BUNDLE"
+          mutating=false
+          trap - ERR
+          echo "## Published Networks 1.0.65 into historical v4.1.81 ZIP" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Verified 44-addon bundle: Networks 1.0.64 → 1.0.65; 43 other addon JARs preserved." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Confirmed prior FluffyMachines 26.2.22 and InfinityExpansion2 2.0.21 still present." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preserved core JAR, v81 tag, player and Geyser resource packs (asset IDs, sizes and hashes)." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backed up original ZIP for 90 days; live ZIP re-downloaded byte-for-byte." >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA256: $expected" >> "$GITHUB_STEP_SUMMARY"
