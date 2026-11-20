@@ -18,6 +18,8 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Chest;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -173,6 +175,8 @@ final class DoctorLiveItemUpdate {
                     BlockState state = location.getBlock().getState();
                     if (!(state instanceof Container container)) {
                         message = "&eTarget is not a physical chest/barrel/container.";
+                    } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
+                        message = "&cBoundary double chest may span Folia regions; inspection refused. No items changed.";
                     } else {
                         Preview inspection = preview(
                                 container.getInventory(),
@@ -238,6 +242,8 @@ final class DoctorLiveItemUpdate {
                     BlockState state = location.getBlock().getState();
                     if (!(state instanceof Container container)) {
                         message = "&cTarget is not a physical inventory container.";
+                    } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
+                        message = "&cBoundary double chest may span Folia regions; inspection refused. No data changed.";
                     } else {
                         SlotStatus status = classifyStoredSlot(
                                 container.getInventory(), slot, DoctorLiveItemUpdate::registeredTemplate);
@@ -376,6 +382,8 @@ final class DoctorLiveItemUpdate {
                     BlockState state = location.getBlock().getState();
                     if (!(state instanceof Container container)) {
                         message = "&cTarget is not a physical inventory container.";
+                    } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
+                        message = "&cBoundary double chest may span Folia regions; evidence refused. No data changed.";
                     } else {
                         DoctorIdentityEvidenceExport.Evidence evidence = captureContainer(
                                 container.getInventory(),
@@ -399,6 +407,22 @@ final class DoctorLiveItemUpdate {
                 }
             });
         });
+    }
+
+    /**
+     * A double chest on a chunk edge may contain a neighboring chunk's inventory,
+     * which the target block's Folia region scheduler does not independently
+     * establish ownership over. Refuse this ambiguous layout BEFORE obtaining the
+     * combined inventory. This deliberately also refuses some same-chunk pairs
+     * lying on an edge; a false refusal is safer than cross-region access.
+     */
+    static boolean maySpanAnotherChunk(BlockData data, int blockX, int blockZ) {
+        return data instanceof Chest chest
+                && chest.getType() != Chest.Type.SINGLE
+                && ((blockX & 15) == 0
+                        || (blockX & 15) == 15
+                        || (blockZ & 15) == 0
+                        || (blockZ & 15) == 15);
     }
 
     /**

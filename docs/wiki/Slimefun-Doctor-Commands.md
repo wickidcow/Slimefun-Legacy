@@ -342,7 +342,12 @@ region; the redacted category is `CURRENT`, `STYLE_ONLY_CANDIDATE`,
 evidence, **not permission to repair**. `UNSAFE` also includes serialization
 errors, oversized native items, or a slot/template change during comparison.
 No lore, PDC values, owner data, native bytes, or recovery files are exposed
-by this inspection.
+by this inspection. On all server types, the read-only scan, targeted inspection
+and evidence export **refuse any double chest at a chunk boundary**, rather than
+risk accessing the other half from a different Folia region. The guard is
+intentionally conservative and may also refuse a same-chunk double chest
+touching an edge. Single chests and barrels on chunk boundaries are unaffected;
+move neither chest nor shop stock simply to bypass this refusal.
 
 The separate operator command `/sf doctor identity live export-container <slot>`
 captures **one 0-based slot (0–53)** from a loaded physical chest/barrel that

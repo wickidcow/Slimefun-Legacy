@@ -510,6 +510,35 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void crossChunkDoubleChestIsRefusedBeforeAccessingItsCombinedInventory() {
+        var single = chestBlockData(org.bukkit.block.data.type.Chest.Type.SINGLE);
+        var doubleLeft = chestBlockData(org.bukkit.block.data.type.Chest.Type.LEFT);
+        var doubleRight = chestBlockData(org.bukkit.block.data.type.Chest.Type.RIGHT);
+        assertFalse(DoctorLiveItemUpdate.maySpanAnotherChunk(single, 0, 15));
+        assertFalse(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleLeft, 1, 14));
+        assertFalse(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleRight, -14, -2));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleLeft, 15, 4));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleRight, 0, 4));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleLeft, -1, 4));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleRight, -16, 4));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleLeft, 4, 0));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleRight, 4, 15));
+        assertTrue(DoctorLiveItemUpdate.maySpanAnotherChunk(doubleLeft, 4, -1));
+        assertFalse(DoctorLiveItemUpdate.maySpanAnotherChunk(Bukkit.createBlockData(Material.STONE), 0, 15));
+    }
+
+    private static org.bukkit.block.data.type.Chest chestBlockData(org.bukkit.block.data.type.Chest.Type type) {
+        Class<org.bukkit.block.data.type.Chest> chestClass = org.bukkit.block.data.type.Chest.class;
+        return (org.bukkit.block.data.type.Chest) Proxy.newProxyInstance(
+                chestClass.getClassLoader(), new Class<?>[] {chestClass}, (ignored, method, args) -> {
+                    if (method.getName().equals("getType")) {
+                        return type;
+                    }
+                    throw new UnsupportedOperationException("Unexpected chest block-data read");
+                });
+    }
+
+    @Test
     void inspectOneStoredChestSlotReportsRedactedMismatchClassWithoutAnyMutation() {
         Inventory chest = Bukkit.createInventory(null, 54);
         ItemStack template = current("CARBONADO");
