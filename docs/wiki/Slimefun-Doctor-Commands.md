@@ -333,6 +333,17 @@ snapshot, even when the target chest is attached to a shop. A later
 `live confirm` can only act on the operator's own player inventory, never
 on the scanned chest.
 
+The operator can inspect a reported zero-based slot without saving or changing
+anything using `/sf doctor identity live inspect-container <slot>`. It reads
+only that slot and the current registered template, on the container's owning
+region; the redacted category is `CURRENT`, `STYLE_ONLY_CANDIDATE`,
+`BLANK_LORE_LAYOUT`, `MEANINGFUL_TEXT`, `FUNCTIONAL_METADATA`,
+`UNKNOWN_ID`, `NOT_SLIMEFUN`, `EMPTY`, or `UNSAFE`. This is diagnostic
+evidence, **not permission to repair**. `UNSAFE` also includes serialization
+errors, oversized native items, or a slot/template change during comparison.
+No lore, PDC values, owner data, native bytes, or recovery files are exposed
+by this inspection.
+
 The separate operator command `/sf doctor identity live export-container <slot>`
 captures **one 0-based slot (0–53)** from a loaded physical chest/barrel that
 the operator looks at. The selected item must have a registered Slimefun ID

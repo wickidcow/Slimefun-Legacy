@@ -54,6 +54,11 @@ final class DoctorLiveItemUpdate {
             send(sender, "&cLive item updates require a server operator in game.");
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("inspect-container")) {
+            PLANS.remove(player.getUniqueId());
+            inspectContainerSlot(player, args[4]);
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("export-container")) {
             PLANS.remove(player.getUniqueId());
             exportContainer(plugin, player, args[4]);
@@ -140,6 +145,7 @@ final class DoctorLiveItemUpdate {
     private static void usage(CommandSender sender) {
         send(sender, "&e/sf doctor identity live scan");
         send(sender, "&e/sf doctor identity live scan-container &8(read-only, look at chest/barrel)");
+        send(sender, "&e/sf doctor identity live inspect-container <slot> &8(read-only, 0-based)");
         send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
@@ -199,6 +205,132 @@ final class DoctorLiveItemUpdate {
                 }
             });
         });
+    }
+
+
+    /**
+     * Inspect one explicitly selected physical container slot on its owning
+     * region. No private name/lore/PDC values are printed and no repair plan
+     * is created. The earlier scan is only a hint; the slot is re-read here.
+     */
+    private static void inspectContainerSlot(Player player, String slotArgument) {
+        int slot;
+        try {
+            slot = Integer.parseInt(slotArgument);
+            if (slot < 0 || slot >= MAX_CONTAINER_SCAN_SLOTS) {
+                throw new NumberFormatException("out of bounds");
+            }
+        } catch (NumberFormatException exception) {
+            send(player, "&cSpecify a 0-based container slot from 0 through 53.");
+            return;
+        }
+        Block aimed = player.getTargetBlockExact(6);
+        if (aimed == null || aimed.getType().isAir()) {
+            send(player, "&eLook at a loaded physical chest/barrel within six blocks.");
+            return;
+        }
+        Location location = aimed.getLocation();
+        Slimefun.getSchedulerService().runAt(location, () -> {
+            String message;
+            try {
+                if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    message = "&cTarget chunk unloaded. No item was inspected or changed.";
+                } else {
+                    BlockState state = location.getBlock().getState();
+                    if (!(state instanceof Container container)) {
+                        message = "&cTarget is not a physical inventory container.";
+                    } else {
+                        SlotStatus status =
+                                classifyStoredSlot(container.getInventory(), slot, DoctorLiveItemUpdate::registeredTemplate);
+                        message = "&6Historical chest slot &e" + slot + " &8| &7Read-only classification: &e"
+                                + status + " &8| &7No data changed. No repair authorized.";
+                    }
+                }
+            } catch (RuntimeException exception) {
+                message = "&cUnable to classify that slot safely. No data changed.";
+            }
+            String report = message;
+            Slimefun.getSchedulerService().runFor(player, () -> {
+                if (player.isOnline()) {
+                    send(player, report);
+                }
+            });
+        });
+    }
+
+    /**
+     * Narrow diagnostic for an actual stored item rather than a reconstructed
+     * Bukkit setter fixture. Never equate matching visible text with permission
+     * to rewrite metadata; classification cannot create a repair plan.
+     */
+    static SlotStatus classifyStoredSlot(
+            Inventory inventory, int slot, Function<ItemStack, ItemStack> templates) {
+        if (slot < 0 || slot >= Math.min(inventory.getSize(), MAX_CONTAINER_SCAN_SLOTS)) {
+            throw new IllegalArgumentException("Out-of-range physical container slot");
+        }
+        try {
+            ItemStack stored = inventory.getItem(slot);
+            if (stored == null || stored.getType().isAir()) {
+                return SlotStatus.EMPTY;
+            }
+            if (itemId(stored) == null) {
+                return SlotStatus.NOT_SLIMEFUN;
+            }
+            byte[] originalBytes = stored.serializeAsBytes();
+            ItemStack template = templates.apply(stored);
+            if (template == null || !sameRegisteredId(stored, template)) {
+                return SlotStatus.UNKNOWN_ID;
+            }
+            byte[] templateBytes = template.serializeAsBytes();
+            if (originalBytes.length > MAX_STACK_BYTES || templateBytes.length > MAX_STACK_BYTES) {
+                return SlotStatus.UNSAFE;
+            }
+            SlotStatus status;
+            if (DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(stored, template)) {
+                status = SlotStatus.CURRENT;
+            } else {
+                var presentation = DoctorIdentityCommand.inspectHistoricalPresentation(stored, template);
+                if (!presentation.nonPresentationSame()) {
+                    status = SlotStatus.FUNCTIONAL_METADATA;
+                } else {
+                    var plain = DoctorIdentityCommand.inspectPlainPresentation(stored, template);
+                    if (plain.nameSame()
+                            && !plain.loreSame()
+                            && DoctorIdentityCommand.sameNonblankPlainLore(stored, template)) {
+                        status = SlotStatus.BLANK_LORE_LAYOUT;
+                    } else if (!presentation.plainTextSame()) {
+                        status = SlotStatus.MEANINGFUL_TEXT;
+                    } else if (DoctorHistoricalStackRepair.prepare(stored, template, template) != null) {
+                        status = SlotStatus.STYLE_ONLY_CANDIDATE;
+                    } else {
+                        status = SlotStatus.UNSAFE;
+                    }
+                }
+            }
+            // Refuse even a read-only classification if an intervening hopper or
+            // addon changed the physical slot or registered template mid-scan.
+            ItemStack current = inventory.getItem(slot);
+            if (current == null
+                    || !Arrays.equals(originalBytes, current.serializeAsBytes())
+                    || !Arrays.equals(templateBytes, template.serializeAsBytes())) {
+                return SlotStatus.UNSAFE;
+            }
+            return status;
+        } catch (RuntimeException exception) {
+            return SlotStatus.UNSAFE;
+        }
+    }
+
+    enum SlotStatus {
+        EMPTY,
+        NOT_SLIMEFUN,
+        UNKNOWN_ID,
+        CURRENT,
+        STYLE_ONLY_CANDIDATE,
+        BLANK_LORE_LAYOUT,
+        MEANINGFUL_TEXT,
+        FUNCTIONAL_METADATA,
+        UNSAFE
     }
 
     /**

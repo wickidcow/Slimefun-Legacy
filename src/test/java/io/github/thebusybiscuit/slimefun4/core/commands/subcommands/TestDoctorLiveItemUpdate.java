@@ -509,6 +509,75 @@ class TestDoctorLiveItemUpdate {
         assertFalse(Files.exists(data.resolve("recovery")));
     }
 
+
+    @Test
+    void inspectOneStoredChestSlotReportsRedactedMismatchClassWithoutAnyMutation() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+        ItemStack styled = olderStyling(template, 63);
+        ItemStack blankLore = ItemStack.deserializeBytes(template.serializeAsBytes());
+        blankLore.editMeta(meta -> meta.lore(List.of(Component.empty(), Component.text("Black Diamond"))));
+        ItemStack meaningfulText = ItemStack.deserializeBytes(template.serializeAsBytes());
+        meaningfulText.editMeta(meta -> meta.lore(List.of(Component.text("Private historical message"))));
+        ItemStack typedOwner = olderStyling(template, 9);
+        typedOwner.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787001));
+        ItemStack unknown = olderStyling(current("CARBON_CHUNK"), 4);
+        ItemStack vanilla = new ItemStack(Material.STONE, 5);
+        ItemStack[] before = {styled, blankLore, meaningfulText, typedOwner, unknown, template, vanilla};
+        byte[][] bytes = new byte[before.length][];
+        for (int i = 0; i < before.length; i++) {
+            bytes[i] = before[i].serializeAsBytes();
+            chest.setItem(i, before[i]);
+        }
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.STYLE_ONLY_CANDIDATE,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 0, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.BLANK_LORE_LAYOUT,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 1, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.MEANINGFUL_TEXT,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 2, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.FUNCTIONAL_METADATA,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 3, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.UNKNOWN_ID,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 4, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.CURRENT,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 5, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.NOT_SLIMEFUN,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 6, ignored -> template));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.EMPTY,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 53, ignored -> template));
+        assertThrows(IllegalArgumentException.class,
+                () -> DoctorLiveItemUpdate.classifyStoredSlot(chest, -1, ignored -> template));
+        assertThrows(IllegalArgumentException.class,
+                () -> DoctorLiveItemUpdate.classifyStoredSlot(chest, 54, ignored -> template));
+        for (int i = 0; i < before.length; i++) {
+            assertArrayEquals(bytes[i], chest.getItem(i).serializeAsBytes());
+        }
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
+    void oneSlotInspectionFailsClosedWhenAddonResolutionThrowsOrStoredSlotChanges() {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+        ItemStack historical = olderStyling(template, 31);
+        byte[] original = historical.serializeAsBytes();
+        chest.setItem(0, historical);
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.UNSAFE,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 0, ignored -> {
+                    throw new IllegalArgumentException("Malformed addon resolver");
+                }));
+        assertEquals(DoctorLiveItemUpdate.SlotStatus.UNSAFE,
+                DoctorLiveItemUpdate.classifyStoredSlot(chest, 0, ignored -> {
+                    chest.setItem(0, olderStyling(template, 30));
+                    return template;
+                }));
+        assertEquals(30, chest.getItem(0).getAmount());
+        assertFalse(java.util.Arrays.equals(original, chest.getItem(0).serializeAsBytes()));
+        assertArrayEquals(template.serializeAsBytes(), template.serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
     @Test
     void chestScanBoundsSlotHintsWithoutChangingStoredItems() {
         Inventory chest = Bukkit.createInventory(null, 54);
