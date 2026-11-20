@@ -100,7 +100,9 @@ confirmation.
 
 
 The separate disposable native QuickShop-Hikari 6.3.0.4 two-boot
-activation now calls the **real configured QuickShop `ItemMatcher` API**,
+activation on **both SHA-256-pinned Paper 26.2 build 129 and
+Paper 26.3 build 145** now calls the **real configured QuickShop
+`ItemMatcher` API**,
 not only an approximate `ItemStack.isSimilar` model. It evaluates
 detached synthetic historical/current component variants, same-material
 different Slimefun PDC IDs, and different typed owner PDC values; it
