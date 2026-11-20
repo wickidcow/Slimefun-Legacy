@@ -29,9 +29,10 @@ EXPECTED_VERSIONS = {
 FLUFFY_R153 = ("SF_FluffyMachines26.2.16.jar", "9ce05a228a0ce14e69254115b90ec46e54eac6d9")
 # 4.1.80/r154: merged Fluffy 26.2.18 including Quick Withdraw #39.
 FLUFFY_R154 = ("SF_FluffyMachines26.2.18.jar", "bb1a50387e8dfe34c4c4e3b592038c81c51f53f0")
-# v4.1.81/r156: official published Fluffy 26.2.21, source-pinned in
-# compatibility/sfl-addon-release-matrix.json. Keep all older revisions stable.
-FLUFFY_R156 = ("SF_FluffyMachines26.2.21.jar", "365c30bdd9fedd0bb9989c13829341c501150a5a")
+# Current v4.1.82 r156 candidate now pins the separately published Fluffy 26.2.23
+# (release source 6ab7394). The v4.1.81 published r156 ZIP remains immutable.
+# Never accept a different source version simply because the JAR has the same name.
+FLUFFY_R156 = ("SF_FluffyMachines26.2.23.jar", "6ab739439c083bcaf8e7514d51c9b9b431fca31a")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),
@@ -67,8 +68,9 @@ NETWORK_VERSIONS = {
     154: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
     # r155 changes only Cultivation / HotbarPets, retaining the verified storage pair.
     155: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
-    # r156 only advances CrystamaeHistoria/Galactifun. Native storage source pins are unchanged.
-    156: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
+    # Current v4.1.82 r156 candidate pins official Networks v1.0.65
+    # (release source 8853a85), distinct from the historical v4.1.81 archive.
+    156: ("SF_Networks1.0.65.jar", "8853a85c99acdb22c8d05d93f010272889922c9d"),
 }
 
 
