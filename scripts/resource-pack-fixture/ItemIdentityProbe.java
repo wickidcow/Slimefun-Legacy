@@ -931,6 +931,7 @@ final class ItemIdentityProbe {
                     "native chest evidence private original/template bytes changed after restart");
             verifyPrivateEvidenceReplay(directory, owner, oldReceipt, templateReceipt,
                     "STYLE_ONLY_CANDIDATE", true);
+            verifyPhysicalChestPersistence(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -979,6 +980,7 @@ final class ItemIdentityProbe {
                 "native chest evidence private receipts failed exact-byte seed readback");
         verifyPrivateEvidenceReplay(directory, owner, originalReceipt, currentReceipt,
                 "STYLE_ONLY_CANDIDATE", false);
+        verifyPhysicalChestPersistence(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -987,6 +989,107 @@ final class ItemIdentityProbe {
         Files.write(currentFile, currentBytes);
         Files.writeString(receiptFile, owner + ":" + originalReceipt + ":" + currentReceipt);
         Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_SEED_PASS");
+    }
+
+
+    /**
+     * Disposable native WORLD chest, not Bukkit.createInventory. The first boot
+     * seeds source-derived old/current CARBONADO plus one typed-owner negative
+     * control. The second boot reopens the same physical chunk and proves exact
+     * stock/quantity/PDC persistence. Calls run on the owning 0,0 Folia region.
+     * This is NOT a genuine historical AlbionMC chest or QuickShop transaction.
+     */
+    private static void verifyPhysicalChestPersistence(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        Path fixture = directory.resolve("physical-world-chest");
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(3, 180, 3);
+        if (restart) {
+            require(block.getType() == Material.CHEST, "disposable physical chest was not persisted");
+        } else {
+            require(block.getType().isAir(), "physical chest fixture position is occupied");
+            block.setType(Material.CHEST);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest, "physical chest block state missing");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "physical fixture must be one vanilla chest");
+
+        Path savedOld = fixture.resolve("old.bin");
+        Path savedCurrent = fixture.resolve("current.bin");
+        Path savedTyped = fixture.resolve("typed-owner.bin");
+        Path receiptsFile = fixture.resolve("receipts.txt");
+        if (restart) {
+            byte[] typedBytes = Files.readAllBytes(savedTyped);
+            require(Arrays.equals(oldBytes, Files.readAllBytes(savedOld))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(savedCurrent)),
+                    "physical chest evidence files were changed");
+            require(contents.getItem(26) != null && contents.getItem(25) != null
+                            && contents.getItem(24) != null && contents.getItem(23) == null
+                            && Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                            && Arrays.equals(currentBytes, contents.getItem(25).serializeAsBytes())
+                            && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes()),
+                    "actual saved chest lost/rewrote/duplicated item metadata or slots");
+            require(contents.getItem(26).getAmount() == 63
+                            && contents.getItem(25).getAmount() == 1
+                            && contents.getItem(24).getAmount() == 9
+                            && Long.valueOf(75123L).equals(contents.getItem(24).getItemMeta()
+                                    .getPersistentDataContainer().get(OWNER, PersistentDataType.LONG)),
+                    "physical chest count or typed owner changed across restart");
+            var receiptLines = Files.readAllLines(receiptsFile);
+            require(receiptLines.size() == 3, "physical chest original receipts missing");
+            var owner = java.util.UUID.fromString(receiptLines.get(0));
+            verifyPrivateEvidenceReplay(fixture, owner,
+                    java.util.UUID.fromString(receiptLines.get(1)),
+                    java.util.UUID.fromString(receiptLines.get(2)),
+                    "STYLE_ONLY_CANDIDATE", true);
+            require(Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "physical chest restart altered registered template");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_RESTART_PASS");
+            return;
+        }
+
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+        contents.setItem(26, old);
+        contents.setItem(25, current);
+        contents.setItem(24, typed);
+        require(Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                        && Arrays.equals(currentBytes, contents.getItem(25).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes())
+                        && contents.getItem(23) == null,
+                "physical chest seed failed to retain all three source stacks");
+        Files.createDirectories(fixture);
+        Files.write(savedOld, oldBytes);
+        Files.write(savedCurrent, currentBytes);
+        Files.write(savedTyped, typedBytes);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method capture = engine.getDeclaredMethod(
+                "captureContainer", org.bukkit.inventory.Inventory.class, int.class,
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        capture.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolve =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Object receiptPair = capture.invoke(null, contents, 26, resolve, fixture, owner);
+        Method first = receiptPair.getClass().getDeclaredMethod("mainReceipt");
+        Method second = receiptPair.getClass().getDeclaredMethod("offhandReceipt");
+        first.setAccessible(true);
+        second.setAccessible(true);
+        var originalReceipt = (java.util.UUID) first.invoke(receiptPair);
+        var referenceReceipt = (java.util.UUID) second.invoke(receiptPair);
+        verifyPrivateEvidenceReplay(fixture, owner, originalReceipt, referenceReceipt,
+                "STYLE_ONLY_CANDIDATE", false);
+        require(Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes())
+                        && Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                "physical chest evidence capture changed stock, typed owner or registered template");
+        Files.write(receiptsFile, List.of(owner.toString(), originalReceipt.toString(), referenceReceipt.toString()));
+        Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_SEED_PASS");
     }
 
     /** Replays existing synthetic receipts on each JVM; never recaptures or repairs an item. */

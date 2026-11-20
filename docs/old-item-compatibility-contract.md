@@ -73,6 +73,17 @@ changed/missing registration and another operator's receipt. It covers style-onl
 and typed-functional differences without creating a repair. Physical container
 persistence and QuickShop transactions remain separate acceptance requirements.
 
+The native two-boot gate now also creates an actual **vanilla 27-slot physical
+chest block** in the disposable test world and places synthetic historical
+Carbonado, the modern template and a different typed-owner record in separate
+slots. After normal shutdown and restart, it reopens the **same world chest**
+and asserts byte-exact item persistence, slots, quantities (63/1/9), typed
+owner metadata, registered-template immutability and saved private receipt
+replay. The test uses the owning region scheduler on Folia. This validates
+disposable native chest persistence, **not real old AlbionMC saved-world item
+provenance**, QuickShop database snapshots, sale price, shop owner, or trades.
+Real historical and QuickShop acceptance remain required.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.
