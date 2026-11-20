@@ -634,6 +634,20 @@ final class DoctorLiveItemUpdate {
         List<Prepared> attempted = new ArrayList<>();
         try {
             for (Prepared item : prepared) {
+                // A previous setItem may synchronously trigger a third-party
+                // adapter which changes another planned slot or registration.
+                // Revalidate the exact preimage immediately before EACH write,
+                // not only once after backup I/O.
+                ItemStack live = inventory.getItem(item.entry().slot());
+                if (live == null
+                        || !item.entry().oldHash().equals(DoctorHistoricalStackRepair.fingerprint(live))) {
+                    throw new IOException("Live inventory slot changed during an earlier batch write");
+                }
+                ItemStack template = templates.apply(live);
+                if (template == null || !sameRegisteredId(live, template)
+                        || !item.entry().templateHash().equals(DoctorHistoricalStackRepair.fingerprint(template))) {
+                    throw new IOException("Registered template changed during an earlier batch write");
+                }
                 attempted.add(item);
                 inventory.setItem(item.entry().slot(), item.replacement());
                 ItemStack written = inventory.getItem(item.entry().slot());

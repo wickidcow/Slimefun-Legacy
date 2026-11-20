@@ -401,6 +401,55 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void thirdPartyMutationOfLaterSlotDuringFirstWriteDoesNotOverwriteIt() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack reference = current("CARBONADO");
+        ItemStack oldFirst = olderStyling(reference, 19);
+        ItemStack oldSecond = olderStyling(reference, 27);
+        ItemStack external = current("CARBON_CHUNK");
+        external.setAmount(17);
+        byte[] originalFirst = oldFirst.serializeAsBytes();
+        byte[] replacedLater = external.serializeAsBytes();
+        byte[] referenceBytes = reference.serializeAsBytes();
+        backing.setItem(0, oldFirst);
+        backing.setItem(1, oldSecond);
+
+        AtomicInteger writes = new AtomicInteger();
+        Inventory changedDuringWrite = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem")
+                                && writes.incrementAndGet() == 1
+                                && Integer.valueOf(0).equals(args[0])) {
+                            // Reproduce a synchronous addon hook changing a
+                            // later planned slot after the first write.
+                            backing.setItem(1, external);
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+
+        var preview = DoctorLiveItemUpdate.preview(changedDuringWrite, ignored -> reference);
+        assertEquals(2, preview.entries().size());
+        UUID operator = UUID.randomUUID();
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                changedDuringWrite, preview, ignored -> reference, data, operator));
+
+        assertEquals(2, writes.get(), "Only first write and conditional rollback may occur");
+        assertArrayEquals(originalFirst, backing.getItem(0).serializeAsBytes());
+        assertArrayEquals(replacedLater, backing.getItem(1).serializeAsBytes(),
+                "External replacement must never be overwritten by stale batch plan");
+        assertArrayEquals(referenceBytes, reference.serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(2, files.filter(Files::isRegularFile).count(),
+                    "Both verified original receipts must be preserved for recovery");
+        }
+    }
+
+    @Test
     void oldSteelModelComponentIsDetectedBeforeMockBukkitLosesItDuringStackCopies() {
         // MockBukkit 4.110.0 does not faithfully preserve modern model
         // components through item copies / ItemMetaMock equality. Assert
