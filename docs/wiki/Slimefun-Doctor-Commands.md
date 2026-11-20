@@ -355,6 +355,21 @@ reference is not by itself evidence that the persisted SQL row is identical.
 The command requires integration verification on the actual installed
 QuickShop-Hikari build and a staging restart before interpreting live results.
 
+The two shop commands additionally inspect QuickShop-Hikari's public
+`ShopMeta.itemSerializeString()`, a separately serialized **internal
+in-memory item cache**. This cached Bukkit-YAML item is parsed with bounded
+size, checked against the registered Slimefun material/ID, and classified
+independently of the potentially event-modified `getItem()` view. Doctor
+reports whether cache, runtime view and physical stock agree while ignoring
+stack quantity; it refuses unexpected YAML fields, missing items, unknown
+identities and changes in the cached string during inspection/export. Private
+`export-shop` also produces an **additional cached-item/current-template
+receipt pair** (two extra receipt UUIDs), preserving the source's typed
+metadata separately from the runtime view. These are read-only observations;
+QuickShop's cached in-memory YAML **must not be described as a verified SQL
+row**. Compare the durable original QuickShop DB backup independently after a
+staging restart, before even considering shop migration.
+
 A separate `/sf doctor identity live scan-container` command lets an
 operator **look at a loaded physical chest/barrel/container within six blocks**
 and inspect up to 54 slots **without modifying the container or generating

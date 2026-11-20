@@ -26,6 +26,7 @@ CONTRACT = {
     "com.ghostchu.quickshop.api.shop.Shop": (),
     "com.ghostchu.quickshop.api.shop.meta.ShopMeta": (
         ("getItem", "()Lorg/bukkit/inventory/ItemStack;"),
+        ("itemSerializeString", "()Ljava/lang/String;"),
         ("getPrice", "()D"),
         ("getOwner", "()Lcom/ghostchu/quickshop/api/obj/QUser;"),
     ),

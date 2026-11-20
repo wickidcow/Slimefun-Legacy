@@ -110,6 +110,35 @@ no QuickShop JAR or saved shop record is loaded by the synthetic model, and the
 server's active matcher mode remains unknown. Real historical and QuickShop
 acceptance remain required.
 
+## QuickShop internal serialized-item evidence — 2026-11-20
+
+Public QuickShop-Hikari 6.3.0.3 and 6.3.0.4 interfaces expose
+`ShopMeta.itemSerializeString()`, the cached Bukkit YAML representation
+of the shop's **internal in-memory item**. Unlike the possibly modified
+`ShopItemEvent(RETRIEVE)` view from `getItem()`, the cache is produced by
+`updateSerializeItem()` from the internal item field. This is a third
+read-only source distinct from both the event-processed view and physical
+chest stock, and **not an independently verified SQL database row**.
+
+Doctor now parses the cached YAML under a 1 Mi-character budget, verifies
+that it contains exactly one `item` root, native-roundtrips the decoded
+item and requires matching Slimefun ID and material. It reports redacted
+cache/reference, cache/view and cache/stock differences; a matching
+configured QuickShop comparator never authorizes overwriting a mismatched
+cache. `export-shop` saves a separate private operator-scoped pair of
+native receipts for the cached item and current template, in addition to
+the existing view/current and selected stock/current pairs. Pre/post
+readback includes the original cached YAML string as well as owner,
+price, sale view, stock and current registered template. No QuickShop
+setter, DB query, matcher override, chest write, trade or automatic repair
+is used.
+
+The official 6.3.0.3/6.3.0.4 binary ABI contract explicitly verifies the
+cached getter. The two-JVM official plugin activation test verifies its
+public method exists, but does NOT create a real QuickShop shop or validate
+an actual SQL row. Real old-world staging DB backups, restart and trade
+checks remain required before any persisted shop update.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.

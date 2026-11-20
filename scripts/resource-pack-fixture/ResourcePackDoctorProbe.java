@@ -644,7 +644,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         require(api != null, "QuickShop public service was not registered");
         Object manager = apiClass.getMethod("getShopManager").invoke(api);
         require(manager != null && managerClass.isInstance(manager), "QuickShop manager was not initialized");
-        for (String method : List.of("getItem", "getPrice", "getOwner", "bukkitLocation")) {
+        for (String method : List.of("getItem", "itemSerializeString", "getPrice", "getOwner", "bukkitLocation")) {
             require(Arrays.stream(shopClass.getMethods()).anyMatch(candidate -> candidate.getName().equals(method)),
                     "QuickShop shop public inherited method missing: " + method);
         }

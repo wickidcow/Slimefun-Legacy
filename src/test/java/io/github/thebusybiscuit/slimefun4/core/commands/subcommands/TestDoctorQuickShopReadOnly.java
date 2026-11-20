@@ -17,6 +17,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
@@ -158,6 +159,77 @@ class TestDoctorQuickShopReadOnly {
                 }));
         assertFalse(java.util.Arrays.equals(before, original.serializeAsBytes()));
         assertEquals(25, original.getAmount());
+    }
+
+    private static String cachedYaml(ItemStack stack) {
+        YamlConfiguration configuration = new YamlConfiguration();
+        configuration.set("item", stack);
+        return configuration.saveToString();
+    }
+
+    @Test
+    void comparesInternalCachedShopItemIndependentlyOfRuntimeAndPhysicalStock() throws Exception {
+        ItemStack current = current("CARBONADO");
+        ItemStack old = historical(current, 1);
+        ItemStack stock = historical(current, 63);
+        byte[] savedCurrent = current.serializeAsBytes();
+        byte[] savedOld = old.serializeAsBytes();
+        byte[] savedStock = stock.serializeAsBytes();
+        var result = DoctorQuickShopReadOnly.compareCached(cachedYaml(old), old, stock, current);
+        assertEquals(DoctorHistoricalStackEvidenceAudit.Difference.STYLE_ONLY_CANDIDATE,
+                result.cachedDifference());
+        assertTrue(result.cachedMatchesView());
+        assertTrue(result.cachedMatchesStock());
+        assertArrayEquals(savedOld, old.serializeAsBytes());
+        assertArrayEquals(savedCurrent, current.serializeAsBytes());
+        assertArrayEquals(savedStock, stock.serializeAsBytes());
+    }
+
+    @Test
+    void detectsRetrieveListenerChangingViewWithoutRewritingQuickShopCache() throws Exception {
+        ItemStack current = current("CARBONADO");
+        ItemStack oldView = historical(current, 1);
+        ItemStack stock = historical(current, 42);
+        byte[] savedStock = stock.serializeAsBytes();
+        var result = DoctorQuickShopReadOnly.compareCached(cachedYaml(current), oldView, stock, current);
+        assertEquals(DoctorHistoricalStackEvidenceAudit.Difference.CURRENT, result.cachedDifference());
+        assertFalse(result.cachedMatchesView());
+        assertFalse(result.cachedMatchesStock());
+        assertArrayEquals(savedStock, stock.serializeAsBytes());
+        assertEquals(42, stock.getAmount());
+    }
+
+    @Test
+    void cachedSerializationPreservesTypedFunctionalOwnerDifference() throws Exception {
+        ItemStack current = current("CARBONADO");
+        ItemStack changed = historical(current, 9);
+        changed.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 75123));
+        byte[] saved = changed.serializeAsBytes();
+        var result = DoctorQuickShopReadOnly.compareCached(cachedYaml(changed), changed, null, current);
+        assertEquals(DoctorHistoricalStackEvidenceAudit.Difference.FUNCTIONAL_METADATA,
+                result.cachedDifference());
+        assertTrue(result.cachedMatchesView());
+        assertFalse(result.cachedMatchesStock());
+        assertArrayEquals(saved, changed.serializeAsBytes());
+    }
+
+    @Test
+    void malformedOrWrongIdentityCacheCannotAuthorizePrivateShopEvidence() {
+        ItemStack current = current("CARBONADO");
+        ItemStack wrongId = current("CARBON_CHUNK");
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                cachedYaml(wrongId), current, current, current));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                "item: [this is not an ItemStack", current, current, current));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                "item: plain text", current, current, current));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                cachedYaml(current) + "another: private\\n", current, current, current));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                " ", current, current, current));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.compareCached(
+                "x".repeat(1024 * 1024 + 1), current, current, current));
     }
 
     @Test

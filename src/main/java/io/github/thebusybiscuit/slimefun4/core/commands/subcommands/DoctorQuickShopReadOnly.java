@@ -17,6 +17,8 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -34,6 +36,9 @@ import org.bukkit.plugin.Plugin;
  */
 final class DoctorQuickShopReadOnly {
     private static final int MAX_STACK_BYTES = 256 * 1024;
+    // Hikari stores the shop's internal item as Bukkit YAML; this is not a
+    // downloaded SQL row. Bound parsing before asking Bukkit to deserialize it.
+    private static final int MAX_CACHED_YAML_CHARS = 1024 * 1024;
     private static final NamespacedKey SLIMEFUN_ID = new NamespacedKey("slimefun", "slimefun_item");
 
     private DoctorQuickShopReadOnly() {}
@@ -130,6 +135,7 @@ final class DoctorQuickShopReadOnly {
         }
 
         Method saleGetter = shopType.getMethod("getItem");
+        Method cachedGetter = shopType.getMethod("itemSerializeString");
         Method priceGetter = shopType.getMethod("getPrice");
         Method ownerGetter = shopType.getMethod("getOwner");
         Method matches = shopType.getMethod("matches", ItemStack.class);
@@ -160,6 +166,11 @@ final class DoctorQuickShopReadOnly {
             throw new IOException("Unknown or unresolved Slimefun sale reference");
         }
         byte[] registeredBytes = current.serializeAsBytes();
+        // getItem() may be altered by a ShopItemEvent(RETRIEVE) listener.
+        // The cached Bukkit YAML comes from QuickShop's internal stored
+        // item. Neither representation authenticates a persisted SQL row.
+        String cachedYaml = (String) cachedGetter.invoke(shop);
+        CachedComparison cache = compareCached(cachedYaml, saleItem, stock, current);
         Result comparison = compare(saleItem, stock, current, candidate -> {
             try {
                 return (Boolean) matches.invoke(shop, candidate);
@@ -167,12 +178,21 @@ final class DoctorQuickShopReadOnly {
                 throw new IllegalStateException("QuickShop matcher unavailable", exception);
             }
         });
-        // Save only original native evidence receipts. No shop setter/update
-        // or stock inventory write is permitted. An unlimited AdminShop may
-        // have no physical stock in the selected slot.
+        // Refuse any intervening cached-record change BEFORE writing private
+        // receipts. A later race is checked again after disk I/O.
+        if (!Objects.equals(cachedYaml, cachedGetter.invoke(shop))) {
+            throw new IOException("QuickShop cached sale item changed during read-only comparison");
+        }
+        // Only private native evidence receipts are written; never shop,
+        // chest, database, owner or price. The cached source is captured
+        // separately from the event-processed getItem() view. No stock is
+        // required for unlimited AdminShops.
         ShopEvidence receipts = privateEvidenceFolder == null
                 ? null
                 : captureEvidence(privateEvidenceFolder, operator, saleItem, stock, current);
+        ShopEvidence cachedReceipts = privateEvidenceFolder == null
+                ? null
+                : captureEvidence(privateEvidenceFolder, operator, cache.item(), null, current);
         // The matcher is third-party code; reject any concurrent shop, stock
         // or registered-template change, including quantity and private fields.
         ItemStack stockAfter = inventory.getItem(slot);
@@ -181,12 +201,16 @@ final class DoctorQuickShopReadOnly {
                 || !Arrays.equals(stockBytes, stockAfter == null ? null : stockAfter.serializeAsBytes())
                 || !Arrays.equals(registeredBytes, current.serializeAsBytes())
                 || !Objects.equals(ownerKey, ownerAfter == null ? null : serializeOwner.invoke(ownerAfter))
+                || !Objects.equals(cachedYaml, cachedGetter.invoke(shop))
                 || Double.doubleToLongBits(price)
                         != Double.doubleToLongBits(((Number) priceGetter.invoke(shop)).doubleValue())) {
             throw new IOException("QuickShop or chest changed while inspecting");
         }
-        String report = "&6QuickShop stock slot &e" + slot + " &8| &7Saved sale-item vs current: &e"
-                + comparison.saleDifference() + " &8| &7Chest stock vs current: &e"
+        String report = "&6QuickShop stock slot &e" + slot + " &8| &7Runtime sale view vs current: &e"
+                + comparison.saleDifference() + " &8| &7Internal cached item vs current: &e"
+                + cache.cachedDifference() + " &8| &7Cached vs runtime view (ignore count): &e"
+                + yesNo(cache.cachedMatchesView()) + " &8| &7Cached vs stock (ignore count): &e"
+                + (comparison.stockPresent() ? yesNo(cache.cachedMatchesStock()) : "NO_STOCK") + " &8| &7Chest stock vs current: &e"
                 + (comparison.stockPresent() ? comparison.stockDifference() : "EMPTY")
                 + " &8| &7Sale item vs stock (native): &e"
                 + (comparison.stockPresent() ? yesNo(comparison.saleMatchesStock()) : "NO_STOCK")
@@ -201,7 +225,9 @@ final class DoctorQuickShopReadOnly {
                             ? " &7stock EMPTY"
                             : " &7stock &e" + receipts.stock()
                                     + " &7stock-reference &e" + receipts.stockReference());
-            report += " &8| &cFiles contain private item data. Keep receipt UUIDs with a staging backup.";
+            report += " &8| &7cached-item &e" + cachedReceipts.sale()
+                    + " &7cached-reference &e" + cachedReceipts.current();
+            report += " &8| &cPRIVATE item receipts; back up separately. Cached YAML is not the DB row.";
         }
         return report;
     }
@@ -246,6 +272,60 @@ final class DoctorQuickShopReadOnly {
     }
 
     record ShopEvidence(UUID sale, UUID current, UUID stock, UUID stockReference) {}
+
+    /**
+     * Parse QuickShop's cached internal-item YAML as a distinct, read-only
+     * source from the ShopItemEvent(RETRIEVE) runtime view. This is a cache,
+     * NOT a snapshot of the durable SQL record. Refuse unknown IDs, malformed
+     * YAML, unexpected additional root properties and oversized strings.
+     *
+     * <p>Only detached copies are compared; no legacy item is normalized.
+     */
+    static CachedComparison compareCached(
+            String yaml, ItemStack runtimeView, ItemStack stock, ItemStack registeredTemplate) throws IOException {
+        if (yaml == null || yaml.isBlank() || yaml.length() > MAX_CACHED_YAML_CHARS) {
+            throw new IOException("Missing or oversized QuickShop cached item serialization");
+        }
+        ItemStack cachedItem;
+        try {
+            YamlConfiguration config = new YamlConfiguration();
+            config.loadFromString(yaml);
+            if (config.getKeys(false).size() != 1 || !config.contains("item")) {
+                throw new IOException("QuickShop cache must contain only the serialized item");
+            }
+            cachedItem = config.getItemStack("item");
+        } catch (InvalidConfigurationException | RuntimeException exception) {
+            throw new IOException("QuickShop cache item could not be safely decoded", exception);
+        }
+        byte[] cachedBytes = nativeBytes(cachedItem);
+        byte[] viewBytes = nativeBytes(runtimeView);
+        byte[] currentBytes = nativeBytes(registeredTemplate);
+        byte[] stockBytes = stock == null || stock.getType().isAir() ? null : nativeBytes(stock);
+        ItemStack cached = ItemStack.deserializeBytes(cachedBytes);
+        ItemStack view = ItemStack.deserializeBytes(viewBytes);
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        ItemStack stocked = stockBytes == null ? null : ItemStack.deserializeBytes(stockBytes);
+        if (!sameIdentity(cached, current) || !sameIdentity(cached, view)
+                || stocked != null && !sameIdentity(cached, stocked)) {
+            throw new IOException("Cached QuickShop Slimefun ID/material disagrees with the live shop or stock");
+        }
+        var difference = classify(cached, current);
+        boolean matchesView = DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(cached, view);
+        boolean matchesStock = stocked != null
+                && DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(cached, stocked);
+        if (!Arrays.equals(viewBytes, runtimeView.serializeAsBytes())
+                || !Arrays.equals(currentBytes, registeredTemplate.serializeAsBytes())
+                || stockBytes != null && !Arrays.equals(stockBytes, stock.serializeAsBytes())) {
+            throw new IOException("QuickShop cache source comparison raced an item change");
+        }
+        return new CachedComparison(cached, difference, matchesView, matchesStock);
+    }
+
+    record CachedComparison(
+            ItemStack item,
+            DoctorHistoricalStackEvidenceAudit.Difference cachedDifference,
+            boolean cachedMatchesView,
+            boolean cachedMatchesStock) {}
 
     /**
      * Tests three independently captured native items, with a provided matcher
