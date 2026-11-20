@@ -133,6 +133,13 @@ price, sale view, stock and current registered template. No QuickShop
 setter, DB query, matcher override, chest write, trade or automatic repair
 is used.
 
+The MockBukkit-only cached-YAML fixture conservatively reports
+`FUNCTIONAL_METADATA` when its synthetic YAML codec changes non-presentation
+item data, rather than converting the result into a false
+`STYLE_ONLY_CANDIDATE` or `CURRENT`. Only real native Paper/Folia
+round-trip tests can establish whether production cache decoding retains
+all item metadata; a different outcome is never silently normalized.
+
 The existing disposable two-JVM physical-world-chest probe additionally
 calls the **production cached YAML decoder** on both boots, using synthetic
 old/current/typed-owner `ItemStack` objects actually reloaded from the
