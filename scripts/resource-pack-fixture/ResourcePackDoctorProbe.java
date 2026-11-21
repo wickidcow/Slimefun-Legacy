@@ -670,7 +670,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         Object shop = managerClass.getMethod("getShop", Location.class).invoke(manager, block.getLocation());
         require(shop == null, "Fresh disposable chest unexpectedly has a persisted QuickShop");
         verifyRealQuickShopMatcher(apiClass, api, loader, plugin);
-        verifyRealQuickShopInMemoryProjection(loader, manager, managerClass, shopClass, storageClass, userClass, block.getLocation());
+        verifyRealQuickShopInMemoryProjection(api, loader, manager, managerClass, shopClass, storageClass, userClass, block.getLocation());
         Bukkit.getLogger().info("SFL_REAL_QUICKSHOP_API_ACTIVATION_PASS");
     }
 
@@ -751,7 +751,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
      * database APIs or trade; zero production records are involved.
      */
     private void verifyRealQuickShopInMemoryProjection(
-            ClassLoader loader, Object manager, Class<?> managerClass,
+            Object api, ClassLoader loader, Object manager, Class<?> managerClass,
             Class<?> shopClass, Class<?> storageClass, Class<?> userClass,
             Location location) throws Exception {
         Class<?> qsClass = Class.forName("com.ghostchu.quickshop.QuickShop", true, loader);
@@ -763,8 +763,12 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         Class<?> benefit = Class.forName("com.ghostchu.quickshop.api.economy.benefit.BenefitProvider", true, loader);
         Class<?> benefitImpl = Class.forName("com.ghostchu.quickshop.economy.QSBenefitProvider", true, loader);
         Class<?> cacheImpl = Class.forName("com.ghostchu.quickshop.shop.cache.SimpleShopInventoryCountCache", true, loader);
-        Object qs = qsClass.getMethod("getInstance").invoke(null);
-        require(qs != null, "QuickShop implementation is unavailable");
+        // The already-initialized public API singleton is the actual
+        // QuickShop implementation. Avoid reflecting QuickShop's full public
+        // method table: optional PlaceholderAPI method signatures are absent
+        // on the minimal disposable server.
+        require(qsClass.isInstance(api), "QuickShop public API singleton is not the implementation");
+        Object qs = api;
         Object owner = userImpl.getMethod("createFullFilled", UUID.class, String.class, boolean.class)
                 .invoke(null, UUID.fromString(OWNER), "DoctorSynthetic", false);
         String ownerKey = (String) userClass.getMethod("serialize").invoke(owner);
