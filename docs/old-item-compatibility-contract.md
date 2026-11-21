@@ -235,6 +235,29 @@ a persisted SQL row, reloaded trading shop or actual AlbionMC legacy item.
 A backed-up real-world restart, transaction and balance/stock conservation
 test remains necessary before any automatic repair, migration or release.
 
+## Disposable physical chest style migration and restart regression — 2026-11-20
+
+The native Doctor test plugin now exercises the existing **production
+player-inventory repair engine** against one separately created physical
+single-chest inventory in a fresh disposable world. It seeds a synthetic
+historical-style CARBONADO stack (63), a fresh registered stack (1), and
+a typed owner-PDC negative control (9). The strict preview must select
+only the style-only stack; the exact-original native-byte receipt is
+written and reread before the test changes that one slot. After a clean
+shutdown and independent JVM restart the test reopens the physical chest,
+requires byte-exact repaired stock and unchanged adjacent/typed stock,
+verifies the original operator-scoped receipt and rollback eligibility,
+and physically merges 63+1 into 64 without loss or duplication.
+
+This is an **isolated test-only call** of the existing batch engine and
+does not add a production chest mutation command or grant permission to
+rewrite existing AlbionMC containers, machines, QuickShop records or
+offline inventories. The independent read-only old-chest fixture remains
+unchanged. Native pass markers are emitted on seed and restart, so a
+real Paper/Purpur/Folia regression fails closed. The historical old
+item is still synthetic; real-world data and transaction proof remain
+required before any live chest/shop migration or v4.1.82 release.
+
 ## Native disposable QuickShop SQL persistence gate — 2026-11-20
 
 The official 6.3.0.4 two-JVM native Paper 26.2/26.3 matrix now also

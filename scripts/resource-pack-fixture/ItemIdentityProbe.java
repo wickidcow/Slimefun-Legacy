@@ -932,6 +932,7 @@ final class ItemIdentityProbe {
             verifyPrivateEvidenceReplay(directory, owner, oldReceipt, templateReceipt,
                     "STYLE_ONLY_CANDIDATE", true);
             verifyPhysicalChestPersistence(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestStyleMigration(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -981,6 +982,7 @@ final class ItemIdentityProbe {
         verifyPrivateEvidenceReplay(directory, owner, originalReceipt, currentReceipt,
                 "STYLE_ONLY_CANDIDATE", false);
         verifyPhysicalChestPersistence(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestStyleMigration(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -1096,6 +1098,119 @@ final class ItemIdentityProbe {
                 "physical chest evidence capture changed stock, typed owner or registered template");
         Files.write(receiptsFile, List.of(owner.toString(), originalReceipt.toString(), referenceReceipt.toString()));
         Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_SEED_PASS");
+    }
+
+
+    /**
+     * Isolated native physical-chest write/restart proof for the existing
+     * bounded player-inventory repair engine. This is intentionally NOT
+     * exposed as a production chest command. The test creates its own
+     * fresh single chest and never touches an existing QuickShop record.
+     *
+     * A separate read-only physical chest fixture still verifies untouched
+     * historical stock. The migrated test slot must preserve its exact
+     * original private receipt, amount and registered Slimefun identity,
+     * while the functional typed-PDC negative control remains unchanged.
+     */
+    private static void verifyPhysicalChestStyleMigration(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 3);
+        Path evidence = directory.resolve("physical-chest-style-migration");
+        Path migratedFile = evidence.resolve("migrated.bin");
+        Path negativeFile = evidence.resolve("typed-negative.bin");
+        Path receiptFile = evidence.resolve("receipt.txt");
+        if (restart) {
+            require(block.getType() == Material.CHEST, "migrated physical chest did not persist");
+        } else {
+            require(block.getType().isAir(), "migrated fixture requires an empty disposable block");
+            block.setType(Material.CHEST);
+        }
+        var chest = (org.bukkit.block.Chest) block.getState();
+        var slots = chest.getBlockInventory();
+        require(slots.getSize() == 27, "migration fixture must target a single 27-slot chest");
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+        require(Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                "physical chest migration registry changed");
+
+        if (restart) {
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "physical chest migration receipt missing");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID receipt = java.util.UUID.fromString(tokens[1]);
+            ItemStack migrated = slots.getItem(0);
+            require(migrated != null && migrated.getAmount() == 63
+                            && Arrays.equals(Files.readAllBytes(migratedFile), migrated.serializeAsBytes())
+                            && migrated.isSimilar(current),
+                    "saved physical chest style migration lost repaired identity or amount");
+            require(slots.getItem(1) != null
+                            && Arrays.equals(currentBytes, slots.getItem(1).serializeAsBytes())
+                            && slots.getItem(2) != null
+                            && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes())
+                            && Arrays.equals(typedBytes, Files.readAllBytes(negativeFile))
+                            && slots.getItem(3) == null,
+                    "physical chest migration changed fresh stock, typed-PDC stock or a spare slot");
+            ItemStack backedUp = readDoctorBackup(evidence, owner, receipt);
+            require(Arrays.equals(oldBytes, backedUp.serializeAsBytes())
+                            && matchesDoctorBackup(backedUp, migrated, current,
+                                    ItemStack.deserializeBytes(registeredBytes)),
+                    "physical chest migration original bytes or postrestart rollback proof failed");
+            var merge = Bukkit.createInventory(null, 9);
+            require(merge.addItem(migrated.clone(), current.clone()).isEmpty()
+                            && merge.getItem(0).getAmount() == 64 && merge.getItem(1) == null,
+                    "persisted repaired physical chest 63+1 native merge did not conserve items");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_STYLE_MIGRATION_RESTART_PASS");
+            return;
+        }
+
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        require(!old.isSimilar(current), "physical migration source is not a historical style mismatch");
+        slots.setItem(0, old);
+        slots.setItem(1, current);
+        slots.setItem(2, typed);
+        require(Arrays.equals(oldBytes, slots.getItem(0).serializeAsBytes())
+                        && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes()),
+                "physical migration fixture failed to seed exact native stock");
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method preview = engine.getDeclaredMethod(
+                "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        preview.setAccessible(true);
+        Object plan = preview.invoke(null, slots, resolver);
+        Method eligible = plan.getClass().getDeclaredMethod("eligible");
+        eligible.setAccessible(true);
+        require((int) eligible.invoke(plan) == 1,
+                "physical migration must offer only the historical style stack, never typed PDC");
+        Method apply = engine.getDeclaredMethod(
+                "apply", org.bukkit.inventory.Inventory.class, plan.getClass(),
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        apply.setAccessible(true);
+        Files.createDirectories(evidence);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        var receipts = (java.util.List<?>) apply.invoke(null, slots, plan, resolver, evidence, owner);
+        require(receipts.size() == 1, "physical chest migration must back up exactly one original stack");
+        Method receiptId = receipts.getFirst().getClass().getDeclaredMethod("id");
+        receiptId.setAccessible(true);
+        java.util.UUID receipt = (java.util.UUID) receiptId.invoke(receipts.getFirst());
+        ItemStack migrated = slots.getItem(0);
+        require(migrated != null && migrated.getAmount() == 63 && migrated.isSimilar(current)
+                        && Arrays.equals(oldBytes, readDoctorBackup(evidence, owner, receipt).serializeAsBytes())
+                        && Arrays.equals(currentBytes, slots.getItem(1).serializeAsBytes())
+                        && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes())
+                        && slots.getItem(3) == null
+                        && Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO")
+                                .getItem().serializeAsBytes()),
+                "native physical chest update changed original backup, amount, typed PDC or other stock");
+        Files.write(migratedFile, migrated.serializeAsBytes());
+        Files.write(negativeFile, typedBytes);
+        Files.writeString(receiptFile, owner + ":" + receipt);
+        Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_STYLE_MIGRATION_SEED_PASS");
     }
 
     /**
