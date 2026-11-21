@@ -139,4 +139,5 @@ jobs:
             ${{ runner.temp }}/quickshop-disposable-native/PASS.txt
             ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/*.pass
             ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/quickshop-matcher-observed.txt
+            ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/quickshop-prospective-observed.txt
           if-no-files-found: warn

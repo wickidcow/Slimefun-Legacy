@@ -669,6 +669,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         Object shop = managerClass.getMethod("getShop", Location.class).invoke(manager, block.getLocation());
         require(shop == null, "Fresh disposable chest unexpectedly has a persisted QuickShop");
         verifyRealQuickShopMatcher(apiClass, api, loader, plugin);
+        verifyRealQuickShopInMemoryProjection(loader, manager, managerClass, shopClass, storageClass, userClass, block.getLocation());
         Bukkit.getLogger().info("SFL_REAL_QUICKSHOP_API_ACTIVATION_PASS");
     }
 
@@ -740,6 +741,117 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         Files.writeString(getDataFolder().toPath().resolve("quickshop-matcher-observed.txt"), outcomes);
         getLogger().info("SFL_REAL_QUICKSHOP_MATCHER_OBSERVATION_PASS "
                 + outcomes.trim() + ";diagnostic-only=true");
+    }
+
+
+    /**
+     * Native upstream QuickShop ContainerShop save projection on synthetic
+     * in-memory fixtures. Never call createShop, registerShop, loadShop,
+     * database APIs or trade; zero production records are involved.
+     */
+    private void verifyRealQuickShopInMemoryProjection(
+            ClassLoader loader, Object manager, Class<?> managerClass,
+            Class<?> shopClass, Class<?> storageClass, Class<?> userClass,
+            Location location) throws Exception {
+        Class<?> qsClass = Class.forName("com.ghostchu.quickshop.QuickShop", true, loader);
+        Class<?> container = Class.forName("com.ghostchu.quickshop.shop.ContainerShop", true, loader);
+        Class<?> userImpl = Class.forName("com.ghostchu.quickshop.obj.QUserImpl", true, loader);
+        Class<?> managerImpl = Class.forName("com.ghostchu.quickshop.shop.SimpleShopManager", true, loader);
+        Class<?> shopKind = Class.forName("com.ghostchu.quickshop.api.shop.IShopType", true, loader);
+        Class<?> shopState = Class.forName("com.ghostchu.quickshop.api.shop.state.ShopState", true, loader);
+        Class<?> benefit = Class.forName("com.ghostchu.quickshop.api.economy.benefit.BenefitProvider", true, loader);
+        Class<?> benefitImpl = Class.forName("com.ghostchu.quickshop.economy.QSBenefitProvider", true, loader);
+        Class<?> cacheImpl = Class.forName("com.ghostchu.quickshop.shop.cache.SimpleShopInventoryCountCache", true, loader);
+        Object qs = qsClass.getMethod("getInstance").invoke(null);
+        require(qs != null, "QuickShop implementation is unavailable");
+        Object owner = userImpl.getMethod("createFullFilled", UUID.class, String.class, boolean.class)
+                .invoke(null, UUID.fromString(OWNER), "DoctorSynthetic", false);
+        String ownerKey = (String) userClass.getMethod("serialize").invoke(owner);
+        require(ownerKey != null && !ownerKey.isBlank(), "QuickShop synthetic owner cannot serialize");
+        Object sell = managerImpl.getField("SELLING_TYPE").get(null);
+        Object active = managerImpl.getField("ACTIVE_STATE").get(null);
+        var make = container.getConstructor(
+                qsClass, long.class, Location.class, double.class, ItemStack.class,
+                userClass, boolean.class, shopKind, shopState, Map.class, String.class,
+                boolean.class, userClass, String.class, String.class, String.class,
+                Map.class, benefit, cacheImpl);
+        var save = shopClass.getMethod("saveToInfoStorage");
+        var encodedGetter = storageClass.getMethod("getItem");
+        var ownerGetter = storageClass.getMethod("getOwner");
+        var priceGetter = storageClass.getMethod("getPrice");
+        var cachedGetter = shopClass.getMethod("itemSerializeString");
+        var old = new ItemStack(Material.PAPER);
+        var oldMeta = old.getItemMeta();
+        oldMeta.displayName(Component.text("Carbonado")
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        oldMeta.getPersistentDataContainer().set(
+                key("slimefun:slimefun_item"), PersistentDataType.STRING, "CARBONADO");
+        oldMeta.getPersistentDataContainer().set(
+                key("addon:stored_owner"), PersistentDataType.LONG, 72527L);
+        old.setItemMeta(oldMeta);
+        var fresh = old.clone();
+        var freshMeta = fresh.getItemMeta();
+        freshMeta.displayName(Component.text("Carbonado")
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, false));
+        fresh.setItemMeta(freshMeta);
+        var wrongId = old.clone();
+        var idMeta = wrongId.getItemMeta();
+        idMeta.getPersistentDataContainer().set(
+                key("slimefun:slimefun_item"), PersistentDataType.STRING, "CARBON_CHUNK");
+        wrongId.setItemMeta(idMeta);
+        var wrongType = old.clone();
+        var typedMeta = wrongType.getItemMeta();
+        typedMeta.getPersistentDataContainer().set(
+                key("addon:stored_owner"), PersistentDataType.INTEGER, 72527);
+        wrongType.setItemMeta(typedMeta);
+        ItemStack[] originals = {old, fresh, wrongId, wrongType};
+        byte[][] source = Arrays.stream(originals).map(ItemStack::serializeAsBytes).toArray(byte[][]::new);
+        String[] representations = new String[originals.length];
+        for (int i = 0; i < originals.length; i++) {
+            // The upstream ContainerShop constructor explicitly forbids
+            // persistent storage writes. No shop registration follows.
+            Object shop = make.newInstance(qs, -1L, location, 27.25d, originals[i].clone(),
+                    owner, false, sell, active, Map.of(), null, true, null, "QuickShop-Hikari",
+                    "disposable-in-memory-only", null, Map.of(),
+                    benefitImpl.getConstructor().newInstance(),
+                    cacheImpl.getConstructor().newInstance());
+            String cached = (String) cachedGetter.invoke(shop);
+            require(cached != null && !cached.isBlank(),
+                    "QuickShop synthetic internal cache is absent");
+            Object first = save.invoke(shop);
+            Object second = save.invoke(shop);
+            require(first != null && second != null, "QuickShop prospective save DTO absent");
+            String serialized = (String) encodedGetter.invoke(first);
+            require(serialized != null && !serialized.isBlank() && serialized.length() <= 1_048_576,
+                    "QuickShop prospective item encoding is missing or too large");
+            require(serialized.equals(encodedGetter.invoke(second)),
+                    "QuickShop save projection changed across two reads");
+            require(ownerKey.equals(ownerGetter.invoke(first))
+                            && ownerKey.equals(ownerGetter.invoke(second)),
+                    "QuickShop prospective shop owner was not preserved");
+            require(Double.doubleToLongBits(27.25d)
+                            == Double.doubleToLongBits(((Number) priceGetter.invoke(first)).doubleValue())
+                            && Double.doubleToLongBits(27.25d)
+                            == Double.doubleToLongBits(((Number) priceGetter.invoke(second)).doubleValue()),
+                    "QuickShop prospective shop price was not preserved");
+            require(Arrays.equals(source[i], originals[i].serializeAsBytes()),
+                    "QuickShop in-memory projection mutated a source item");
+            representations[i] = serialized;
+        }
+        require(!representations[0].equals(representations[1]),
+                "QuickShop save projection collapsed legacy/current style");
+        require(!representations[0].equals(representations[2]),
+                "QuickShop save projection collapsed Slimefun ID");
+        require(!representations[0].equals(representations[3]),
+                "QuickShop save projection collapsed typed metadata");
+        require(managerClass.getMethod("getShop", Location.class).invoke(manager, location) == null,
+                "QuickShop in-memory fixture was unexpectedly registered");
+        Files.writeString(getDataFolder().toPath().resolve("quickshop-prospective-observed.txt"),
+                "in-memory-only=true;unregistered=true;encoding-stable=true;"
+                        + "owner-price-stable=true;style-distinct=true;slimefun-id-distinct=true;"
+                        + "typed-pdc-distinct=true;source-unchanged=true\\n");
+        getLogger().info("SFL_QUICKSHOP_IN_MEMORY_PROJECTION_PASS "
+                + "no-sql=true;no-registration=true;no-trades=true");
     }
 
     private Chest chest(int x, int z) {

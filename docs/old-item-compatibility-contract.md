@@ -210,6 +210,25 @@ stock/owner/price before and after a staging restart, and controlled
 trade/economy conservation remain required. This diagnostic does not
 authorize a bulk player, chest, machine or shop migration.
 
+## Real QuickShop in-memory prospective encoding fixture — 2026-11-20
+
+The isolated native QuickShop-Hikari 6.3.0.4 two-JVM Paper 26.2/26.3 matrix
+now constructs four real upstream \`ContainerShop\` instances **in memory**
+using synthetic old/current Carbonado-like items, a different Slimefun ID,
+and a changed typed owner PDC. The upstream constructor explicitly forbids
+persistent data writes; the fixture does **not** call registration, load,
+createShop, SQL or trade. It checks that \`saveToInfoStorage()\` emits the same
+opaque serialized item for repeated reads, preserves exact owner/price,
+does not collapse stylistic, ID or PDC-type differences, leaves original
+native item bytes intact and does not register a live shop. A redacted
+result must be identical across both server boots; no raw encoded item,
+owner identity or stock data is included in artifacts.
+
+**Scope:** this validates official in-memory Hikari save projection, NOT
+a persisted SQL row, reloaded trading shop or actual AlbionMC legacy item.
+A backed-up real-world restart, transaction and balance/stock conservation
+test remains necessary before any automatic repair, migration or release.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.

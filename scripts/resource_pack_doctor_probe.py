@@ -220,9 +220,11 @@ def main() -> None:
             # Restart both plugins and their durable empty-shop database, not
             # only the ABI of a JAR. No player, trade or shop writes occur.
             matcher_receipts = []
+            projection_receipts = []
             for boot_number in (1, 2):
                 (proof / "quickshop-api.pass").unlink(missing_ok=True)
                 (proof / "quickshop-matcher-observed.txt").unlink(missing_ok=True)
+                (proof / "quickshop-prospective-observed.txt").unlink(missing_ok=True)
                 process, log = boot(boot_number)
                 probe(process, boot_number, "quickshop-api")
                 receipt = proof / "quickshop-matcher-observed.txt"
@@ -235,7 +237,19 @@ def main() -> None:
                         r"different-owner-pdc-type=(true|false)\\n", observed):
                     raise RuntimeError("Real QuickShop matcher observation is malformed")
                 matcher_receipts.append(observed)
+                projection = proof / "quickshop-prospective-observed.txt"
+                if not projection.is_file():
+                    raise RuntimeError("Real QuickShop in-memory projection not recorded")
+                projected = projection.read_text(encoding="utf-8")
+                if projected != (
+                        "in-memory-only=true;unregistered=true;encoding-stable=true;"
+                        "owner-price-stable=true;style-distinct=true;slimefun-id-distinct=true;"
+                        "typed-pdc-distinct=true;source-unchanged=true\\n"):
+                    raise RuntimeError("QuickShop projected-save result malformed")
+                projection_receipts.append(projected)
                 stop(process, log)
+            if projection_receipts[0] != projection_receipts[1]:
+                raise RuntimeError("QuickShop in-memory save projection changed across JVM boots")
             if matcher_receipts[0] != matcher_receipts[1]:
                 raise RuntimeError("Real QuickShop matcher outcome changed across native JVM boots")
             result = ("Native QuickShop-Hikari public API and matcher activation PASS\\n"
