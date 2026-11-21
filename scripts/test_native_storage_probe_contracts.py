@@ -108,8 +108,10 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision in (141, 142) else
             ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
             if revision == 153 else
+            ("SF_Networks1.0.65.jar", "8853a85c99acdb22c8d05d93f010272889922c9d")
+            if revision == 156 else
             ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5")
-            if revision in (154, 155, 156) else
+            if revision in (154, 155) else
             ("SF_Networks1.0.62.jar", "79e4c0116cc4b4683c668a4920e67692f925b83f")
             if revision == 152 else
             ("SF_Networks1.0.62.jar", "288640e6dbf907a6ba238d98af206aab2d56f92b")
@@ -197,7 +199,7 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R154[1])
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[155][1])
 
-    def test_r156_requires_official_fluffy_source_without_claiming_native_pass(self):
+    def test_r156_requires_latest_official_storage_sources_without_claiming_native_pass(self):
         (self.root / "gradle.properties").write_text("projectVersion=4.1.81\n", encoding="utf-8")
         self.populate(156)
         evidence = self.prepare()
@@ -206,7 +208,13 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertNotIn("result", evidence)
         self.assertEqual(evidence["expected_core_version"], "4.1.81")
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"],
-                         "SF_FluffyMachines26.2.21.jar")
+                         "SF_FluffyMachines26.2.23.jar")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"],
+                         "6ab739439c083bcaf8e7514d51c9b9b431fca31a")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["jar"],
+                         "SF_Networks1.0.65.jar")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"],
+                         "8853a85c99acdb22c8d05d93f010272889922c9d")
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"], probe.FLUFFY_R156[1])
         self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"], probe.NETWORK_VERSIONS[156][1])
         self.compile.reset_mock()
@@ -229,6 +237,25 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.reject("addon source mismatch")
         self.manifest["addons"][0]["commit"] = probe.FLUFFY_R156[1]
         self.manifest["addons"][0]["jar"] = old[0]
+        self.reject("addon source mismatch")
+
+    def test_r156_refuses_published_v81_storage_source_reuse(self):
+        self.populate(156)
+        # A published v4.1.81 addon is not a replacement for the newer
+        # source-pinned v4.1.82 draft pair, even when the plugin can enable.
+        self.manifest["addons"][0]["commit"] = "365c30bdd9fedd0bb9989c13829341c501150a5a"
+        self.reject("addon source mismatch")
+        self.populate(156)
+        self.compile.reset_mock()
+        self.manifest["addons"][1]["commit"] = "1d46a1afd04ceae7f04c7e0849397350ce273ec5"
+        self.reject("addon source mismatch")
+        self.populate(156)
+        self.compile.reset_mock()
+        self.manifest["addons"][0]["jar"] = "SF_FluffyMachines26.2.21.jar"
+        self.reject("addon source mismatch")
+        self.populate(156)
+        self.compile.reset_mock()
+        self.manifest["addons"][1]["jar"] = "SF_Networks1.0.64.jar"
         self.reject("addon source mismatch")
 
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
@@ -567,15 +594,16 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertIn("-Dalbion.probe.fluffy.version=26.2.18", command)
         self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.16", command)
 
-    def test_r156_launch_uses_official_fluffy_26_2_20(self):
+    def test_r156_launch_uses_official_fluffy_26_2_23_networks_1_0_65(self):
         self.populate(156)
         evidence = self.prepare()
         with self.assertRaisesRegex(AssertionError, "No server may run"):
             probe.run(self.work, self.java, evidence, 1)
         command = self.launch.call_args.args[0]
-        self.assertIn("-Dalbion.probe.fluffy.version=26.2.21", command)
-        self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.18", command)
-        self.assertIn("-Dalbion.probe.networks.version=1.0.64", command)
+        self.assertIn("-Dalbion.probe.fluffy.version=26.2.23", command)
+        self.assertNotIn("-Dalbion.probe.fluffy.version=26.2.21", command)
+        self.assertIn("-Dalbion.probe.networks.version=1.0.65", command)
+        self.assertNotIn("-Dalbion.probe.networks.version=1.0.64", command)
 
     def test_invalid_fluffy_jar_version_is_refused_before_server_launch(self):
         evidence = self.prepare()
