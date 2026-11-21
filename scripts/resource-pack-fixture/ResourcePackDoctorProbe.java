@@ -829,6 +829,17 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
             String serialized = (String) encodedGetter.invoke(first);
             require(serialized != null && !serialized.isBlank() && serialized.length() <= 1_048_576,
                     "QuickShop prospective item encoding is missing or too large");
+            // Official SHA-pinned PaperPlatform 6.3.0.4 uses native item
+            // bytes inside a Base64 envelope. Prove the prospective DB
+            // payload contains the precise ORIGINAL item, including PDC
+            // types, display components and Slimefun ID. Comparing merely
+            // distinct Base64 strings is insufficient to prove preservation.
+            byte[] encodedNative = Base64.getDecoder().decode(serialized);
+            require(Arrays.equals(source[i], encodedNative),
+                    "Real QuickShop prospective save altered original native item bytes");
+            ItemStack reloadedNative = ItemStack.deserializeBytes(encodedNative);
+            require(Arrays.equals(source[i], reloadedNative.serializeAsBytes()),
+                    "Real QuickShop prospective save failed native item round-trip");
             require(serialized.equals(encodedGetter.invoke(second)),
                     "QuickShop save projection changed across two reads");
             require(ownerKey.equals(ownerGetter.invoke(first))
@@ -854,7 +865,8 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         Files.writeString(getDataFolder().toPath().resolve("quickshop-prospective-observed.txt"),
                 "in-memory-only=true;unregistered=true;encoding-stable=true;"
                         + "owner-price-stable=true;style-distinct=true;slimefun-id-distinct=true;"
-                        + "typed-pdc-distinct=true;source-unchanged=true\\n");
+                        + "typed-pdc-distinct=true;source-unchanged=true;"
+                        + "saved-native-bytes-identical=true\\n");
         getLogger().info("SFL_QUICKSHOP_IN_MEMORY_PROJECTION_PASS "
                 + "no-sql=true;no-registration=true;no-trades=true");
     }

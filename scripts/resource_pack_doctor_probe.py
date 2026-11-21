@@ -244,7 +244,8 @@ def main() -> None:
                 if projected != (
                         "in-memory-only=true;unregistered=true;encoding-stable=true;"
                         "owner-price-stable=true;style-distinct=true;slimefun-id-distinct=true;"
-                        "typed-pdc-distinct=true;source-unchanged=true\\n"):
+                        "typed-pdc-distinct=true;source-unchanged=true;"
+                        "saved-native-bytes-identical=true\\n"):
                     raise RuntimeError("QuickShop projected-save result malformed")
                 projection_receipts.append(projected)
                 stop(process, log)

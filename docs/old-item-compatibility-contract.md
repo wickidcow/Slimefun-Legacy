@@ -220,7 +220,13 @@ persistent data writes; the fixture does **not** call registration, load,
 createShop, SQL or trade. It checks that \`saveToInfoStorage()\` emits the same
 opaque serialized item for repeated reads, preserves exact owner/price,
 does not collapse stylistic, ID or PDC-type differences, leaves original
-native item bytes intact and does not register a live shop. A redacted
+native item bytes intact and does not register a live shop. The pinned
+official PaperPlatform 6.3.0.4 uses Base64 of native ItemStack bytes;
+the fixture now decodes the actual prospective save encoding and requires
+**byte-for-byte equality to each original item**, followed by a native
+`ItemStack.deserializeBytes` round-trip with identical bytes. This detects
+any loss of text styling, typed PDC, Slimefun identity or other private
+native data even when two distinct encoded strings are produced. A redacted
 result must be identical across both server boots; no raw encoded item,
 owner identity or stock data is included in artifacts.
 
