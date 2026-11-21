@@ -43,6 +43,9 @@ final class DoctorLiveItemUpdate {
     private static final int MAX_SLOT_HINTS = 12;
     // Refuse oversized addon/storage payloads on a live owner thread.
     private static final int MAX_STACK_BYTES = 256 * 1024;
+    // Bounded full physical-inventory provenance for read-only evidence.
+    // Even unrelated hopper/addon slot changes must invalidate a receipt export.
+    private static final int MAX_CONTAINER_PREIMAGE_BYTES = 2 * 1024 * 1024;
     private static final int MAX_BATCH_BYTES = 512 * 1024;
     private static final int MAX_PLANS = 64;
     private static final long PLAN_TTL_MILLIS = 60_000L;
@@ -196,10 +199,15 @@ final class DoctorLiveItemUpdate {
                     } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                         message = "&cBoundary double chest may span Folia regions; inspection refused. No items changed.";
                     } else {
+                        Inventory inventory = container.getInventory();
+                        ContainerPreimage preimage = captureContainerPreimage(inventory);
                         Preview inspection = preview(
-                                container.getInventory(),
+                                inventory,
                                 DoctorLiveItemUpdate::registeredTemplate,
                                 MAX_CONTAINER_SCAN_SLOTS);
+                        if (!containerUnchanged(inventory, preimage)) {
+                            throw new IOException("Container changed while producing a diagnostic preview");
+                        }
                         message = "&6Container item compatibility &8(read-only) &7Slots: &e"
                                 + inspection.scannedSlots() + " &8| &7Mismatches: &e"
                                 + inspection.mismatched() + " &8| &7Style-only: &a"
@@ -217,7 +225,7 @@ final class DoctorLiveItemUpdate {
                                         : "");
                     }
                 }
-            } catch (RuntimeException exception) {
+            } catch (IOException | RuntimeException exception) {
                 message = "&cContainer metadata could not be inspected safely. Nothing changed.";
             }
             final String report = message;
@@ -455,6 +463,7 @@ final class DoctorLiveItemUpdate {
             throw new IOException("Out-of-range physical container evidence slot");
         }
         try {
+            ContainerPreimage preimage = captureContainerPreimage(inventory);
             ItemStack original = inventory.getItem(slot);
             if (original == null || original.getType().isAir() || itemId(original) == null) {
                 throw new IOException("Container slot does not contain a registered Slimefun item");
@@ -471,14 +480,102 @@ final class DoctorLiveItemUpdate {
             }
             DoctorIdentityEvidenceExport.Evidence receipts =
                     DoctorIdentityEvidenceExport.capture(pluginFolder, owner, original, template);
-            if (!Arrays.equals(originalBytes, inventory.getItem(slot).serializeAsBytes())
-                    || !Arrays.equals(currentBytes, template.serializeAsBytes())) {
-                throw new IOException("Container item/template changed while saving private evidence");
+            ItemStack live = inventory.getItem(slot);
+            if (live == null
+                    || !Arrays.equals(originalBytes, live.serializeAsBytes())
+                    || !Arrays.equals(currentBytes, template.serializeAsBytes())
+                    || !containerUnchanged(inventory, preimage)) {
+                throw new IOException("Container or registered template changed while saving private evidence");
             }
             return receipts;
         } catch (RuntimeException exception) {
             throw new IOException("Cannot safely capture chest item evidence", exception);
         }
+    }
+
+    /**
+     * Read-only complete physical-inventory provenance for a future
+     * container-scoped migration. Hashes all slot positions, including empty
+     * slots, using exact native serialization; validates a second independent
+     * snapshot to refuse racing hoppers/Cargo/other inventory adapters.
+     *
+     * <p>The hash is private and never displayed or treated as repair
+     * permission. This method makes no inventory, shop, or database writes.
+     */
+    static ContainerPreimage captureContainerPreimage(Inventory inventory) throws IOException {
+        if (inventory == null || inventory.getSize() < 1
+                || inventory.getSize() > MAX_CONTAINER_SCAN_SLOTS
+                || inventory.getStorageContents().length != inventory.getSize()) {
+            throw new IOException("Unsupported or oversized physical inventory layout");
+        }
+        byte[][] first = exactContainerSlots(inventory);
+        byte[][] second = exactContainerSlots(inventory);
+        if (!sameSlotBytes(first, second)) {
+            throw new IOException("Physical inventory changed during native snapshot");
+        }
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(first.length).array());
+            for (int slot = 0; slot < first.length; slot++) {
+                byte[] item = first[slot];
+                digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES).putInt(slot).array());
+                digest.update(java.nio.ByteBuffer.allocate(Integer.BYTES)
+                        .putInt(item == null ? -1 : item.length).array());
+                if (item != null) {
+                    digest.update(item);
+                }
+            }
+            return new ContainerPreimage(first.length, java.util.HexFormat.of().formatHex(digest.digest()));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IOException("SHA-256 is unavailable for physical chest provenance", impossible);
+        }
+    }
+
+    static boolean containerUnchanged(Inventory inventory, ContainerPreimage expected) throws IOException {
+        return expected != null
+                && expected.equals(captureContainerPreimage(inventory));
+    }
+
+    private static byte[][] exactContainerSlots(Inventory inventory) throws IOException {
+        int size = inventory.getSize();
+        byte[][] values = new byte[size][];
+        int totalBytes = 0;
+        try {
+            for (int slot = 0; slot < size; slot++) {
+                ItemStack stack = inventory.getItem(slot);
+                if (stack == null || stack.getType().isAir()) {
+                    continue;
+                }
+                byte[] nativeBytes = stack.serializeAsBytes();
+                if (nativeBytes.length > MAX_STACK_BYTES
+                        || totalBytes > MAX_CONTAINER_PREIMAGE_BYTES - nativeBytes.length) {
+                    throw new IOException("Physical inventory exceeds bounded native-byte snapshot budget");
+                }
+                ItemStack decoded = ItemStack.deserializeBytes(nativeBytes);
+                if (decoded.getType() != stack.getType()
+                        || decoded.getAmount() != stack.getAmount()
+                        || !Arrays.equals(nativeBytes, decoded.serializeAsBytes())) {
+                    throw new IOException("Physical inventory native item is not an exact round-trip");
+                }
+                values[slot] = nativeBytes;
+                totalBytes += nativeBytes.length;
+            }
+            return values;
+        } catch (RuntimeException exception) {
+            throw new IOException("Unsafe physical inventory serialization", exception);
+        }
+    }
+
+    private static boolean sameSlotBytes(byte[][] left, byte[][] right) {
+        if (left.length != right.length) {
+            return false;
+        }
+        for (int slot = 0; slot < left.length; slot++) {
+            if (!Arrays.equals(left[slot], right[slot])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -728,6 +825,7 @@ final class DoctorLiveItemUpdate {
             int unknownIds,
             List<Integer> differingSlots) {}
     record Receipt(int slot, UUID id) {}
+    record ContainerPreimage(int slots, String sha256) {}
     private record SavedPlan(Preview preview, long expiresAtMillis) {}
     private record Prepared(Entry entry, byte[] oldBytes, ItemStack replacement) {}
 }

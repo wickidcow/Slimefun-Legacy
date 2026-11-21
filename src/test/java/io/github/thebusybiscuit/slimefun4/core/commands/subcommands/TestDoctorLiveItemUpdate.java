@@ -292,6 +292,54 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void fullContainerPreimageDetectsUnrelatedSlotAndTypedPdcChangesWithoutWrites() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 54);
+        ItemStack template = current("CARBONADO");
+        ItemStack old = olderStyling(template, 63);
+        chest.setItem(53, old);
+        chest.setItem(12, new ItemStack(Material.STONE, 13));
+        var preimage = DoctorLiveItemUpdate.captureContainerPreimage(chest);
+        assertEquals(54, preimage.slots());
+        assertTrue(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        byte[] oldBytes = chest.getItem(53).serializeAsBytes();
+
+        chest.setItem(12, new ItemStack(Material.STONE, 14));
+        assertFalse(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        chest.setItem(12, new ItemStack(Material.STONE, 13));
+        assertTrue(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        chest.setItem(2, new ItemStack(Material.DIRT, 1));
+        assertFalse(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        chest.setItem(2, null);
+        assertTrue(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        chest.getItem(53).editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787_001));
+        assertFalse(DoctorLiveItemUpdate.containerUnchanged(chest, preimage));
+        assertArrayEquals(oldBytes, old.serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
+    void containerExportRejectsUnrelatedRacingSlotWhileKeepingTargetUnchanged() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current("CARBONADO");
+        ItemStack old = olderStyling(template, 19);
+        byte[] oldBytes = old.serializeAsBytes();
+        chest.setItem(0, old);
+        chest.setItem(6, new ItemStack(Material.STONE, 3));
+        UUID owner = UUID.randomUUID();
+        assertThrows(IOException.class, () -> DoctorLiveItemUpdate.captureContainer(
+                chest, 0, observed -> {
+                    // A hopper or addon changes an unrelated slot after the
+                    // complete snapshot but before the evidence has been saved.
+                    chest.setItem(6, new ItemStack(Material.STONE, 2));
+                    return template;
+                }, data, owner));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertEquals(2, chest.getItem(6).getAmount());
+        assertFalse(chest.getItem(0).isSimilar(template));
+    }
+
+    @Test
     void oldChestItemAndCurrentTemplateExportAsExactPrivateReceiptsWithoutChangingStock() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 54);
         ItemStack current = current("CARBONADO");

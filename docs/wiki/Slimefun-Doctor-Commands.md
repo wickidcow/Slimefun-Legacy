@@ -373,7 +373,9 @@ staging restart, before even considering shop migration.
 A separate `/sf doctor identity live scan-container` command lets an
 operator **look at a loaded physical chest/barrel/container within six blocks**
 and inspect up to 54 slots **without modifying the container or generating
-any update plan**. It dispatches the inspection to the container's owning
+any update plan**. It also verifies an exact native-byte, bounded, complete
+inventory preimage twice, including empty slots, to refuse a changing chest.
+Native item bytes and the private snapshot hash are never printed. It dispatches the inspection to the container's owning
 region on Folia and returns redacted counts plus the **first 12 zero-based
 slots with a registered item/template mismatch** (no private item lore/PDC
 values) through the player's scheduler. These are evidence-export hints, not
@@ -418,7 +420,11 @@ folder.
 The separate operator command `/sf doctor identity live export-container <slot>`
 captures **one 0-based slot (0–53)** from a loaded physical chest/barrel that
 the operator looks at. The selected item must have a registered Slimefun ID
-and an actual mismatch with its current registered template. It writes two
+and an actual mismatch with its current registered template. Both before and
+after writing private evidence, the full physical container snapshot
+(including unrelated slots) must be identical; any hopper/Cargo/plugin
+mutation causes a fail-closed refusal. The complete snapshot is bounded to
+2 MiB of exact native item data and never permits a chest repair. It writes two
 verified exact-byte **private** receipts into
 `plugins/Slimefun/recovery/identity/`: one for the original stored stack
 (including its amount and opaque metadata), and one for the current registered
