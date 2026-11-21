@@ -217,8 +217,10 @@ def main() -> None:
 
     try:
         if args.quickshop_api_only:
-            # Restart both plugins and their durable empty-shop database, not
-            # only the ABI of a JAR. No player, trade or shop writes occur.
+            # This entire server and its QuickShop SQLite DB were created in
+            # a new disposable work directory. Native in-memory projection
+            # is read-only; a separate synthetic persisted row test writes
+            # ONLY to this throwaway database, never a production server.
             matcher_receipts = []
             projection_receipts = []
             for boot_number in (1, 2):
@@ -248,6 +250,18 @@ def main() -> None:
                         "saved-native-bytes-identical=true\\n"):
                     raise RuntimeError("QuickShop projected-save result malformed")
                 projection_receipts.append(projected)
+                # First boot persists a synthetic shop in this disposable
+                # database; second boot must reopen it and conserve the
+                # exact legacy item, stock, owner and price from actual SQL.
+                stage = "quickshop-db-prepare" if boot_number == 1 else "quickshop-db-restart"
+                (proof / "quickshop-db-observed.txt").unlink(missing_ok=True)
+                probe(process, boot_number, stage)
+                sql_observation = proof / "quickshop-db-observed.txt"
+                if sql_observation.read_text(encoding="utf-8") != (
+                        "synthetic-only=true;isolated-sql-row=true;shop-loaded=true;"
+                        "native-sale-bytes-identical=true;stock-count-preserved=true;"
+                        "stock-metadata-identical=true;owner-stable=true;price-stable=true\\n"):
+                    raise RuntimeError("Disposable persisted QuickShop SQL observation is malformed")
                 stop(process, log)
             if projection_receipts[0] != projection_receipts[1]:
                 raise RuntimeError("QuickShop in-memory save projection changed across JVM boots")

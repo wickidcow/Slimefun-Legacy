@@ -235,6 +235,32 @@ a persisted SQL row, reloaded trading shop or actual AlbionMC legacy item.
 A backed-up real-world restart, transaction and balance/stock conservation
 test remains necessary before any automatic repair, migration or release.
 
+## Native disposable QuickShop SQL persistence gate — 2026-11-20
+
+The official 6.3.0.4 two-JVM native Paper 26.2/26.3 matrix now also
+creates **one synthetic shop and physical chest in a newly created
+throwaway server directory**. Unlike the read-only in-memory DTO
+projection above, this *test-only fixture* deliberately calls the real
+upstream \`ShopManager.registerShop(..., true)\` to write a disposable
+SQLite shop record with a synthetic historical-looking CARBONADO item.
+On the first boot, it queries the **actual QuickShop DatabaseHelper
+\`listShops(world, false)\` SQL row**, verifies location, owner, exact
+fractional price, Base64/native item bytes, live shop lookup and exact
+physical stock count + metadata. It cleanly shuts the server down,
+boots the **same disposable database and world in a new JVM**, and
+repeats the same SQL, loaded-shop and physical-stock invariants with
+no duplicate row or lost metadata. The runner requires a fixed redacted
+observation for both boots; no raw item/owner encoding is exported.
+
+**Strict boundary:** Only the ephemeral test world/database are
+written. The installed production Slimefun Doctor remains read-only
+for QuickShop and does not access, edit, migrate, create or trade any
+live shop. Synthetic SQL round-trip is not genuine AlbionMC data, and
+does not prove economic conservation under real trades. A backed-up
+AlbionMC historical SQL row, actual trade balances, owner and stock
+preservation checks are still required before enabling bulk repair or
+shipping a migration feature.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.

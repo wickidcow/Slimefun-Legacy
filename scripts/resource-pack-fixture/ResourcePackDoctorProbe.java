@@ -73,6 +73,11 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 Files.createDirectories(getDataFolder().toPath());
                 switch (args[0]) {
                     case "quickshop-api" -> verifyQuickShopPublicRuntime();
+                    case "quickshop-db-prepare" -> {
+                        prepareQuickShopDisposableSqlFixture();
+                        return;
+                    }
+                    case "quickshop-db-restart" -> verifyQuickShopDisposableSqlFixture();
                     case "identity" -> {
                         CraftingRestrictionProbe.verify();
                         ItemIdentityProbe.verify(getDataFolder().toPath(), false);
@@ -869,6 +874,167 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                         + "saved-native-bytes-identical=true\\n");
         getLogger().info("SFL_QUICKSHOP_IN_MEMORY_PROJECTION_PASS "
                 + "no-sql=true;no-registration=true;no-trades=true");
+    }
+
+
+    /**
+     * This is a TEST PLUGIN ONLY, loaded exclusively in a brand-new disposable
+     * server directory. It deliberately creates one synthetic shop in that
+     * server's isolated QuickShop SQLite database; production Doctor never
+     * calls registration or any database writer.
+     */
+    private void prepareQuickShopDisposableSqlFixture() throws Exception {
+        var loc = Bukkit.getWorlds().getFirst().getBlockAt(6, 180, 6).getLocation();
+        require(loc.getBlock().getType().isAir(), "QuickShop disposable SQL test site was already used");
+        require(!Files.exists(getDataFolder().toPath().resolve("quickshop-db-prepare.pass")),
+                "Refusing duplicate disposable shop insertion");
+        var quickShop = Bukkit.getPluginManager().getPlugin("QuickShop-Hikari");
+        require(quickShop != null && quickShop.isEnabled(), "Official QuickShop is absent");
+        var loader = quickShop.getClass().getClassLoader();
+        var apiType = Class.forName("com.ghostchu.quickshop.api.QuickShopAPI", true, loader);
+        var managerType = Class.forName("com.ghostchu.quickshop.api.shop.ShopManager", true, loader);
+        var shopType = Class.forName("com.ghostchu.quickshop.api.shop.Shop", true, loader);
+        var userType = Class.forName("com.ghostchu.quickshop.api.obj.QUser", true, loader);
+        var qsImpl = Class.forName("com.ghostchu.quickshop.QuickShop", true, loader);
+        var containerType = Class.forName("com.ghostchu.quickshop.shop.ContainerShop", true, loader);
+        var userImpl = Class.forName("com.ghostchu.quickshop.obj.QUserImpl", true, loader);
+        var managerImpl = Class.forName("com.ghostchu.quickshop.shop.SimpleShopManager", true, loader);
+        var kind = Class.forName("com.ghostchu.quickshop.api.shop.IShopType", true, loader);
+        var state = Class.forName("com.ghostchu.quickshop.api.shop.state.ShopState", true, loader);
+        var benefit = Class.forName("com.ghostchu.quickshop.api.economy.benefit.BenefitProvider", true, loader);
+        var benefitImpl = Class.forName("com.ghostchu.quickshop.economy.QSBenefitProvider", true, loader);
+        var countCache = Class.forName("com.ghostchu.quickshop.shop.cache.SimpleShopInventoryCountCache", true, loader);
+        var blockPos = Class.forName("com.ghostchu.quickshop.api.serialize.BlockPos", true, loader);
+        Object api = apiType.getMethod("getInstance").invoke(null);
+        require(qsImpl.isInstance(api), "Official QuickShop implementation singleton unavailable");
+        Object manager = apiType.getMethod("getShopManager").invoke(api);
+        require(managerType.getMethod("getShop", Location.class).invoke(manager, loc) == null,
+                "Refusing to replace an existing shop");
+        var old = quickShopPersistedItem();
+        var stock = old.clone();
+        stock.setAmount(23);
+        byte[] stockBytes = stock.serializeAsBytes();
+        loc.getBlock().setType(Material.CHEST);
+        var chest = (Chest) loc.getBlock().getState();
+        require(chest.getBlockInventory().getItem(0) == null,
+                "Disposable QuickShop chest must begin empty");
+        chest.getBlockInventory().setItem(0, stock);
+        Object owner = userImpl.getMethod("createFullFilled", UUID.class, String.class, boolean.class)
+                .invoke(null, UUID.fromString(OWNER), "DoctorSynthetic", false);
+        Object symbol = blockPos.getConstructor(Location.class).newInstance(loc);
+        String link = (String) blockPos.getMethod("serialize").invoke(symbol);
+        Object shop = containerType.getConstructor(
+                        qsImpl, long.class, Location.class, double.class, ItemStack.class,
+                        userType, boolean.class, kind, state, Map.class, String.class,
+                        boolean.class, userType, String.class, String.class, String.class,
+                        Map.class, benefit, countCache)
+                .newInstance(api, -1L, loc, 27.25d, old.clone(), owner, false,
+                        managerImpl.getField("SELLING_TYPE").get(null),
+                        managerImpl.getField("ACTIVE_STATE").get(null),
+                        Map.of(), null, true, null, quickShop.getName(),
+                        link, null, Map.of(),
+                        benefitImpl.getConstructor().newInstance(),
+                        countCache.getConstructor().newInstance());
+        require(Arrays.equals(stockBytes, chest.getBlockInventory().getItem(0).serializeAsBytes()),
+                "Creating in-memory shop changed physical chest stock");
+        // registerShop(..., true) is used ONLY in this disposable fixture:
+        // unlike prospective saveToInfoStorage, it deliberately writes a
+        // synthetic row to a fresh isolated QuickShop test database.
+        var registration = (java.util.concurrent.CompletableFuture<?>) managerType
+                .getMethod("registerShop", shopType, boolean.class).invoke(manager, shop, true);
+        registration.whenComplete((result, failure) -> at(0, 0, 1L, () -> {
+            try {
+                require(failure == null, "QuickShop test database registration failed");
+                require(((Number) shopType.getMethod("getShopId").invoke(shop)).longValue() > 0,
+                        "QuickShop assigned no persisted shop ID");
+                verifyQuickShopDisposableSqlFixture();
+                pass("quickshop-db-prepare");
+            } catch (Throwable problem) {
+                fail(problem);
+            }
+        }));
+    }
+
+    private ItemStack quickShopPersistedItem() {
+        var old = new ItemStack(Material.PAPER, 1);
+        var meta = old.getItemMeta();
+        meta.displayName(Component.text("Carbonado")
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true));
+        meta.lore(List.of(Component.text("Original shop stock")));
+        meta.getPersistentDataContainer().set(
+                key("slimefun:slimefun_item"), PersistentDataType.STRING, "CARBONADO");
+        meta.getPersistentDataContainer().set(
+                key("addon:stored_owner"), PersistentDataType.LONG, 72527L);
+        old.setItemMeta(meta);
+        return old;
+    }
+
+    /**
+     * Read the actual Hikari database row, not a projected in-memory DTO,
+     * then check a physical-world chest after an independent JVM restart.
+     * All item, owner and price data are synthetic and never logged.
+     */
+    private void verifyQuickShopDisposableSqlFixture() throws Exception {
+        var loc = Bukkit.getWorlds().getFirst().getBlockAt(6, 180, 6).getLocation();
+        require(loc.getBlock().getType() == Material.CHEST,
+                "Persisted QuickShop fixture chest missing after restart");
+        ItemStack sale = quickShopPersistedItem();
+        ItemStack expectedStock = sale.clone();
+        expectedStock.setAmount(23);
+        ItemStack stock = ((Chest) loc.getBlock().getState()).getBlockInventory().getItem(0);
+        require(stock != null && Arrays.equals(expectedStock.serializeAsBytes(), stock.serializeAsBytes()),
+                "QuickShop test chest stock quantity or metadata changed");
+        var quickShop = Bukkit.getPluginManager().getPlugin("QuickShop-Hikari");
+        require(quickShop != null && quickShop.isEnabled(), "Official QuickShop unavailable");
+        var loader = quickShop.getClass().getClassLoader();
+        var api = Class.forName("com.ghostchu.quickshop.api.QuickShopAPI", true, loader);
+        var dbType = Class.forName("com.ghostchu.quickshop.api.database.DatabaseHelper", true, loader);
+        var recordType = Class.forName("com.ghostchu.quickshop.api.database.bean.ShopRecord", true, loader);
+        var dataType = Class.forName("com.ghostchu.quickshop.api.database.bean.DataRecord", true, loader);
+        var infoType = Class.forName("com.ghostchu.quickshop.api.database.bean.InfoRecord", true, loader);
+        var userType = Class.forName("com.ghostchu.quickshop.api.obj.QUser", true, loader);
+        Object instance = api.getMethod("getInstance").invoke(null);
+        Object database = api.getMethod("getDatabaseHelper").invoke(instance);
+        @SuppressWarnings("unchecked")
+        var records = (List<Object>) dbType.getMethod("listShops", String.class, boolean.class)
+                .invoke(database, loc.getWorld().getName(), false);
+        require(records.size() == 1, "QuickShop disposable database must contain exactly one shop row");
+        Object record = records.getFirst();
+        Object info = recordType.getMethod("getInfoRecord").invoke(record);
+        require(((Number) infoType.getMethod("getShopId").invoke(info)).longValue() > 0,
+                "Persisted QuickShop database record lost its shop ID");
+        require(loc.getWorld().getName().equals(infoType.getMethod("getWorld").invoke(info))
+                        && ((Number) infoType.getMethod("getX").invoke(info)).intValue() == loc.getBlockX()
+                        && ((Number) infoType.getMethod("getY").invoke(info)).intValue() == loc.getBlockY()
+                        && ((Number) infoType.getMethod("getZ").invoke(info)).intValue() == loc.getBlockZ(),
+                "QuickShop persisted the wrong physical shop location");
+        Object data = recordType.getMethod("getDataRecord").invoke(record);
+        String persistedItem = (String) dataType.getMethod("getEncoded").invoke(data);
+        require(persistedItem != null && !persistedItem.isBlank()
+                        && Arrays.equals(sale.serializeAsBytes(), Base64.getDecoder().decode(persistedItem)),
+                "QuickShop persisted SQL item bytes differ from the original legacy shop item");
+        Object owner = dataType.getMethod("getOwner").invoke(data);
+        require(owner != null && ((String) userType.getMethod("serialize").invoke(owner))
+                        .equals("11111111-2222-3333-4444-555555555555;DoctorSynthetic;false"),
+                "QuickShop persisted the wrong owner metadata");
+        require(Double.doubleToLongBits(27.25d)
+                        == Double.doubleToLongBits(
+                                ((Number) dataType.getMethod("getPrice").invoke(data)).doubleValue()),
+                "QuickShop persisted the wrong exact shop price");
+        var managerType = Class.forName("com.ghostchu.quickshop.api.shop.ShopManager", true, loader);
+        Object manager = api.getMethod("getShopManager").invoke(instance);
+        var shopType = Class.forName("com.ghostchu.quickshop.api.shop.Shop", true, loader);
+        Object loaded = managerType.getMethod("getShop", Location.class).invoke(manager, loc);
+        require(loaded != null, "QuickShop persisted row was not restored to runtime shop lookup");
+        var view = (ItemStack) shopType.getMethod("getItem").invoke(loaded);
+        require(view != null && Arrays.equals(sale.serializeAsBytes(), view.serializeAsBytes()),
+                "QuickShop loaded shop sale item does not equal original native item bytes");
+        Files.writeString(getDataFolder().toPath().resolve("quickshop-db-observed.txt"),
+                "synthetic-only=true;isolated-sql-row=true;shop-loaded=true;"
+                        + "native-sale-bytes-identical=true;stock-count-preserved=true;"
+                        + "stock-metadata-identical=true;owner-stable=true;price-stable=true\\n");
+        getLogger().info("SFL_QUICKSHOP_DISPOSABLE_SQL_PROOF_PASS "
+                + "synthetic-only=true;no-trades=true;not-production=true");
     }
 
     private Chest chest(int x, int z) {
