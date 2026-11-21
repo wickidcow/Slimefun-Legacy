@@ -281,6 +281,19 @@ def main() -> None:
             return
         process, log = boot(1)
         probe(process, 1, "identity")
+        # An overall native identity PASS is not enough: explicitly require
+        # this physical-chest preservation fixture on each runtime and boot.
+        # Keep these redacted PASS markers independent of private item receipts.
+        def require_chest_migration_marker(number, suffix):
+            marker = "SFL_PHYSICAL_CHEST_STYLE_MIGRATION_" + suffix + "_PASS"
+            log = (root / f"console-{number}.log").read_text(encoding="utf-8", errors="replace")
+            if log.count(marker) != 1:
+                raise RuntimeError(
+                    f"Missing or duplicate native physical chest migration {suffix} PASS marker "
+                    f"in console-{number}.log"
+                )
+
+        require_chest_migration_marker(1, "SEED")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -308,6 +321,7 @@ def main() -> None:
         stop(process, log)
         process, log = boot(2)
         probe(process, 2, "identity-restart")
+        require_chest_migration_marker(2, "RESTART")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
         time.sleep(4)

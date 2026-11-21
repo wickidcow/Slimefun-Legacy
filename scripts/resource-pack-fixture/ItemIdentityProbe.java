@@ -1159,6 +1159,21 @@ final class ItemIdentityProbe {
                             && matchesDoctorBackup(backedUp, migrated, current,
                                     ItemStack.deserializeBytes(registeredBytes)),
                     "physical chest migration original bytes or postrestart rollback proof failed");
+            // The same physical stock must not be offered for another update
+            // after a clean server restart. Any typed owner-PDC negative control
+            // remains ineligible even though it differs from the template.
+            Class<?> engine = Class.forName(
+                    "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+            Method preview = engine.getDeclaredMethod(
+                    "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+            preview.setAccessible(true);
+            java.util.function.Function<ItemStack, ItemStack> resolver =
+                    observed -> SlimefunItem.getById("CARBONADO").getItem();
+            Object noOp = preview.invoke(null, slots, resolver);
+            Method eligible = noOp.getClass().getDeclaredMethod("eligible");
+            eligible.setAccessible(true);
+            require((int) eligible.invoke(noOp) == 0,
+                    "physical chest migration must be idempotent across restart");
             var merge = Bukkit.createInventory(null, 9);
             require(merge.addItem(migrated.clone(), current.clone()).isEmpty()
                             && merge.getItem(0).getAmount() == 64 && merge.getItem(1) == null,

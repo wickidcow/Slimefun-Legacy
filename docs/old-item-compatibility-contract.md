@@ -249,6 +249,13 @@ requires byte-exact repaired stock and unchanged adjacent/typed stock,
 verifies the original operator-scoped receipt and rollback eligibility,
 and physically merges 63+1 into 64 without loss or duplication.
 
+The restarted chest is also rescanned using the production preview engine,
+which must find zero remaining eligible candidates (idempotence), while still
+refusing the functional typed-PDC negative control. The Python native runner
+now requires exactly one redacted physical-chest migration PASS marker on
+each of the first and second JVM boots; a missing or skipped fixture fails CI
+even if unrelated Doctor probes passed.
+
 This is an **isolated test-only call** of the existing batch engine and
 does not add a production chest mutation command or grant permission to
 rewrite existing AlbionMC containers, machines, QuickShop records or
