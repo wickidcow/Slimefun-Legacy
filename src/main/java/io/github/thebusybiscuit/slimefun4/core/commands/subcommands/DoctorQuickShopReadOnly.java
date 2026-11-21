@@ -101,8 +101,9 @@ final class DoctorQuickShopReadOnly {
     }
 
     /**
-     * Read the public runtime QuickShop shop record only; no database lookup,
-     * saveToInfoStorage, setItem, update, trade or inventory wrapper mutation.
+     * Read only the public runtime QuickShop view and a detached prospective
+     * saveToInfoStorage projection. Neither authenticates a saved SQL row.
+     * No database lookup, setter, update, trade or inventory wrapper mutation.
      * The supplied location is the owning physical chest's block location.
      */
     private static String inspectShop(
@@ -118,6 +119,7 @@ final class DoctorQuickShopReadOnly {
         Class<?> apiType = Class.forName("com.ghostchu.quickshop.api.QuickShopAPI", true, loader);
         Class<?> managerType = Class.forName("com.ghostchu.quickshop.api.shop.ShopManager", true, loader);
         Class<?> shopType = Class.forName("com.ghostchu.quickshop.api.shop.Shop", true, loader);
+        Class<?> storageType = Class.forName("com.ghostchu.quickshop.api.shop.ShopInfoStorage", true, loader);
         Class<?> userType = Class.forName("com.ghostchu.quickshop.api.obj.QUser", true, loader);
         Object api = apiType.getMethod("getInstance").invoke(null);
         Object manager = apiType.getMethod("getShopManager").invoke(api);
@@ -136,6 +138,10 @@ final class DoctorQuickShopReadOnly {
 
         Method saleGetter = shopType.getMethod("getItem");
         Method cachedGetter = shopType.getMethod("itemSerializeString");
+        Method prospectiveGetter = shopType.getMethod("saveToInfoStorage");
+        Method prospectiveItemGetter = storageType.getMethod("getItem");
+        Method prospectiveOwnerGetter = storageType.getMethod("getOwner");
+        Method prospectivePriceGetter = storageType.getMethod("getPrice");
         Method priceGetter = shopType.getMethod("getPrice");
         Method ownerGetter = shopType.getMethod("getOwner");
         Method matches = shopType.getMethod("matches", ItemStack.class);
@@ -157,6 +163,12 @@ final class DoctorQuickShopReadOnly {
         if (!Double.isFinite(price)) {
             throw new IOException("Invalid price");
         }
+        // Official Hikari ContainerShop.saveToInfoStorage() constructs an
+        // in-memory export DTO; it does NOT save it to SQL. Never print or
+        // persist the opaque encoded item, owner or price from this projection.
+        ProspectiveStorage prospective = readProspective(
+                shop, prospectiveGetter, prospectiveItemGetter,
+                prospectiveOwnerGetter, prospectivePriceGetter, ownerKey, price);
         var inventory = chest.getBlockInventory();
         ItemStack stock = inventory.getItem(slot);
         byte[] stockBytes = stock == null ? null : stock.serializeAsBytes();
@@ -197,7 +209,11 @@ final class DoctorQuickShopReadOnly {
         // or registered-template change, including quantity and private fields.
         ItemStack stockAfter = inventory.getItem(slot);
         Object ownerAfter = ownerGetter.invoke(shop);
-        if (!Arrays.equals(saleBytes, ((ItemStack) saleGetter.invoke(shop)).serializeAsBytes())
+        ProspectiveStorage prospectiveAfter = readProspective(
+                shop, prospectiveGetter, prospectiveItemGetter,
+                prospectiveOwnerGetter, prospectivePriceGetter, ownerKey, price);
+        if (!prospective.equals(prospectiveAfter)
+                || !Arrays.equals(saleBytes, ((ItemStack) saleGetter.invoke(shop)).serializeAsBytes())
                 || !Arrays.equals(stockBytes, stockAfter == null ? null : stockAfter.serializeAsBytes())
                 || !Arrays.equals(registeredBytes, current.serializeAsBytes())
                 || !Objects.equals(ownerKey, ownerAfter == null ? null : serializeOwner.invoke(ownerAfter))
@@ -217,7 +233,8 @@ final class DoctorQuickShopReadOnly {
                 + " &8| &7QuickShop matches fresh: &e" + yesNo(comparison.matcherAcceptsFresh())
                 + " &8| &7QuickShop matches stock: &e"
                 + (comparison.stockPresent() ? yesNo(comparison.matcherAcceptsStock()) : "NO_STOCK")
-                + " &8| &cREAD-ONLY; no shop or stock changed, no repair authorized.";
+                + " &8| &7Prospective encoded save item/owner/price: &eSTABLE"
+                + " &8| &cNOT an authenticated SQL row. READ-ONLY; no shop or stock changed, no repair authorized.";
         if (receipts != null) {
             report += " &8| &aPRIVATE evidence: &7sale &e" + receipts.sale()
                     + " &7current &e" + receipts.current()
@@ -231,6 +248,48 @@ final class DoctorQuickShopReadOnly {
         }
         return report;
     }
+
+
+    /**
+     * Calls only Hikari's public in-memory export DTO builder. Its encoded
+     * item is deliberately treated as opaque: neither its bytes nor an owner
+     * identifier are logged or copied into a public report. A projection is
+     * NOT an independently verified persisted QuickShop database record.
+     */
+    private static ProspectiveStorage readProspective(
+            Object shop, Method export, Method item, Method owner, Method price,
+            String expectedOwner, double expectedPrice)
+            throws IOException, ReflectiveOperationException {
+        Object record = export.invoke(shop);
+        if (record == null) {
+            throw new IOException("QuickShop did not provide a prospective save record");
+        }
+        return checkedProspective(
+                (String) item.invoke(record),
+                (String) owner.invoke(record),
+                ((Number) price.invoke(record)).doubleValue(),
+                expectedOwner, expectedPrice);
+    }
+
+    static ProspectiveStorage checkedProspective(
+            String encodedItem, String storedOwner, double storedPrice,
+            String actualOwner, double actualPrice) throws IOException {
+        if (encodedItem == null || encodedItem.isBlank()
+                || encodedItem.length() > MAX_CACHED_YAML_CHARS) {
+            throw new IOException("QuickShop prospective saved item missing or too large");
+        }
+        if (storedOwner == null || storedOwner.isBlank()
+                || !Objects.equals(storedOwner, actualOwner)) {
+            throw new IOException("QuickShop prospective owner disagrees with live shop");
+        }
+        if (!Double.isFinite(storedPrice) || !Double.isFinite(actualPrice)
+                || Double.doubleToLongBits(storedPrice) != Double.doubleToLongBits(actualPrice)) {
+            throw new IOException("QuickShop prospective price disagrees with live shop");
+        }
+        return new ProspectiveStorage(encodedItem, storedOwner, Double.doubleToLongBits(storedPrice));
+    }
+
+    record ProspectiveStorage(String encodedItem, String owner, long priceBits) {}
 
     /**
      * Export the exact historical QuickShop sale template and, when present,

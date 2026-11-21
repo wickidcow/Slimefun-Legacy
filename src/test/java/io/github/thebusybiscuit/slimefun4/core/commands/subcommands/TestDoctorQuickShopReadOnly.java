@@ -238,6 +238,44 @@ class TestDoctorQuickShopReadOnly {
     }
 
     @Test
+    void prospectiveShopStorageIsOpaqueStableAndHasNoSideEffects() throws Exception {
+        ItemStack actual = historical(current("CARBONADO"), 63);
+        byte[] before = actual.serializeAsBytes();
+        String encoded = "opaque-encrypted-or-encoded-item-with-private-pdc";
+        var first = DoctorQuickShopReadOnly.checkedProspective(
+                encoded, "private-owner", 27.25, "private-owner", 27.25);
+        var second = DoctorQuickShopReadOnly.checkedProspective(
+                encoded, "private-owner", 27.25, "private-owner", 27.25);
+        assertEquals(first, second);
+        assertEquals(encoded, first.encodedItem());
+        assertEquals("private-owner", first.owner());
+        assertFalse(first.equals(DoctorQuickShopReadOnly.checkedProspective(
+                encoded + "-changed", "private-owner", 27.25, "private-owner", 27.25)));
+        assertArrayEquals(before, actual.serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
+    void prospectiveShopStorageRefusesMissingChangedOrMispricedData() throws Exception {
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                null, "owner", 2, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "", "owner", 2, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "x".repeat(1024 * 1024 + 1), "owner", 2, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "secret", null, 2, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "secret", "other-owner", 2, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "secret", "owner", 2.01, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "secret", "owner", Double.NaN, "owner", 2));
+        assertThrows(IOException.class, () -> DoctorQuickShopReadOnly.checkedProspective(
+                "secret", "owner", Double.POSITIVE_INFINITY, "owner", 2));
+    }
+
+    @Test
     void exportsRealSaleAndStockEvidenceWithoutChangingSourceOrTypedData() throws Exception {
         ItemStack fresh = current("CARBONADO");
         ItemStack sale = historical(fresh, 1);

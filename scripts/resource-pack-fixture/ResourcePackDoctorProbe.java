@@ -648,6 +648,15 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
             require(Arrays.stream(shopClass.getMethods()).anyMatch(candidate -> candidate.getName().equals(method)),
                     "QuickShop shop public inherited method missing: " + method);
         }
+        Class<?> storageClass = Class.forName("com.ghostchu.quickshop.api.shop.ShopInfoStorage", true, loader);
+        require(shopClass.getMethod("saveToInfoStorage").getReturnType() == storageClass,
+                "QuickShop in-memory prospective storage projection missing");
+        require(storageClass.getMethod("getItem").getReturnType() == String.class,
+                "QuickShop prospective encoded item getter missing");
+        require(storageClass.getMethod("getOwner").getReturnType() == String.class,
+                "QuickShop prospective owner getter missing");
+        require(storageClass.getMethod("getPrice").getReturnType() == double.class,
+                "QuickShop prospective price getter missing");
         require(shopClass.getMethod("matches", ItemStack.class).getReturnType() == boolean.class,
                 "QuickShop matcher method is not public boolean");
         require(userClass.getMethod("serialize").getReturnType() == String.class,

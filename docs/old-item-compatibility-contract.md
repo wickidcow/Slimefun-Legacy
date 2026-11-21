@@ -181,6 +181,35 @@ public method exists, but does NOT create a real QuickShop shop or validate
 an actual SQL row. Real old-world staging DB backups, restart and trade
 checks remain required before any persisted shop update.
 
+## Prospective QuickShop save projection — 2026-11-20
+
+Official QuickShop-Hikari 6.3.0.3 and 6.3.0.4 expose
+`Shop.saveToInfoStorage()`, a **read-only in-memory export projection**
+used for persistence. In official 6.3.0.4, `ContainerShop` builds the
+`ShopInfoStorage` DTO from its internal item, price and owner. Calling
+this method does **not** persist to SQL, and **its output is not an
+authenticated database row**. The projection's opaque encoded item may
+differ from the cached YAML and the event-processed runtime sale view.
+
+Doctor's operator-only `inspect-shop` / `export-shop` now inspect this
+prospective encoding under a 1 Mi-character budget, require the
+projected owner and exact price to agree with the live shop, then
+reproduce the entire opaque encoded item, owner and price projection
+after any private receipt I/O. It fails closed on any difference. Only
+the redacted fact **STABLE, NOT SAVED SQL** appears in the operator
+report. No encoded item string, owner, price or digest is logged,
+sent to a public endpoint or added to a new backup file. Tests cover
+changed serialization, changed owner, fractional price differences,
+non-finite values, missing content and oversized item strings. The
+official SHA-pinned QuickShop binaries and both real Paper runtime
+boots verify the new API signatures; they still do not construct
+a shop record or authenticate real AlbionMC persisted SQL data.
+
+**Release boundary:** real historical QuickShop row data, verified
+stock/owner/price before and after a staging restart, and controlled
+trade/economy conservation remain required. This diagnostic does not
+authorize a bulk player, chest, machine or shop migration.
+
 ## Reader-envelope regression
 
 The retained String serializer can produce Base64-wrapped SF2/native item bytes. Previously the String read path recognized this envelope, but the codec's byte[] path decoded Base64 and unconditionally treated the decoded bytes as an old Bukkit object stream. This rejected a valid SF2 header as a Java object-stream header when an adapter returned the text representation as bytes.

@@ -27,7 +27,14 @@ CONTRACT = {
     "com.ghostchu.quickshop.api.shop.ShopManager": (
         ("getShop", "(Lorg/bukkit/Location;)Lcom/ghostchu/quickshop/api/shop/Shop;"),
     ),
-    "com.ghostchu.quickshop.api.shop.Shop": (),
+    "com.ghostchu.quickshop.api.shop.Shop": (
+        ("saveToInfoStorage", "()Lcom/ghostchu/quickshop/api/shop/ShopInfoStorage;"),
+    ),
+    "com.ghostchu.quickshop.api.shop.ShopInfoStorage": (
+        ("getItem", "()Ljava/lang/String;"),
+        ("getOwner", "()Ljava/lang/String;"),
+        ("getPrice", "()D"),
+    ),
     "com.ghostchu.quickshop.api.shop.meta.ShopMeta": (
         ("getItem", "()Lorg/bukkit/inventory/ItemStack;"),
         ("itemSerializeString", "()Ljava/lang/String;"),
