@@ -920,7 +920,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 "Disposable QuickShop chest must begin empty");
         chest.getBlockInventory().setItem(0, stock);
         Object owner = userImpl.getMethod("createFullFilled", UUID.class, String.class, boolean.class)
-                .invoke(null, UUID.fromString(OWNER), "DoctorSynthetic", false);
+                .invoke(null, UUID.fromString(OWNER), "DoctorSynthetic", true);
         Object symbol = blockPos.getConstructor(Location.class).newInstance(loc);
         String link = (String) blockPos.getMethod("serialize").invoke(symbol);
         Object shop = containerType.getConstructor(
@@ -1015,8 +1015,8 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 "QuickShop persisted SQL item bytes differ from the original legacy shop item");
         Object owner = dataType.getMethod("getOwner").invoke(data);
         require(owner != null && ((String) userType.getMethod("serialize").invoke(owner))
-                        .equals("[DoctorSynthetic]"),
-                "QuickShop persisted the wrong owner metadata");
+                        .equals(OWNER),
+                "QuickShop persisted the wrong real-player UUID owner");
         require(Double.doubleToLongBits(27.25d)
                         == Double.doubleToLongBits(
                                 ((Number) dataType.getMethod("getPrice").invoke(data)).doubleValue()),
@@ -1026,13 +1026,16 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
         var shopType = Class.forName("com.ghostchu.quickshop.api.shop.Shop", true, loader);
         Object loaded = managerType.getMethod("getShop", Location.class).invoke(manager, loc);
         require(loaded != null, "QuickShop persisted row was not restored to runtime shop lookup");
+        Object loadedOwner = shopType.getMethod("getOwner").invoke(loaded);
+        require(loadedOwner != null && OWNER.equals(userType.getMethod("serialize").invoke(loadedOwner)),
+                "QuickShop loaded shop lost its real-player UUID owner");
         var view = (ItemStack) shopType.getMethod("getItem").invoke(loaded);
         require(view != null && Arrays.equals(sale.serializeAsBytes(), view.serializeAsBytes()),
                 "QuickShop loaded shop sale item does not equal original native item bytes");
         Files.writeString(getDataFolder().toPath().resolve("quickshop-db-observed.txt"),
                 "synthetic-only=true;isolated-sql-row=true;shop-loaded=true;"
                         + "native-sale-bytes-identical=true;stock-count-preserved=true;"
-                        + "stock-metadata-identical=true;owner-stable=true;price-stable=true\\n");
+                        + "stock-metadata-identical=true;real-owner-uuid-stable=true;price-stable=true\\n");
         getLogger().info("SFL_QUICKSHOP_DISPOSABLE_SQL_PROOF_PASS "
                 + "synthetic-only=true;no-trades=true;not-production=true");
     }

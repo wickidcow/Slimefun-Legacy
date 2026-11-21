@@ -260,7 +260,7 @@ def main() -> None:
                 if sql_observation.read_text(encoding="utf-8") != (
                         "synthetic-only=true;isolated-sql-row=true;shop-loaded=true;"
                         "native-sale-bytes-identical=true;stock-count-preserved=true;"
-                        "stock-metadata-identical=true;owner-stable=true;price-stable=true\\n"):
+                        "stock-metadata-identical=true;real-owner-uuid-stable=true;price-stable=true\\n"):
                     raise RuntimeError("Disposable persisted QuickShop SQL observation is malformed")
                 stop(process, log)
             if projection_receipts[0] != projection_receipts[1]:

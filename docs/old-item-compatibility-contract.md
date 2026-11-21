@@ -242,8 +242,12 @@ creates **one synthetic shop and physical chest in a newly created
 throwaway server directory**. Unlike the read-only in-memory DTO
 projection above, this *test-only fixture* deliberately calls the real
 upstream \`ShopManager.registerShop(..., true)\` to write a disposable
-SQLite shop record with a synthetic historical-looking CARBONADO item.
-On the first boot, it queries the **actual QuickShop DatabaseHelper
+SQLite shop record with a synthetic historical-looking CARBONADO item
+and a **real-player-format synthetic UUID owner** (never a real AlbionMC
+account). An earlier verified revision exercised QuickShop's virtual-owner
+serialization; the current fixture tests the more representative persisted
+player UUID and checks that both the SQL record and the reloaded runtime
+shop preserve the exact UUID on both boots. On the first boot, it queries the **actual QuickShop DatabaseHelper
 \`listShops(world, false)\` SQL row**, verifies location, owner, exact
 fractional price, Base64/native item bytes, live shop lookup and exact
 physical stock count + metadata. It cleanly shuts the server down,
