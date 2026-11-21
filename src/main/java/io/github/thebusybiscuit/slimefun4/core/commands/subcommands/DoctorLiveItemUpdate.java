@@ -64,6 +64,15 @@ final class DoctorLiveItemUpdate {
             DoctorHistoricalStackEvidenceAudit.run(plugin, player, args[4], args[5]);
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("verify-container-full")) {
+            PLANS.remove(player.getUniqueId());
+            try {
+                inspectFullContainer(plugin, player, UUID.fromString(args[4]));
+            } catch (IllegalArgumentException exception) {
+                send(player, "&cProvide the UUID of your own private container receipt.");
+            }
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("export-shop")) {
             PLANS.remove(player.getUniqueId());
             DoctorQuickShopReadOnly.export(plugin, player, args[4]);
@@ -95,6 +104,11 @@ final class DoctorLiveItemUpdate {
         if (action.equals("cancel")) {
             PLANS.remove(owner);
             send(player, "&aPending live item update preview canceled; no items changed.");
+            return;
+        }
+        if (action.equals("export-container-full")) {
+            PLANS.remove(owner);
+            inspectFullContainer(plugin, player, null);
             return;
         }
         if (action.equals("scan-container")) {
@@ -169,10 +183,65 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live inspect-shop <slot> &8(read-only, QuickShop single chest)");
         send(sender, "&e/sf doctor identity live export-shop <slot> &8(private evidence, single chest)");
         send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
+        send(sender, "&e/sf doctor identity live export-container-full &8(private all-slot receipt)");
+        send(sender, "&e/sf doctor identity live verify-container-full <receipt> &8(read-only)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
         send(sender, "&cManual and opt-in. No automatic chest, shop, player-join or machine rewrites.");
+    }
+
+    /**
+     * Explicit operator-only whole-container provenance. The region-owned
+     * callback can create or check a private evidence file but never applies
+     * or rolls back any chest, QuickShop shop or saved world record.
+     */
+    private static void inspectFullContainer(Slimefun plugin, Player player, UUID receiptId) {
+        Block target = player.getTargetBlockExact(6);
+        if (target == null || target.getType().isAir()) {
+            send(player, "&eLook directly at a loaded single chest or barrel within six blocks.");
+            return;
+        }
+        Location location = target.getLocation();
+        Slimefun.getSchedulerService().runAt(location, () -> {
+            String message;
+            try {
+                if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    throw new IOException("Unloaded target chunk");
+                }
+                BlockState state = location.getBlock().getState();
+                if (!(state instanceof Container container)
+                        || (state.getBlockData() instanceof Chest chest
+                                && chest.getType() != Chest.Type.SINGLE)
+                        || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
+                    throw new IOException("Target is not a supported single physical container");
+                }
+                Inventory inventory = container.getInventory();
+                var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
+                if (receiptId == null) {
+                    var receipt = DoctorContainerEvidenceEnvelope.capture(
+                            plugin.getDataFolder().toPath(), player.getUniqueId(), binding, inventory);
+                    message = "&aPrivate all-slot container evidence written: &e" + receipt.id()
+                            + " &8| &7Slots: &e" + receipt.slots()
+                            + " &8| &cKeep recovery/containers PRIVATE. No chest/shop data changed.";
+                } else {
+                    var verified = DoctorContainerEvidenceEnvelope.verify(
+                            plugin.getDataFolder().toPath(), player.getUniqueId(), receiptId, binding, inventory);
+                    message = "&6Private container receipt verified &8| &7Slots: &e"
+                            + verified.slots() + " &8| &7Original inventory still identical: &e"
+                            + (verified.unchanged() ? "YES" : "NO")
+                            + " &8| &cNo restoration or mutation performed.";
+                }
+            } catch (IOException | RuntimeException exception) {
+                message = "&cContainer evidence refused. No inventory, shop or SQL changed.";
+            }
+            String response = message;
+            Slimefun.getSchedulerService().runFor(player, () -> {
+                if (player.isOnline()) {
+                    send(player, response);
+                }
+            });
+        });
     }
 
     /**
@@ -536,7 +605,7 @@ final class DoctorLiveItemUpdate {
                 && expected.equals(captureContainerPreimage(inventory));
     }
 
-    private static byte[][] exactContainerSlots(Inventory inventory) throws IOException {
+    static byte[][] exactContainerSlots(Inventory inventory) throws IOException {
         int size = inventory.getSize();
         byte[][] values = new byte[size][];
         int totalBytes = 0;

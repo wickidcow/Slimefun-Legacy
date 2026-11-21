@@ -323,3 +323,24 @@ container recovery journal or a production chest update command.
 Future chest migration still needs a block/location-bound durable
 all-slot recovery envelope and exact no-loss rollback proofs on genuine
 old-world data. QuickShop SQL and shop templates remain untouched.
+
+## Immutable physical-container evidence envelope — 2026-11-21
+
+The opt-in, operator-only read-only commands `identity live export-container-full`
+and `identity live verify-container-full <receipt>` add a first **durable**
+all-slot native source snapshot for later safe-migration architecture.
+Each private, CREATE_NEW/fsync record under `recovery/containers/` is
+owner-scoped and exact-byte authenticated with SHA-256. It binds the
+world UUID, block coordinates, block-data string, slot count/indices
+(including empty slots) and up to 2 MiB of original exact-native items.
+The writer validates a complete preimage both before and after I/O and
+rereads the full record. The independent read path refuses corruption,
+wrong operator, world, location, block state and unsafe native roundtrips.
+The operator sees only a receipt UUID and redacted same/different status.
+
+This is an original-data provenance **envelope**, NOT a prepared transaction
+journal, automatic rollback or authorization to migrate physical inventory,
+QuickShop, Cargo, offline players or machines. No full-container restore
+code exists; a changed chest is never overwritten from a receipt.
+Only backed-up staging with genuine old-world pairs can establish eligible
+historical transformations and final transaction/quantity/restart acceptance.

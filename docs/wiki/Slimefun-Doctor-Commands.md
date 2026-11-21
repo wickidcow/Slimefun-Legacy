@@ -570,3 +570,31 @@ current backup first and use the exact command from the immediately preceding sc
 - [Commands & Permissions](Commands-and-Permissions.md)
 - [Server Owner Guide](Server-Owner-Guide.md)
 - [Troubleshooting](Troubleshooting.md)
+
+## Whole-container private provenance (v4.1.82 candidate, read-only)
+
+On a **full-backup staging clone** with the Doctor PR test build, look
+directly at an already-loaded single physical chest or barrel (six blocks).
+Use `/sf doctor identity live export-container-full` to preserve all 1–54
+slot contents, including empty slots, in one private, durable, location-bound
+native evidence envelope. The response includes the operator-owned receipt
+UUID. The file is stored under `plugins/Slimefun/recovery/containers/`.
+Its binary data includes exact original native stacks and may contain
+private names, owner IDs, storage metadata and player data: never upload it
+to a public issue or commit. The file uses SHA-256 integrity, owner and
+world UUID, block position, block-data identity, slot indices and exact
+native bytes, bounded to 2 MiB of items. It is created new, forced to disk
+and reread before reporting success. The chest is rechecked after I/O.
+A changed unrelated slot is a refusal, not an invitation to continue.
+
+After a clean restart, look at **the same block** and run
+`/sf doctor identity live verify-container-full <receipt-uuid>`.
+This independently reopens and validates the private original envelope,
+rejects other operators/locations/changed block data, and reports whether
+the entire **current** physical inventory still equals the original.
+A difference is diagnostic, **not a command to roll back**. Double chests,
+unloaded chunks and unsupported native stacks refuse. These commands
+never migrate, write or restore a chest, QuickShop saved shop record,
+machine menu, player inventory or SQL row. A receipt is not permission for
+a live bulk migration; genuine AlbionMC historical data and staging
+conservation tests remain required.
