@@ -1015,7 +1015,7 @@ public final class ResourcePackDoctorProbe extends JavaPlugin {
                 "QuickShop persisted SQL item bytes differ from the original legacy shop item");
         Object owner = dataType.getMethod("getOwner").invoke(data);
         require(owner != null && ((String) userType.getMethod("serialize").invoke(owner))
-                        .equals("11111111-2222-3333-4444-555555555555;DoctorSynthetic;false"),
+                        .equals("[DoctorSynthetic]"),
                 "QuickShop persisted the wrong owner metadata");
         require(Double.doubleToLongBits(27.25d)
                         == Double.doubleToLongBits(
