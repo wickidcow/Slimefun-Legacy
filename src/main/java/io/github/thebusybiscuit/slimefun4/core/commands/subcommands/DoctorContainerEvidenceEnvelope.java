@@ -122,6 +122,28 @@ final class DoctorContainerEvidenceEnvelope {
     }
 
     /**
+     * Internal-only, byte-exact original source for crash-replay validation.
+     * Never returns a live inventory, and never authorizes restoration.
+     * The owner, world, block coordinates, block state, and slot count must
+     * all match the stored private original receipt.
+     */
+    static byte[][] openVerifiedOriginal(
+            Path pluginFolder, UUID operator, UUID receipt, Binding binding) throws IOException {
+        if (operator == null || binding == null) {
+            throw new IOException("Missing original physical-container owner or binding");
+        }
+        Saved saved = read(pluginFolder, operator, receipt);
+        if (!saved.binding().equals(binding)) {
+            throw new IOException("Private original container receipt is bound to another location");
+        }
+        byte[][] exact = new byte[saved.slots().length][];
+        for (int slot = 0; slot < exact.length; slot++) {
+            exact[slot] = saved.slots()[slot] == null ? null : saved.slots()[slot].clone();
+        }
+        return exact;
+    }
+
+    /**
      * Read-only, receipt-bound assessment. A candidate is only a diagnostic
      * hint; the receipt is not a repair plan and no chest write method exists.
      *

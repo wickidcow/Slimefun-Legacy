@@ -537,3 +537,27 @@ one second-boot partial-journal PASS marker for all six supported CI
 runtime lanes. No live physical repair, rollback, shop transaction,
 machine/Cargo sync or production writer has been added; **DIVERGED is
 diagnostic, not permission to restore or complete a live migration**.
+
+## Bind proposed journal to exact native source receipt — 2026-11-22
+
+Crash-replay `DoctorContainerTransactionJournal` now validates more than
+the independent checksums on the saved after-image and original evidence.
+The owner-scoped private source receipt must still match the **same
+before-state SHA-256 and total item count** recorded at journal creation.
+For every slot, the exact saved original and proposed bytes must be
+identical unless the slot was one of the at-most-eight original
+style-only candidates; every listed candidate must actually differ.
+If a different, internally valid owner-and-location-matching original
+receipt is substituted, the journal refuses instead of reporting
+PROPOSED. Internal `DoctorContainerEvidenceEnvelope.openVerifiedOriginal`
+reopens verified original native bytes without touching live stock and
+does not expose those bytes to player commands.
+
+The new unit regression stages two otherwise valid receipts owned by
+the same operator and bound to the same physical block with **different
+unrelated stone counts**. It substitutes the second sealed source under
+the first receipt's path while retaining the exact journal and synthetic
+after-inventory, then requires checked refusal. A digest is an integrity
+check, not authentication against a filesystem adversary; no live
+restore, chest writer, Cargo lock, shop transaction or automatic repair
+is enabled by this diagnostic safeguard.

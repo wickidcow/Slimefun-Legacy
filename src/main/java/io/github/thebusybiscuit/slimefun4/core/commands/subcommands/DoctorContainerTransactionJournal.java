@@ -85,6 +85,7 @@ final class DoctorContainerTransactionJournal {
             channel.force(true);
         }
         Stored reopened = read(pluginFolder, operator, id);
+        verifySourceAndProposed(pluginFolder, reopened);
         if (!journal.equals(reopened.journal())
                 || !sameSlots(prepared.proposedSlots(), reopened.proposedSlots())
                 || !DoctorContainerEvidenceEnvelope.verify(
@@ -114,6 +115,7 @@ final class DoctorContainerTransactionJournal {
         if (!journal.binding().equals(binding)) {
             throw new IOException("Journal is bound to a different world, block, state or slot count");
         }
+        verifySourceAndProposed(pluginFolder, stored);
         // This reopens and validates the exact original all-slot envelope;
         // it is allowed to return false after a hypothetical migration.
         boolean original = DoctorContainerEvidenceEnvelope.verify(
@@ -133,6 +135,42 @@ final class DoctorContainerTransactionJournal {
         return new Inspection(
                 state, binding.slots(), journal.changedSlots().size(),
                 journal.beforeItems(), journal.afterItems());
+    }
+
+    /**
+     * A valid checksum alone does not bind this transaction to its source.
+     * Require the owner-scoped original receipt to still encode the exact
+     * before-hash and item total saved when the proposal was created. Every
+     * noncandidate byte must remain identical in the proposed after-image.
+     *
+     * <p>No inventory mutation occurs here. This explicitly refuses swapped
+     * valid receipts, cross-location original files, altered unchanged slots,
+     * and journal metadata inconsistent with its independently saved source.
+     */
+    private static void verifySourceAndProposed(Path pluginFolder, Stored stored) throws IOException {
+        Journal journal = stored.journal();
+        byte[][] original = DoctorContainerEvidenceEnvelope.openVerifiedOriginal(
+                pluginFolder, journal.owner(), journal.originalReceipt(), journal.binding());
+        byte[][] after = stored.proposedSlots();
+        if (original.length != after.length
+                || !DoctorContainerMigrationPreflight.hashSlots(original).equals(journal.beforeSha256())
+                || DoctorContainerMigrationPreflight.countItems(original) != journal.beforeItems()) {
+            throw new IOException("Private source receipt does not match this journal's exact original");
+        }
+        int changed = 0;
+        for (int slot = 0; slot < original.length; slot++) {
+            boolean differs = !Arrays.equals(original[slot], after[slot]);
+            boolean listed = journal.changedSlots().contains(slot);
+            if (differs != listed) {
+                throw new IOException("Container journal changed an unexpected original slot");
+            }
+            if (differs) {
+                changed++;
+            }
+        }
+        if (changed != journal.changedSlots().size()) {
+            throw new IOException("Physical container journal candidate-count mismatch");
+        }
     }
 
     private static void validateDraft(DoctorContainerMigrationPreflight.Draft draft, UUID owner)

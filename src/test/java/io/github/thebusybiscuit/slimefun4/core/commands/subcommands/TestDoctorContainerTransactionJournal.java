@@ -183,6 +183,51 @@ class TestDoctorContainerTransactionJournal {
         assertEquals(17, chest.getItem(26).getAmount());
     }
 
+
+    @Test
+    void swappedValidOriginalReceiptCannotCertifyProposedAfterState() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        ItemStack old = historical(template, 31);
+        chest.setItem(0, old);
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] originalBytes = old.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var source = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, source.id(), location, chest, ignored -> template);
+
+        Inventory simulatedProposed = Bukkit.createInventory(null, 27);
+        ItemStack replacement = ItemStack.deserializeBytes(template.serializeAsBytes());
+        replacement.setAmount(31);
+        simulatedProposed.setItem(0, replacement);
+        simulatedProposed.setItem(26, new ItemStack(Material.STONE, 17));
+        assertEquals(DoctorContainerTransactionJournal.State.PROPOSED,
+                DoctorContainerTransactionJournal.inspect(
+                        data, operator, journal.id(), location, simulatedProposed).state());
+
+        // Replace the ORIGINAL source file with a second fully valid,
+        // operator-owned receipt for the same world and physical chest but
+        // different otherwise-unrelated stone stock. This attack is not
+        // detectable from the checksum alone; journal before-hash MUST bind it.
+        chest.setItem(26, new ItemStack(Material.STONE, 16));
+        var alternate = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        Path originals = data.resolve("recovery/containers");
+        Files.copy(
+                originals.resolve(operator + "-" + alternate.id() + ".bin"),
+                originals.resolve(operator + "-" + source.id() + ".bin"),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, simulatedProposed));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest));
+        assertArrayEquals(originalBytes, chest.getItem(0).serializeAsBytes());
+        assertEquals(16, chest.getItem(26).getAmount());
+        assertEquals(17, simulatedProposed.getItem(26).getAmount());
+    }
+
     @Test
     void failedOrRacingOriginDoesNotProduceACommittedJournal() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);
