@@ -474,3 +474,38 @@ altering original typed-PDC stock. There is still **no production commit,
 rollback, journal replay writer or QuickShop migration command**. Genuine
 historical AlbionMC source bytes and economic trade conservation remain
 unverified.
+
+## Disposable physical proposed-state persistence, independent JVM — 2026-11-22
+
+The native test plugin now creates a **second separate disposable physical
+single chest**, at (8,180,6) in an exclusively test-only world. The first
+server boot seeds the source-derived synthetic 63-stack old-style
+CARBONADO, fresh 1-stack, typed-owner PDC 9-stack and unrelated stone
+17-stack. It captures an original whole-container private receipt,
+creates/fsyncs the version-2 complete proposed-slot journal, and asserts
+the journal initially classifies the physical chest ORIGINAL. It then
+**simulates** the style-only replacement in this disposable chest by
+calling `Inventory.setItem` directly *inside the native test fixture*
+and verifies the journal identifies the exact PROPOSED state; this
+does not touch or enable any Slimefun production writer.
+
+After stopping and restarting the **same saved test world in an
+independent JVM**, the fixture requires byte-for-byte persistence of
+the proposed 63-stack and unchanged fresh 1-stack, typed owner-PDC
+9-stack, stone 17-stack, and all other empty slots. The original private
+receipt must remain recoverable but report the chest as changed;
+the durable complete after-slot journal must report PROPOSED. A
+disposable 63+1 inventory merge must produce exactly 64, and unrelated
+stone 17->16 drift must produce DIVERGED until restored. The native
+runner requires unique
+`SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS` and
+`SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS` markers on the
+correct first/second boots across Paper 1.21.11/26.2/26.3,
+Purpur 1.21.11/26.2, and Folia 26.2.
+
+**Important:** The only physical setter here is in the test harness on a
+throwaway chest. No player or production chest is rewritten, and this
+does not prove crash-consistent live transaction isolation,
+Cargo/hopper/QuickShop trade safety or compatibility with genuine
+historical AlbionMC source records. All production chest and shop
+migration commands remain absent.

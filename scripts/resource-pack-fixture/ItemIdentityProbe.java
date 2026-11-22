@@ -934,6 +934,7 @@ final class ItemIdentityProbe {
             verifyPhysicalChestPersistence(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestStyleMigration(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestFullEnvelope(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestProposedJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -985,6 +986,7 @@ final class ItemIdentityProbe {
         verifyPhysicalChestPersistence(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestStyleMigration(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestFullEnvelope(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestProposedJournal(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -1215,6 +1217,167 @@ final class ItemIdentityProbe {
                             && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes()),
                     "physical full-envelope evidence capture changed chest stock");
             Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS");
+        }
+    }
+
+    /**
+     * Independent physical chest initialized in a disposable test-only world.
+     * First boot records the original source and exact proposed journal,
+     * then deliberately writes the eligible synthetic style into THIS
+     * fixture only. Second JVM boot must recognize the fully persisted
+     * proposed native stock while refusing unrelated stone/PDC drift.
+     *
+     * This does not exercise or enable any production chest writer.
+     */
+    private static void verifyPhysicalChestProposedJournal(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 6);
+        Path fixture = directory.resolve("physical-chest-proposed-journal");
+        Path idsFile = fixture.resolve("owner-origin-journal.txt");
+        Path proposedFile = fixture.resolve("proposed-native.bin");
+        if (restart) {
+            require(block.getType() == Material.CHEST,
+                    "test-only proposed after-image chest failed to persist across JVM restart");
+        } else {
+            require(block.getType().isAir(), "test-only proposed after-image chest location occupied");
+            block.setType(Material.CHEST);
+            Files.createDirectories(fixture);
+        }
+
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "test-only proposed after-image target is not a physical chest");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "test-only proposed after-image requires one physical chest");
+
+        ItemStack updated = ItemStack.deserializeBytes(registeredBytes);
+        updated.setAmount(63);
+        byte[] expectedUpdated = updated.serializeAsBytes();
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        Class<?> envelope = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method bindingFrom = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        bindingFrom.setAccessible(true);
+        Object binding = bindingFrom.invoke(null, block.getLocation(), block.getState(), contents);
+        Method capture = envelope.getDeclaredMethod(
+                "capture", Path.class, java.util.UUID.class, bindingClass, org.bukkit.inventory.Inventory.class);
+        capture.setAccessible(true);
+        Method verifyOrigin = envelope.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verifyOrigin.setAccessible(true);
+
+        Class<?> journal = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method begin = journal.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        begin.setAccessible(true);
+        Method inspect = journal.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+
+        java.util.UUID owner;
+        java.util.UUID receiptId;
+        java.util.UUID journalId;
+        if (restart) {
+            String[] tokens = Files.readString(idsFile).trim().split(":", -1);
+            require(tokens.length == 3, "test-only proposed journal owner/source/ID missing after restart");
+            owner = java.util.UUID.fromString(tokens[0]);
+            receiptId = java.util.UUID.fromString(tokens[1]);
+            journalId = java.util.UUID.fromString(tokens[2]);
+            require(Arrays.equals(expectedUpdated, Files.readAllBytes(proposedFile)),
+                    "test-only journal persisted proposed source bytes changed across JVM restart");
+        } else {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(2, typed);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            require(contents.getItem(0) != null
+                            && Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                            && contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes()),
+                    "test-only proposed chest original old/typed source did not seed byte-exactly");
+            owner = java.util.UUID.randomUUID();
+            Object origin = capture.invoke(null, fixture, owner, binding, contents);
+            Method receiptAccessor = origin.getClass().getDeclaredMethod("id");
+            receiptAccessor.setAccessible(true);
+            receiptId = (java.util.UUID) receiptAccessor.invoke(origin);
+            Object prepared = begin.invoke(null, fixture, owner, receiptId, binding, contents, resolver);
+            Method journalAccessor = prepared.getClass().getDeclaredMethod("id");
+            journalAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalAccessor.invoke(prepared);
+            Object before = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            Method stateAccessor = before.getClass().getDeclaredMethod("state");
+            stateAccessor.setAccessible(true);
+            require("ORIGINAL".equals(stateAccessor.invoke(before).toString()),
+                    "test-only proposed journal did not recognize unmodified native source chest");
+            Files.writeString(idsFile, owner + ":" + receiptId + ":" + journalId);
+            Files.write(proposedFile, expectedUpdated);
+
+            // Disposable world simulation ONLY, deliberately bypassing all
+            // production Doctor paths. No live writer or migration command.
+            contents.setItem(0, updated);
+        }
+
+        require(contents.getItem(0) != null
+                        && Arrays.equals(expectedUpdated, contents.getItem(0).serializeAsBytes())
+                        && contents.getItem(1) != null
+                        && Arrays.equals(currentBytes, contents.getItem(1).serializeAsBytes())
+                        && contents.getItem(2) != null
+                        && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(26) != null
+                        && contents.getItem(26).getType() == Material.STONE
+                        && contents.getItem(26).getAmount() == 17
+                        && contents.getItem(3) == null,
+                "test-only proposed physical chest lost exact persisted slot/PDC/quantity after-image");
+
+        Object after = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+        Method stateAccessor = after.getClass().getDeclaredMethod("state");
+        stateAccessor.setAccessible(true);
+        require("PROPOSED".equals(stateAccessor.invoke(after).toString()),
+                "test-only physically persisted proposed chest not recognized by exact-native journal");
+
+        Object originCheck = verifyOrigin.invoke(null, fixture, owner, receiptId, binding, contents);
+        Method unchanged = originCheck.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require(!(boolean) unchanged.invoke(originCheck),
+                "test-only proposed chest incorrectly classified as unchanged original source");
+
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(contents.getItem(0).clone(), contents.getItem(1).clone()).isEmpty()
+                        && merge.getItem(0) != null && merge.getItem(0).getAmount() == 64
+                        && merge.getItem(1) == null,
+                "test-only persisted proposed CARBONADO 63+1 native merge lost items");
+
+        if (restart) {
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object diverged = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            require("DIVERGED".equals(stateAccessor.invoke(diverged).toString()),
+                    "test-only proposed journal overlooked unrelated vanilla slot amount mutation");
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Object unchangedAfter = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            require("PROPOSED".equals(stateAccessor.invoke(unchangedAfter).toString()),
+                    "test-only proposed chest did not recover correct journal state after stock reset");
+            require(contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                            && Arrays.equals(registeredBytes,
+                                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "test-only proposed journal modified registered item or owner-PDC negative stock");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS");
+        } else {
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS");
         }
     }
 

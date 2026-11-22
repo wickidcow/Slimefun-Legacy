@@ -297,6 +297,9 @@ def main() -> None:
         if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
                 "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS") != 1:
             raise RuntimeError("Native private all-slot world chest envelope did not pass on seed boot")
+        if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS") != 1:
+            raise RuntimeError("Native disposable proposed-world-chest journal did not pass seed boot")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -328,6 +331,9 @@ def main() -> None:
         if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
                 "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS") != 1:
             raise RuntimeError("Native private all-slot world chest envelope did not pass after JVM restart")
+        if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS") != 1:
+            raise RuntimeError("Native disposable proposed-world-chest journal did not pass after JVM restart")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
         time.sleep(4)
