@@ -933,6 +933,7 @@ final class ItemIdentityProbe {
                     "STYLE_ONLY_CANDIDATE", true);
             verifyPhysicalChestPersistence(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestStyleMigration(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestFullEnvelope(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -983,6 +984,7 @@ final class ItemIdentityProbe {
                 "STYLE_ONLY_CANDIDATE", false);
         verifyPhysicalChestPersistence(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestStyleMigration(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestFullEnvelope(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -1001,6 +1003,129 @@ final class ItemIdentityProbe {
      * stock/quantity/PDC persistence. Calls run on the owning 0,0 Folia region.
      * This is NOT a genuine historical AlbionMC chest or QuickShop transaction.
      */
+    /**
+     * Fresh disposable PHYSICAL world chest and private, full-slot Doctor
+     * evidence envelope. An independent second JVM must reopen both the world
+     * chunk and original owner-scoped receipt without touching real AlbionMC.
+     * This is a source-byte verification fixture, never a chest repair.
+     */
+    private static void verifyPhysicalChestFullEnvelope(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(10, 180, 3);
+        Path fixture = directory.resolve("physical-chest-full-envelope");
+        Path receiptFile = fixture.resolve("owner-receipt.txt");
+        Path originalFile = fixture.resolve("old.bin");
+        Path freshFile = fixture.resolve("fresh.bin");
+        Path typedFile = fixture.resolve("typed.bin");
+
+        if (restart) {
+            require(block.getType() == Material.CHEST, "full-envelope physical chest block did not persist");
+        } else {
+            require(block.getType().isAir(), "full-envelope disposable block was already occupied");
+            block.setType(Material.CHEST);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "full-envelope fixture must have an actual world chest state");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "full-envelope fixture must use one 27-slot chest");
+        ItemStack owned = ItemStack.deserializeBytes(oldBytes);
+        owned.setAmount(9);
+        owned.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = owned.serializeAsBytes();
+
+        if (!restart) {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(2, owned);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Files.createDirectories(fixture);
+            Files.write(originalFile, oldBytes);
+            Files.write(freshFile, currentBytes);
+            Files.write(typedFile, typedBytes);
+        } else {
+            require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(freshFile))
+                            && Arrays.equals(typedBytes, Files.readAllBytes(typedFile)),
+                    "full-envelope original source files changed across restart");
+        }
+        require(contents.getItem(0) != null && contents.getItem(1) != null && contents.getItem(2) != null
+                        && contents.getItem(26) != null && contents.getItem(3) == null
+                        && Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                        && Arrays.equals(currentBytes, contents.getItem(1).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(26).getType() == Material.STONE
+                        && contents.getItem(26).getAmount() == 17,
+                "physical full-container original stock, typed PDC or slot indices changed");
+
+        Class<?> evidence = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method from = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        from.setAccessible(true);
+        Object binding = from.invoke(null, block.getLocation(), block.getState(), contents);
+        Method verify = evidence.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verify.setAccessible(true);
+
+        java.util.UUID owner;
+        java.util.UUID receiptId;
+        if (restart) {
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "physical full-container recovery owner/receipt malformed");
+            owner = java.util.UUID.fromString(tokens[0]);
+            receiptId = java.util.UUID.fromString(tokens[1]);
+        } else {
+            owner = java.util.UUID.randomUUID();
+            Method capture = evidence.getDeclaredMethod(
+                    "capture", Path.class, java.util.UUID.class, bindingClass,
+                    org.bukkit.inventory.Inventory.class);
+            capture.setAccessible(true);
+            Object receipt = capture.invoke(null, fixture, owner, binding, contents);
+            Method receiptIdMethod = receipt.getClass().getDeclaredMethod("id");
+            receiptIdMethod.setAccessible(true);
+            receiptId = (java.util.UUID) receiptIdMethod.invoke(receipt);
+            Files.writeString(receiptFile, owner + ":" + receiptId);
+        }
+
+        Object verified = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+        Method unchanged = verified.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require((boolean) unchanged.invoke(verified),
+                "physical full-container original evidence does not match world chest");
+
+        if (restart) {
+            // Read-only verification MUST refuse an unrelated changed stock
+            // count while preserving the original owner receipt, then accept
+            // the unchanged chest again after the test restores its own value.
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object changed = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+            require(!(boolean) unchanged.invoke(changed),
+                    "physical full-envelope ignored unrelated inventory drift");
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Object restored = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+            require((boolean) unchanged.invoke(restored),
+                    "physical full-envelope did not revalidate original stock after idempotent restore");
+            require(contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                            && contents.getItem(3) == null,
+                    "physical full-envelope regression changed typed PDC or neighboring stock");
+            require(Arrays.equals(registeredBytes,
+                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "physical full-envelope replay changed registered Slimefun item");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS");
+        } else {
+            require(Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes()),
+                    "physical full-envelope evidence capture changed chest stock");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS");
+        }
+    }
+
     private static void verifyPhysicalChestPersistence(
             Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
             throws Exception {

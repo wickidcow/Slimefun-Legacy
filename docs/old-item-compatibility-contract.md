@@ -344,3 +344,26 @@ QuickShop, Cargo, offline players or machines. No full-container restore
 code exists; a changed chest is never overwritten from a receipt.
 Only backed-up staging with genuine old-world pairs can establish eligible
 historical transformations and final transaction/quantity/restart acceptance.
+
+## Native physical chest all-slot private evidence — two-process regression
+
+The test-only `ResourcePackDoctorProbe` now creates a real disposable world
+single chest at `(10,180,3)` in its brand-new Paper/Purpur/Folia CI server.
+Boot one places independent old-format CARBONADO x63, fresh CARBONADO x1,
+different typed-owner PDC x9, and ordinary stone x17, with all other slots
+empty. It calls production `DoctorContainerEvidenceEnvelope.capture`
+against the actual **block inventory** and confirms the original receipt
+immediately. Boot two reopens the SAME saved world/chest on a different
+JVM and uses the production `verify` method to prove exact world location,
+container block-state, full slot order, native item data, PDC and quantities
+survived both disk and server restarts. A controlled unrelated stone change
+from 17 to 16 must be diagnosed as different; after restoring 17, the
+original receipt must again verify. It leaves the synthetic world chest and
+Slimefun registered template unchanged.
+
+The native runner requires both distinct redacted markers
+`SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS` and
+`SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS` exactly once on the
+corresponding JVM boots. This does **not** permit production chest repairs,
+QuickShop SQL writes, automatic world scans or restoration, and does not
+substitute for a genuine backed-up AlbionMC old/new item pair.

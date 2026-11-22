@@ -294,6 +294,9 @@ def main() -> None:
                 )
 
         require_chest_migration_marker(1, "SEED")
+        if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS") != 1:
+            raise RuntimeError("Native private all-slot world chest envelope did not pass on seed boot")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -322,6 +325,9 @@ def main() -> None:
         process, log = boot(2)
         probe(process, 2, "identity-restart")
         require_chest_migration_marker(2, "RESTART")
+        if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS") != 1:
+            raise RuntimeError("Native private all-slot world chest envelope did not pass after JVM restart")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
         time.sleep(4)
