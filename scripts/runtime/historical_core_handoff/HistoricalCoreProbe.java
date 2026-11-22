@@ -68,13 +68,25 @@ public final class HistoricalCoreProbe extends JavaPlugin {
             }
             getLogger().info("SFL_HISTORICAL_CORE_" + phase.toUpperCase() + "_PASS");
         } catch (Exception | LinkageError error) {
+            // Reflection wrappers obscure real plugin/test exceptions. Unwrap
+            // the exact diagnostic without printing source item bytes, owner
+            // metadata or PDC contents; only error type + safe error message.
+            Throwable cause = error;
+            for (int depth = 0; depth < 8
+                    && cause instanceof java.lang.reflect.InvocationTargetException; depth++) {
+                Throwable target = ((java.lang.reflect.InvocationTargetException) cause).getTargetException();
+                if (target == null || target == cause) {
+                    break;
+                }
+                cause = target;
+            }
+            String failure = cause.getClass().getSimpleName() + ": " + cause.getMessage();
             try {
-                Files.writeString(folder().resolve(phase + ".fail"),
-                        error.getClass().getSimpleName() + ": " + error.getMessage());
+                Files.writeString(folder().resolve(phase + ".fail"), failure);
             } catch (IOException ignored) {
                 // The Python native harness still fails on a missing PASS marker.
             }
-            getLogger().severe("SFL_HISTORICAL_CORE_FAIL " + phase + ": " + error);
+            getLogger().severe("SFL_HISTORICAL_CORE_FAIL " + phase + ": " + failure);
         }
         return true;
     }
