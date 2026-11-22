@@ -643,3 +643,93 @@ and Paper 1.21.11 build 132 SHA-256
 `5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba`.
 All native receipts remain inside the throwaway workflow directory;
 only redacted comparisons and runtime logs are uploaded.
+
+## Historical mismatch attribution (follow-on diagnostic branch) — 2026-11-22
+
+The real v4.1.55 -> v4.1.81 native world handoff **passed** and
+verified that genuinely persisted CARBONADO (63), CARBON_CHUNK (8),
+RAW_CARBONADO (7) and STEEL_INGOT (12) retain their exact original
+bytes and unchanged material/quantities after restart, **but all four
+were incompatible with newly registered v4.1.81 items under Bukkit
+`isSimilar`**. This proves the reproducible problem exists without
+QuickShop, and must not be reduced to a QuickShop bug.
+
+A separately staged follow-on test extends only the read-only TSV
+comparison (the chest and source receipts remain unchanged) to report
+**boolean equality only** for Adventure display-name components, lore
+components, plain display names, plain lore lines, legacy Bukkit text,
+PDC key sets, custom model data, item model and enchantments, as well
+as lore line counts. It deliberately does **not** print or upload
+names, raw lore, owner values or other stored PDC data. Equal plain
+text and PDC keys alone do not prove functional equivalence and never
+authorize mass migration. This attribution is needed to distinguish
+safe presentation-only compatibility repairs from functional or
+meaningful-text changes before any production auto-updater is enabled.
+
+## Published-old native-byte functional equality and detached repair preview — 2026-11-22
+
+Child diagnostic PR #624 adds a second, stronger phase to the **real
+published v4.1.55 → v4.1.81 historical handoff**. The disposable
+v4.1.81 JVM independently reopens the actual old physical chest and
+compares the entire native NBT/data-component representation after
+stripping only display name and lore from **detached cloned item
+stacks**, normalized to count one. It records boolean exact-native
+equality for old vs current, and a preview copy of the genuine old
+item after replacing only those two presentation fields with the
+current registered item's values. The preview is accepted in the
+diagnostic report only when it preserves the complete original
+non-presentation bytes and original quantity. The test separately
+records whether the preview naturally stacks with current Bukkit
+items and matches the current non-presentation native bytes.
+
+A same-item synthetic negative control changes a typed ownership
+PDC key from LONG(42) to INTEGER(42). Native non-presentation
+equality must reject it despite equal-looking numeric content and
+identical display text; this tests type sensitivity, not a real
+AlbionMC owner. Only boolean evidence, original/fresh item hashes,
+and item counts are logged. The original physical chest native bytes
+are compared again after each detached preview and never modified,
+repaired, or normalized. The preview **does not invoke or enable
+any production Doctor repair command** or QuickShop database writer.
+
+A true result for old-vs-current native non-presentation equality,
+preview stacking, and preserved bytes would support a narrowly
+gated style-only migration candidate for that exact original
+historical release pair. A false result requires per-item
+investigation, not unsafe conversion. Native acceptance on public
+v55 data remains separate from an AlbionMC real-world QuickShop
+transaction rollback/price/owner/stock conservation proof.
+
+## Three-JVM direct Doctor repair acceptance on genuine published source items
+
+The pinned native historical handoff now executes three independent
+server JVM boots against the same saved disposable physical chest:
+published Slimefun Legacy v4.1.55 source item generation; published
+v4.1.81 mismatch observation; then a locally **built, unreleased
+exact-PR candidate** core with the production
+`DoctorHistoricalStackRepair.prepare` method invoked reflectively on
+real old item/source pairs. The candidate JAR and source commit are
+recorded by the workflow; no release assets are modified or uploaded
+for use on AlbionMC.
+
+The third boot requires **every** original v55 item (CARBONADO,
+CARBON_CHUNK, RAW_CARBONADO and STEEL_INGOT) to be eligible for
+Doctor's strictly presentation-only detached repair, and demands the
+proposed result stack naturally with the current registered template,
+preserve all original non-presentation bytes including typed PDC,
+have the exact original quantity, match the current functional
+native-byte identity, and pass Doctor's receipt/rollback
+`matchesSavedBackup` safety contract.
+
+The fixture additionally requires Doctor to refuse an old item with
+a newly injected typed-owner PDC field; for CARBON_CHUNK it requires
+Doctor to refuse a RAW_CARBONADO template despite both being PLAYER_HEAD
+material. All original world item serialized bytes are independently
+checked again after the candidate methods run, including unrelated
+vanilla chest stock and empty slots.
+
+This remains **detached-copy and read-only**, with no physical inventory
+setter in the candidate phase and no QuickShop, Cargo, hopper or live
+player writes. Success proves the *existing current Doctor classifier*
+handles the real pinned v55 old-item pair; it is not automatic permission
+to use that classifier to rewrite every older release's data or shops.

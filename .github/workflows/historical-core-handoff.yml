@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   genuine-source:
-    name: Real 4.1.55 to 4.1.81 world chest on Paper 1.21.11
+    name: Published v55/v81 world chest + current Doctor strict preview on Paper 1.21.11
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -43,7 +43,16 @@ jobs:
             'https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar' \
             candidate/server.jar
           echo '5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba  candidate/server.jar' | sha256sum --check --strict
-      - name: Persist genuine v55 source and independently reopen under v81
+      - name: Compile exact unreleased PR candidate Doctor core (no publish)
+        run: |
+          set -euo pipefail
+          ./gradlew shadowJar --no-daemon
+          jar="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$jar" && test -s "$jar"
+          cp "$jar" candidate/Slimefun-Legacy-unreleased-Doctor.jar
+          git rev-parse HEAD > candidate/doctor-source-commit.txt
+          sha256sum candidate/Slimefun-Legacy-unreleased-Doctor.jar > candidate/doctor-source-jar.sha256
+      - name: Persist genuine v55 source and independently reopen under v81 and candidate Doctor
         run: |
           set -euo pipefail
           python3 scripts/runtime/historical_core_handoff/run_probe.py \
@@ -51,6 +60,7 @@ jobs:
             --server-sha256 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba \
             --old-core candidate/Slimefun-Legacy4.1.55.jar \
             --new-core candidate/Slimefun-Legacy4.1.81.jar \
+            --candidate-core candidate/Slimefun-Legacy-unreleased-Doctor.jar \
             --java-home "$JAVA_HOME" \
             --work-dir "$RUNNER_TEMP/sfl-historical-core-handoff"
       - name: Show redacted compatibility results
@@ -59,6 +69,7 @@ jobs:
           if [[ -f "$RUNNER_TEMP/sfl-historical-core-handoff/PASS.txt" ]]; then
             cat "$RUNNER_TEMP/sfl-historical-core-handoff/PASS.txt" >> "$GITHUB_STEP_SUMMARY"
             cat "$RUNNER_TEMP/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/comparison.tsv" >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/candidate-comparison.tsv" >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Retain redacted logs without uploading native item receipts
         if: always()
@@ -72,3 +83,4 @@ jobs:
             ${{ runner.temp }}/sfl-historical-core-handoff/bootstrap.log
             ${{ runner.temp }}/sfl-historical-core-handoff/PASS.txt
             ${{ runner.temp }}/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/comparison.tsv
+            ${{ runner.temp }}/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/candidate-comparison.tsv

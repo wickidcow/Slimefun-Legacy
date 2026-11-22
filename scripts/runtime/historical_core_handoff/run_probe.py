@@ -74,7 +74,7 @@ def phase(root: Path, java: Path, label: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    for field in ("server-jar", "old-core", "new-core", "java-home", "work-dir"):
+    for field in ("server-jar", "old-core", "new-core", "candidate-core", "java-home", "work-dir"):
         parser.add_argument("--" + field, type=Path, required=True)
     parser.add_argument("--server-sha256", required=True)
     args = parser.parse_args()
@@ -117,14 +117,24 @@ def main() -> None:
     server_core.unlink()
     shutil.copyfile(args.new_core, server_core)
     phase(root, java, "verify")
+    require(args.candidate_core.is_file(), "Unreleased Doctor candidate JAR missing")
+    server_core.unlink()
+    shutil.copyfile(args.candidate_core, server_core)
+    phase(root, java, "candidate")
     report = plugins / "SFLHistoricalHandoffProbe/comparison.tsv"
     require(report.is_file() and len(report.read_text().splitlines()) >= 3,
             "Native historical item comparison is incomplete")
     print(report.read_text(), flush=True)
+    candidate_report = plugins / "SFLHistoricalHandoffProbe/candidate-comparison.tsv"
+    require(candidate_report.is_file()
+            and len(candidate_report.read_text().strip().splitlines()) >= 3,
+            "Unreleased candidate Doctor did not prove published historic items")
+    print(candidate_report.read_text(), flush=True)
     (root / "PASS.txt").write_text(
-        "PASS two real, published Slimefun JVM boots (4.1.55 -> 4.1.81), "
-        "saved physical chest native bytes/quantities unchanged, "
-        "fresh-template similarity reported without world writes\n")
+        "PASS three independent JVM boots: published v55 source, published v81"
+        " mismatch, exact PR candidate Doctor historical strict repair;"
+        " every original world byte/count unchanged; typed-owner and"
+        " same-material cross-ID negative refused; no chest writes\n")
 
 
 if __name__ == "__main__":
