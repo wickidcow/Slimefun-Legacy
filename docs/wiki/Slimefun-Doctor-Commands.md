@@ -647,3 +647,11 @@ explicit player-inventory scan; it does **not** accept journal UUIDs.
 Keep `plugins/Slimefun/recovery/containers/` and
 `plugins/Slimefun/recovery/container-journals/` private because their
 native item evidence can contain protected owner or addon metadata.
+
+The journal inspection reports redacted **exact proposed candidate**,
+**exact original candidate**, and **unexpected slot** counts.
+`EXPECTED-ONLY PARTIAL (still DIVERGED)` means only a strict subset
+of the journal's style-only candidate bytes matches its proposal;
+this is forensic evidence of a possible interrupted write, **not**
+approval to resume, repair, replace, restore, or roll back anything.
+A changed unrelated vanilla or functional-PDC slot removes that flag.

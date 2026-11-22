@@ -130,6 +130,88 @@ class TestDoctorContainerTransactionJournal {
     }
 
     @Test
+    void exactNativeInterruptedCandidateSubsetRemainsDivergedAndUnexpectedStockIsFlagged() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        ItemStack historical63 = historical(template, 63);
+        ItemStack historical8 = historical(template, 8);
+        ItemStack owned = historical(template, 9);
+        owned.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787001));
+        byte[] ownedBytes = owned.serializeAsBytes();
+        chest.setItem(0, historical63);
+        chest.setItem(1, historical8);
+        chest.setItem(2, template);
+        chest.setItem(3, owned);
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        var location = binding();
+        UUID operator = UUID.randomUUID();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+        assertEquals(List.of(0, 1), journal.changedSlots());
+        var untouched = DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest);
+        assertEquals(DoctorContainerTransactionJournal.State.ORIGINAL, untouched.state());
+        assertEquals(0, untouched.appliedCandidates());
+        assertEquals(2, untouched.originalCandidates());
+        assertEquals(0, untouched.unexpectedSlots());
+        assertFalse(untouched.expectedOnlyPartial());
+
+        // Disposable in-memory chest only: update first of two eligible
+        // native stacks, simulating a crash after one storage write.
+        Inventory simulated = Bukkit.createInventory(null, 27);
+        for (int slot = 0; slot < chest.getSize(); slot++) {
+            ItemStack stack = chest.getItem(slot);
+            if (stack != null) {
+                simulated.setItem(slot, ItemStack.deserializeBytes(stack.serializeAsBytes()));
+            }
+        }
+        ItemStack updated63 = ItemStack.deserializeBytes(template.serializeAsBytes());
+        updated63.setAmount(63);
+        simulated.setItem(0, updated63);
+        var partial = DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, simulated);
+        assertEquals(DoctorContainerTransactionJournal.State.DIVERGED, partial.state());
+        assertEquals(1, partial.appliedCandidates());
+        assertEquals(1, partial.originalCandidates());
+        assertEquals(0, partial.unexpectedSlots());
+        assertTrue(partial.expectedOnlyPartial());
+
+        // A changed vanilla stock slot must NOT be misclassified as a
+        // merely interrupted plan even though candidates remain old/new.
+        simulated.setItem(26, new ItemStack(Material.STONE, 16));
+        var interference = DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, simulated);
+        assertEquals(DoctorContainerTransactionJournal.State.DIVERGED, interference.state());
+        assertEquals(1, interference.unexpectedSlots());
+        assertFalse(interference.expectedOnlyPartial());
+
+        simulated.setItem(26, new ItemStack(Material.STONE, 17));
+        ItemStack updated8 = ItemStack.deserializeBytes(template.serializeAsBytes());
+        updated8.setAmount(8);
+        simulated.setItem(1, updated8);
+        var completed = DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, simulated);
+        assertEquals(DoctorContainerTransactionJournal.State.PROPOSED, completed.state());
+        assertEquals(2, completed.appliedCandidates());
+        assertEquals(0, completed.originalCandidates());
+        assertEquals(0, completed.unexpectedSlots());
+        assertFalse(completed.expectedOnlyPartial());
+
+        // Functional owner-PDC drift is always unexpected, even if the
+        // display name, Slimefun ID, amount, and both style slots match.
+        simulated.setItem(3, historical(template, 9));
+        var ownerDrift = DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, simulated);
+        assertEquals(DoctorContainerTransactionJournal.State.DIVERGED, ownerDrift.state());
+        assertEquals(1, ownerDrift.unexpectedSlots());
+        assertFalse(ownerDrift.expectedOnlyPartial());
+        assertArrayEquals(ownedBytes, chest.getItem(3).serializeAsBytes());
+        assertEquals(17, chest.getItem(26).getAmount());
+    }
+
+    @Test
     void tamperedJournalOrMissingOriginalEvidenceRefusesAndNeverChangesStock() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);
         ItemStack template = current();

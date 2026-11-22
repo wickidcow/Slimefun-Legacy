@@ -333,7 +333,13 @@ final class DoctorLiveItemUpdate {
                             + " &8| &7Changed candidates: &e" + report.changes()
                             + " &8| &7Original item count: &e" + report.originalItems()
                             + " &8| &7Proposed item count: &e" + report.proposedItems()
-                            + " &8| &cDiagnostic ONLY; DIVERGED never authorizes recovery.";
+                            + " &8| &7Exact proposed candidate slots: &e" + report.appliedCandidates()
+                            + " &8| &7Exact original candidate slots: &e" + report.originalCandidates()
+                            + " &8| &7Unexpected changed slots: &e" + report.unexpectedSlots()
+                            + (report.expectedOnlyPartial()
+                                    ? " &8| &6EXPECTED-ONLY PARTIAL (still DIVERGED)"
+                                    : "")
+                            + " &8| &cDiagnostic ONLY; no resume, repair or rollback is authorized.";
                 }
             } catch (IOException | RuntimeException exception) {
                 message = "&cContainer proposal/inspection refused. Verify receipt, location, ownership, "

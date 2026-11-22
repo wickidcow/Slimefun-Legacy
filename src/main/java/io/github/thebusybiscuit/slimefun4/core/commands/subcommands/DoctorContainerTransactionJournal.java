@@ -51,7 +51,16 @@ final class DoctorContainerTransactionJournal {
             UUID originalReceipt, String beforeSha256, String afterSha256,
             long beforeItems, long afterItems, List<Integer> changedSlots) {}
 
-    record Inspection(State state, int slots, int changes, long originalItems, long proposedItems) {}
+    /**
+     * All counters describe exact native-byte comparisons. A candidate in its
+     * original form is NOT authorization to resume a partial transaction.
+     * Unexpected includes any change outside the planned candidate positions,
+     * including vanilla, empty, owner-PDC and machine metadata changes.
+     */
+    record Inspection(
+            State state, int slots, int changes, long originalItems, long proposedItems,
+            int appliedCandidates, int originalCandidates, int unexpectedSlots,
+            boolean expectedOnlyPartial) {}
 
     private record Stored(Journal journal, byte[][] proposedSlots) {}
 
@@ -115,7 +124,7 @@ final class DoctorContainerTransactionJournal {
         if (!journal.binding().equals(binding)) {
             throw new IOException("Journal is bound to a different world, block, state or slot count");
         }
-        verifySourceAndProposed(pluginFolder, stored);
+        byte[][] originalSlots = verifySourceAndProposed(pluginFolder, stored);
         // This reopens and validates the exact original all-slot envelope;
         // it is allowed to return false after a hypothetical migration.
         boolean original = DoctorContainerEvidenceEnvelope.verify(
@@ -132,9 +141,29 @@ final class DoctorContainerTransactionJournal {
                         && sameSlots(stored.proposedSlots(), observedSlots)
                         ? State.PROPOSED
                         : State.DIVERGED;
+        int applied = 0;
+        int pending = 0;
+        int unexpected = 0;
+        for (int slot = 0; slot < observedSlots.length; slot++) {
+            byte[] observedSlot = observedSlots[slot];
+            if (journal.changedSlots().contains(slot)) {
+                if (Arrays.equals(observedSlot, originalSlots[slot])) {
+                    pending++;
+                } else if (Arrays.equals(observedSlot, stored.proposedSlots()[slot])) {
+                    applied++;
+                } else {
+                    unexpected++;
+                }
+            } else if (!Arrays.equals(observedSlot, originalSlots[slot])) {
+                unexpected++;
+            }
+        }
+        boolean onlyExpectedPartial =
+                state == State.DIVERGED && unexpected == 0 && applied > 0 && pending > 0;
         return new Inspection(
                 state, binding.slots(), journal.changedSlots().size(),
-                journal.beforeItems(), journal.afterItems());
+                journal.beforeItems(), journal.afterItems(),
+                applied, pending, unexpected, onlyExpectedPartial);
     }
 
     /**
@@ -147,7 +176,7 @@ final class DoctorContainerTransactionJournal {
      * valid receipts, cross-location original files, altered unchanged slots,
      * and journal metadata inconsistent with its independently saved source.
      */
-    private static void verifySourceAndProposed(Path pluginFolder, Stored stored) throws IOException {
+    private static byte[][] verifySourceAndProposed(Path pluginFolder, Stored stored) throws IOException {
         Journal journal = stored.journal();
         byte[][] original = DoctorContainerEvidenceEnvelope.openVerifiedOriginal(
                 pluginFolder, journal.owner(), journal.originalReceipt(), journal.binding());
@@ -171,6 +200,7 @@ final class DoctorContainerTransactionJournal {
         if (changed != journal.changedSlots().size()) {
             throw new IOException("Physical container journal candidate-count mismatch");
         }
+        return original;
     }
 
     private static void validateDraft(DoctorContainerMigrationPreflight.Draft draft, UUID owner)

@@ -584,3 +584,28 @@ does not authorize rollback. The real-world migration writer, hopper/Cargo
 isolation, machine storage and QuickShop SQL conservation tests remain
 unimplemented. New commands must pass the full CI compatibility suite
 before use on live AlbionMC.
+
+## Redacted interrupted-candidate attribution (read-only) — 2026-11-22
+
+The private v2 journal's read-only `inspect` now distinguishes a
+**strictly expected subset** of staged style-only changes from
+unrelated stock mutations without making partial progress actionable.
+For every physical slot, it independently compares actual native bytes
+against the **verified original receipt** and the **sealed exact proposed
+slot witness**. It reports the number of candidate slots exactly equal
+to the proposed after-image, the number still exactly equal to their
+original bytes, and the number of slots whose native bytes match
+neither the allowed original nor proposed state (including changed
+vanilla stock, empties and typed-owner PDC).
+
+A `DIVERGED` state gets an `expectedOnlyPartial` diagnostic flag
+**only** when at least one eligible stack is still original, at least
+one eligible stack exactly matches its planned update, and every
+other slot is byte-for-byte unchanged. It remains DIVERGED regardless
+of that flag, and neither the inspector nor the command resumes,
+completes, restores, commits, locks or writes any inventory data.
+The redacted command output shows only counts; never item bytes,
+owner metadata or sale information. Native two-JVM tests and the
+separate mocked-journal regression require this classification to
+remain accurate across a persisted first-of-two simulated write,
+detect unrelated stone drift, and protect typed-PDC owner changes.

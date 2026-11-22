@@ -1503,6 +1503,19 @@ final class ItemIdentityProbe {
         status.setAccessible(true);
         require("DIVERGED".equals(status.invoke(partial).toString()),
                 "partially migrated physical chest must NEVER be classified as PROPOSED or ORIGINAL");
+        Method expectedOnlyPartial = partial.getClass().getDeclaredMethod("expectedOnlyPartial");
+        expectedOnlyPartial.setAccessible(true);
+        Method appliedCandidates = partial.getClass().getDeclaredMethod("appliedCandidates");
+        appliedCandidates.setAccessible(true);
+        Method originalCandidates = partial.getClass().getDeclaredMethod("originalCandidates");
+        originalCandidates.setAccessible(true);
+        Method unexpectedSlots = partial.getClass().getDeclaredMethod("unexpectedSlots");
+        unexpectedSlots.setAccessible(true);
+        require((boolean) expectedOnlyPartial.invoke(partial)
+                        && (int) appliedCandidates.invoke(partial) == 1
+                        && (int) originalCandidates.invoke(partial) == 1
+                        && (int) unexpectedSlots.invoke(partial) == 0,
+                "partial native chest must classify one applied/one original candidate with no unrelated changes");
         Object origin = verify.invoke(null, fixture, operator, receiptId, binding, contents);
         Method unchanged = origin.getClass().getDeclaredMethod("unchanged");
         unchanged.setAccessible(true);
@@ -1516,6 +1529,11 @@ final class ItemIdentityProbe {
             Object completed = inspect.invoke(null, fixture, operator, journalId, binding, contents);
             require("PROPOSED".equals(status.invoke(completed).toString()),
                     "full after-image did not validate after test-only second-slot completion");
+            require(!(boolean) expectedOnlyPartial.invoke(completed)
+                            && (int) appliedCandidates.invoke(completed) == 2
+                            && (int) originalCandidates.invoke(completed) == 0
+                            && (int) unexpectedSlots.invoke(completed) == 0,
+                    "completed after-image should have only two exact applied candidates");
             var quantity = Bukkit.createInventory(null, 9);
             int total = 0;
             for (int slot : new int[] {0, 1, 2, 3, 26}) {
@@ -1529,6 +1547,9 @@ final class ItemIdentityProbe {
             Object drift = inspect.invoke(null, fixture, operator, journalId, binding, contents);
             require("DIVERGED".equals(status.invoke(drift).toString()),
                     "partial-journal completion failed to reject unrelated stock mutation");
+            require(!(boolean) expectedOnlyPartial.invoke(drift)
+                            && (int) unexpectedSlots.invoke(drift) == 1,
+                    "unrelated vanilla stock drift must never look like an expected-only interruption");
             contents.setItem(26, new ItemStack(Material.STONE, 17));
             require("PROPOSED".equals(status.invoke(
                             inspect.invoke(null, fixture, operator, journalId, binding, contents)).toString()),
