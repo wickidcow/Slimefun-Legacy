@@ -121,6 +121,9 @@ def main() -> None:
     server_core.unlink()
     shutil.copyfile(args.candidate_core, server_core)
     phase(root, java, "candidate")
+    # A fourth independent server JVM reopens durable original-byte receipts,
+    # exact updated snapshots and the same saved immutable v55 world chest.
+    phase(root, java, "replay")
     report = plugins / "SFLHistoricalHandoffProbe/comparison.tsv"
     require(report.is_file() and len(report.read_text().splitlines()) >= 3,
             "Native historical item comparison is incomplete")
@@ -130,11 +133,15 @@ def main() -> None:
             and len(candidate_report.read_text().strip().splitlines()) >= 3,
             "Unreleased candidate Doctor did not prove published historic items")
     print(candidate_report.read_text(), flush=True)
+    replay = plugins / "SFLHistoricalHandoffProbe/replay.pass"
+    require(replay.is_file(), "Fourth independent JVM lost original-byte backup receipts")
+    print(replay.read_text(), flush=True)
     (root / "PASS.txt").write_text(
-        "PASS three independent JVM boots: published v55 source, published v81"
-        " mismatch, exact PR candidate Doctor historical strict repair;"
-        " every original world byte/count unchanged; typed-owner and"
-        " same-material cross-ID negative refused; no chest writes\n")
+        "PASS four independent JVM boots: actual v55 physical old item bytes,"
+        " published v81 drift, candidate Doctor strict repair,"
+        " candidate live-batch of four actual historical source IDs with exact"
+        " independent original-backup receipts verified across another restart;"
+        " all world bytes/quantities unchanged and typed-owner negative refused\n")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,9 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.HashSet;
+import java.util.UUID;
+import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
@@ -47,8 +50,9 @@ public final class HistoricalCoreProbe extends JavaPlugin {
 
     private boolean command(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1
-                || !(args[0].equals("seed") || args[0].equals("verify") || args[0].equals("candidate"))) {
-            sender.sendMessage("sflhistoricprobe seed|verify|candidate");
+                || !(args[0].equals("seed") || args[0].equals("verify") || args[0].equals("candidate")
+                        || args[0].equals("replay"))) {
+            sender.sendMessage("sflhistoricprobe seed|verify|candidate|replay");
             return true;
         }
         String phase = args[0];
@@ -57,8 +61,10 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                 seed();
             } else if (phase.equals("verify")) {
                 verify();
-            } else {
+            } else if (phase.equals("candidate")) {
                 candidate();
+            } else {
+                replay();
             }
             getLogger().info("SFL_HISTORICAL_CORE_" + phase.toUpperCase() + "_PASS");
         } catch (Exception | LinkageError error) {
@@ -412,8 +418,218 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                     "Doctor candidate caused an unrelated empty physical chest slot to change");
         }
         Files.writeString(data.resolve("candidate-comparison.tsv"), report.toString());
+        verifyActualLiveBatchInMemory(data, inventory);
         Files.writeString(data.resolve("candidate.pass"),
                 "PASS actual published v55 source against candidate Doctor detached repairs, world unchanged\n");
     }
+
+    /**
+     * Real v55 world items -> exact candidate's production batch engine.
+     * The INVENTORY is new disposable Bukkit memory, not a world/player/shop
+     * inventory. The real persisted world chest is only ever read from.
+     * The registeredTemplate resolver is the real plugin method (not an
+     * injected test shortcut); source IDs and PDC are guarded in production.
+     */
+    private void verifyActualLiveBatchInMemory(Path data, Inventory originalChest) throws Exception {
+        Class<?> live = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method registry = live.getDeclaredMethod("registeredTemplate", ItemStack.class);
+        registry.setAccessible(true);
+        Function<ItemStack, ItemStack> resolver = observed -> {
+            try {
+                return (ItemStack) registry.invoke(null, observed);
+            } catch (ReflectiveOperationException error) {
+                throw new IllegalStateException("Production historical registry lookup failed", error);
+            }
+        };
+
+        Inventory disposable = Bukkit.createInventory(null, 36);
+        int beforeItems = 0;
+        int accepted = 0;
+        for (int index = 0; index < IDS.length; index++) {
+            Path source = data.resolve(IDS[index] + ".bin");
+            if (!Files.isRegularFile(source)) {
+                continue;
+            }
+            ItemStack actual = ItemStack.deserializeBytes(Files.readAllBytes(source));
+            require(originalChest.getItem(index) != null
+                            && Arrays.equals(actual.serializeAsBytes(),
+                                    originalChest.getItem(index).serializeAsBytes()),
+                    "Genuine v55 physical chest does not match source: " + IDS[index]);
+            ItemStack registered = fresh(IDS[index]);
+            require(registered != null && !actual.isSimilar(registered),
+                    "Actual historical item is not an old/current mismatch: " + IDS[index]);
+            require(resolver.apply(actual) != null,
+                    "Production live-batch registry resolver rejected genuine old source: " + IDS[index]);
+            disposable.setItem(index, actual);
+            disposable.setItem(10 + index, registered);
+            beforeItems += actual.getAmount() + registered.getAmount();
+            accepted++;
+        }
+        require(accepted == IDS.length, "Expected all four actual public historical core items");
+        // Identical old ID/text/material, but extra typed ownership PDC is
+        // functional data and MUST NOT be replaced.
+        ItemStack owned = ItemStack.deserializeBytes(
+                Files.readAllBytes(data.resolve("CARBON_CHUNK.bin")));
+        owned.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("sfl_historic_probe", "typed_owner"),
+                PersistentDataType.INTEGER, 787001));
+        byte[] ownedNative = owned.serializeAsBytes();
+        disposable.setItem(20, owned);
+        disposable.setItem(35, new ItemStack(Material.STONE, 17));
+        beforeItems += owned.getAmount() + 17;
+
+        Method preview = live.getDeclaredMethod(
+                "preview", Inventory.class, Function.class);
+        preview.setAccessible(true);
+        Object plan = preview.invoke(null, disposable, resolver);
+        Method eligible = plan.getClass().getDeclaredMethod("eligible");
+        eligible.setAccessible(true);
+        Method entries = plan.getClass().getDeclaredMethod("entries");
+        entries.setAccessible(true);
+        int allowed = (int) eligible.invoke(plan);
+        List<?> candidates = (List<?>) entries.invoke(plan);
+        require(allowed == IDS.length && candidates.size() == IDS.length,
+                "Production batch did not find exactly four genuine historical items: found " + allowed);
+        Method planSlot = candidates.getFirst().getClass().getDeclaredMethod("slot");
+        planSlot.setAccessible(true);
+        for (int index = 0; index < candidates.size(); index++) {
+            require((int) planSlot.invoke(candidates.get(index)) == index,
+                    "Unexpected live update slot or typed-PDC item entered plan");
+        }
+
+        UUID owner = UUID.randomUUID();
+        Path privateOriginals = data.resolve("candidate-batch-receipts");
+        Method apply = live.getDeclaredMethod(
+                "apply", Inventory.class, plan.getClass(), Function.class, Path.class, UUID.class);
+        apply.setAccessible(true);
+        List<?> receipts = (List<?>) apply.invoke(
+                null, disposable, plan, resolver, privateOriginals, owner);
+        require(receipts.size() == IDS.length, "Production live batch did not produce four private receipts");
+        Method receiptSlot = receipts.getFirst().getClass().getDeclaredMethod("slot");
+        receiptSlot.setAccessible(true);
+        Method receiptId = receipts.getFirst().getClass().getDeclaredMethod("id");
+        receiptId.setAccessible(true);
+        Class<?> repair = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method restore = repair.getDeclaredMethod(
+                "readVerifiedBackup", Path.class, UUID.class, UUID.class);
+        restore.setAccessible(true);
+        Method savedMatch = repair.getDeclaredMethod(
+                "matchesSavedBackup", ItemStack.class, ItemStack.class,
+                ItemStack.class, ItemStack.class);
+        savedMatch.setAccessible(true);
+
+        int afterItems = 0;
+        HashSet<UUID> uniqueReceipts = new HashSet<>();
+        StringBuilder receiptIndex = new StringBuilder(owner + "\n");
+        for (int index = 0; index < IDS.length; index++) {
+            require((int) receiptSlot.invoke(receipts.get(index)) == index,
+                    "Live batch receipt bound to wrong slot");
+            UUID receipt = (UUID) receiptId.invoke(receipts.get(index));
+            require(uniqueReceipts.add(receipt), "Live batch generated repeated private receipt UUID");
+            ItemStack updated = disposable.getItem(index);
+            ItemStack current = fresh(IDS[index]);
+            ItemStack saved = (ItemStack) restore.invoke(
+                    null, privateOriginals, owner, receipt);
+            byte[] originalBytes = Files.readAllBytes(data.resolve(IDS[index] + ".bin"));
+            require(updated != null
+                            && updated.getAmount() == AMOUNTS[index]
+                            && updated.isSimilar(current)
+                            && Arrays.equals(saved.serializeAsBytes(), originalBytes)
+                            && sameNativeNonPresentation(saved, updated)
+                            && Boolean.TRUE.equals(savedMatch.invoke(
+                                    null, saved, updated, current, current)),
+                    "Actual production live-batch update/backup failed: " + IDS[index]);
+            Files.write(data.resolve("candidate-updated-" + IDS[index] + ".bin"),
+                    updated.serializeAsBytes());
+            receiptIndex.append(IDS[index]).append("\t").append(receipt).append("\n");
+            afterItems += updated.getAmount()
+                    + disposable.getItem(10 + index).getAmount();
+            require(Arrays.equals(originalBytes, originalChest.getItem(index).serializeAsBytes()),
+                    "Batch wrote to immutable genuine v55 world chest");
+        }
+        require(Arrays.equals(disposable.getItem(20).serializeAsBytes(), ownedNative),
+                "Production batch modified typed owner-PDC negative");
+        require(disposable.getItem(35).getAmount() == 17,
+                "Production batch changed unrelated vanilla inventory stock");
+        afterItems += disposable.getItem(20).getAmount() + disposable.getItem(35).getAmount();
+        require(beforeItems == afterItems,
+                "Actual historical multi-item live batch duplicated/lost inventory quantities");
+        Files.writeString(data.resolve("candidate-batch-receipt-index.txt"),
+                receiptIndex.toString());
+        getLogger().info("SFL_HISTORICAL_CORE_LIVE_BATCH_PASS eligible=" + allowed
+                + " backups=" + uniqueReceipts.size()
+                + " native_quantity=" + afterItems + " typed_pdc_rejected=true");
+    }
+
+    /**
+     * Fourth, independent Java server process. Verify source world chest, all
+     * private native original-byte backups and produced after-images remain
+     * intact after a clean restart. Do not write to the chest at any phase.
+     */
+    private void replay() throws Exception {
+        require(version().contains("4.1.81"), "Fourth JVM did not load candidate Doctor");
+        Path data = folder();
+        require(Files.isRegularFile(data.resolve("candidate.pass")),
+                "Fourth JVM missing candidate native validation");
+        Inventory chest = chest(false);
+        require(chest.getItem(26) != null
+                        && chest.getItem(26).getType() == Material.STONE
+                        && chest.getItem(26).getAmount() == 17,
+                "Fourth JVM physical-world vanilla stock changed");
+        String[] receiptLines = Files.readString(
+                data.resolve("candidate-batch-receipt-index.txt")).trim().split("\n");
+        require(receiptLines.length == IDS.length + 1,
+                "Fourth JVM did not reopen all four private batch receipts");
+        UUID owner = UUID.fromString(receiptLines[0]);
+        Path backups = data.resolve("candidate-batch-receipts");
+        Class<?> repair = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method restore = repair.getDeclaredMethod(
+                "readVerifiedBackup", Path.class, UUID.class, UUID.class);
+        restore.setAccessible(true);
+        Method matches = repair.getDeclaredMethod(
+                "matchesSavedBackup", ItemStack.class, ItemStack.class,
+                ItemStack.class, ItemStack.class);
+        matches.setAccessible(true);
+        HashSet<UUID> receipts = new HashSet<>();
+        int expectedTotal = 0;
+        for (int index = 0; index < IDS.length; index++) {
+            String[] entry = receiptLines[index + 1].split("\t", -1);
+            require(entry.length == 2 && entry[0].equals(IDS[index]),
+                    "Fourth JVM receipt/source ID mismatch");
+            UUID receipt = UUID.fromString(entry[1]);
+            require(receipts.add(receipt), "Fourth JVM private receipt UUID repeated");
+            byte[] original = Files.readAllBytes(data.resolve(IDS[index] + ".bin"));
+            ItemStack stored = chest.getItem(index);
+            require(stored != null
+                            && stored.getAmount() == AMOUNTS[index]
+                            && Arrays.equals(stored.serializeAsBytes(), original),
+                    "Fourth JVM changed historical world source stock " + IDS[index]);
+            ItemStack backup = (ItemStack) restore.invoke(null, backups, owner, receipt);
+            ItemStack updated = ItemStack.deserializeBytes(Files.readAllBytes(
+                    data.resolve("candidate-updated-" + IDS[index] + ".bin")));
+            ItemStack current = fresh(IDS[index]);
+            require(Arrays.equals(backup.serializeAsBytes(), original)
+                            && updated.isSimilar(current)
+                            && updated.getAmount() == backup.getAmount()
+                            && sameNativeNonPresentation(backup, updated)
+                            && Boolean.TRUE.equals(matches.invoke(
+                                    null, backup, updated, current, current)),
+                    "Fourth JVM lost typed item, canonical output or private original receipt: " + IDS[index]);
+            expectedTotal += updated.getAmount();
+        }
+        require(expectedTotal == 90, "Fourth JVM quantity conservation regression");
+        for (int index = IDS.length; index < 26; index++) {
+            require(chest.getItem(index) == null,
+                    "Fourth JVM gained an unrelated item in historical physical chest");
+        }
+        Files.writeString(data.resolve("replay.pass"),
+                "PASS four real-JVM historical live-batch exact original receipts and identity\n");
+        getLogger().info("SFL_HISTORICAL_CORE_LIVE_BATCH_REPLAY_PASS four_receipts=4"
+                + " quantities=" + expectedTotal + " physical_chest_unchanged=true");
+    }
+
 
 }

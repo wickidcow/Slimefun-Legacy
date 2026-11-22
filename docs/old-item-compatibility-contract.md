@@ -733,3 +733,39 @@ setter in the candidate phase and no QuickShop, Cargo, hopper or live
 player writes. Success proves the *existing current Doctor classifier*
 handles the real pinned v55 old-item pair; it is not automatic permission
 to use that classifier to rewrite every older release's data or shops.
+
+## Genuine v55-source live-batch engine and restart backup gate (2026-11-22)
+
+A new child native test expands the pinned public release harness to four
+**independent server JVM boots**, using the REAL v4.1.55 physical chest source.
+The third JVM invokes the exact PR Doctor core's existing
+\`DoctorLiveItemUpdate.preview\` and \`apply\` on a **new, disposable
+36-slot in-memory inventory**, supplied with original native-byte stacks
+from the immutable historical physical chest. The template resolver is
+not test-supplied: it calls the **production registeredTemplate method**,
+including strict registered Slimefun IDs.
+
+The batch must find all four genuinely historical CARBONADO, CARBON_CHUNK,
+RAW_CARBONADO and STEEL_INGOT stacks (the other original source slots
+are untouched), produce exactly four distinct owner-scoped durable
+original-byte receipts before any test-inventory writes, and verify each
+result stacks with the exact current registered item, has its original
+quantity, and retains its entire native non-presentation identity. A
+same-material historical item carrying extra typed PDC ownership must be
+refused; unrelated stone stock and other fresh items must remain intact.
+The actual world chest is NEVER updated; only synthetic in-memory storage
+is written by this one integration test.
+
+A **fourth independent JVM** restarts with the candidate Doctor core,
+reopens every private original-byte receipt using the **real Doctor backup
+reader**, validates every source against the saved world chest/native
+witness, checks repaired item bytes and amount, checks strict rollback
+eligibility, and rejects any stock loss. Receipts and native item bytes
+remain in the disposable test server directory; the public CI artifact
+exposes redacted runtime logs, result flags and SHA witness only.
+
+PASS for this test verifies the live **player-inventory batch engine** on
+real old public-release item data and durable, restart-readable receipts.
+It is NOT a live physical chest writer, QuickShop transaction lock, hopper
+or Cargo isolation test; it does not prove that historical AlbionMC
+shop/owner/price/SQL fields can safely be migrated.

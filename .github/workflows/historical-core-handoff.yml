@@ -52,7 +52,7 @@ jobs:
           cp "$jar" candidate/Slimefun-Legacy-unreleased-Doctor.jar
           git rev-parse HEAD > candidate/doctor-source-commit.txt
           sha256sum candidate/Slimefun-Legacy-unreleased-Doctor.jar > candidate/doctor-source-jar.sha256
-      - name: Persist genuine v55 source and independently reopen under v81 and candidate Doctor
+      - name: Verify v55 world and live-batch against v81/candidate across four JVM boots
         run: |
           set -euo pipefail
           python3 scripts/runtime/historical_core_handoff/run_probe.py \
