@@ -64,6 +64,24 @@ final class DoctorLiveItemUpdate {
             DoctorHistoricalStackEvidenceAudit.run(plugin, player, args[4], args[5]);
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("journal-container-full")) {
+            PLANS.remove(player.getUniqueId());
+            try {
+                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), true);
+            } catch (IllegalArgumentException exception) {
+                send(player, "&cProvide your own private full-container receipt UUID.");
+            }
+            return;
+        }
+        if (args.length == 5 && args[3].equalsIgnoreCase("inspect-container-journal")) {
+            PLANS.remove(player.getUniqueId());
+            try {
+                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), false);
+            } catch (IllegalArgumentException exception) {
+                send(player, "&cProvide your own private proposed-container journal UUID.");
+            }
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("preview-container-full")) {
             PLANS.remove(player.getUniqueId());
             try {
@@ -195,6 +213,8 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live export-container-full &8(private all-slot receipt)");
         send(sender, "&e/sf doctor identity live verify-container-full <receipt> &8(read-only)");
         send(sender, "&e/sf doctor identity live preview-container-full <receipt> &8(read-only, NO confirm)");
+        send(sender, "&e/sf doctor identity live journal-container-full <receipt> &8(private read-only proposal)");
+        send(sender, "&e/sf doctor identity live inspect-container-journal <journal> &8(read-only state)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
@@ -257,6 +277,67 @@ final class DoctorLiveItemUpdate {
                 }
             } catch (IOException | RuntimeException exception) {
                 message = "&cContainer evidence refused. No inventory, shop or SQL changed.";
+            }
+            String response = message;
+            Slimefun.getSchedulerService().runFor(player, () -> {
+                if (player.isOnline()) {
+                    send(player, response);
+                }
+            });
+        });
+    }
+
+    /**
+     * Explicit operator-only read-only journal management, dispatched on the
+     * physical container owning region. A journal records an after-image
+     * proposal, not a write authorization. There is NO confirmation, apply,
+     * rollback, QuickShop mutation, or hidden automatic repair.
+     */
+    private static void inspectContainerJournal(Slimefun plugin, Player player, UUID reference, boolean create) {
+        Block target = player.getTargetBlockExact(6);
+        if (target == null || target.getType().isAir()) {
+            send(player, "&eLook directly at a loaded single chest or barrel within six blocks.");
+            return;
+        }
+        Location location = target.getLocation();
+        Slimefun.getSchedulerService().runAt(location, () -> {
+            String message;
+            try {
+                if (!location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    throw new IOException("Unloaded physical container target");
+                }
+                BlockState state = location.getBlock().getState();
+                if (!(state instanceof Container container)
+                        || (state.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE)
+                        || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
+                    throw new IOException("Unsupported physical chest/barrel or cross-region container");
+                }
+                Inventory inventory = container.getInventory();
+                var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
+                Path pluginFolder = plugin.getDataFolder().toPath();
+                UUID operator = player.getUniqueId();
+                if (create) {
+                    var proposal = DoctorContainerTransactionJournal.begin(
+                            pluginFolder, operator, reference, binding, inventory,
+                            DoctorLiveItemUpdate::registeredTemplate);
+                    message = "&aPrivate proposed-container journal saved: &e" + proposal.id()
+                            + " &8| &7Eligible style-only slots: &e" + proposal.changedSlots()
+                            + " &8| &7Original items: &e" + proposal.beforeItems()
+                            + " &8| &7Proposed items: &e" + proposal.afterItems()
+                            + " &8| &cNO chest writes, apply or confirm are available.";
+                } else {
+                    var report = DoctorContainerTransactionJournal.inspect(
+                            pluginFolder, operator, reference, binding, inventory);
+                    message = "&6Private container journal inspection &8| &7State: &e" + report.state()
+                            + " &8| &7Slots: &e" + report.slots()
+                            + " &8| &7Changed candidates: &e" + report.changes()
+                            + " &8| &7Original item count: &e" + report.originalItems()
+                            + " &8| &7Proposed item count: &e" + report.proposedItems()
+                            + " &8| &cDiagnostic ONLY; DIVERGED never authorizes recovery.";
+                }
+            } catch (IOException | RuntimeException exception) {
+                message = "&cContainer proposal/inspection refused. Verify receipt, location, ownership, "
+                        + "unchanged source and native item identity. No chest/shop/SQL writes occurred.";
             }
             String response = message;
             Slimefun.getSchedulerService().runFor(player, () -> {

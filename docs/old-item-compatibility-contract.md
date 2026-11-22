@@ -561,3 +561,26 @@ after-inventory, then requires checked refusal. A digest is an integrity
 check, not authentication against a filesystem adversary; no live
 restore, chest writer, Cargo lock, shop transaction or automatic repair
 is enabled by this diagnostic safeguard.
+
+## Operator read-only physical-container journal commands — 2026-11-22
+
+Doctor's OP-only `identity live` handler now exposes a **read-only-to-
+world** proposal file and replay inspection:
+`journal-container-full <receipt-uuid>` and
+`inspect-container-journal <journal-uuid>`.
+Both require a loaded one-block chest/barrel the player is looking at
+within six blocks, run via `Slimefun.getSchedulerService().runAt(location)`
+on the physical block's owning region, refuse unsupported or
+chunk-spanning containers, and send only redacted source/candidate counts,
+UUID and classification results back to the player's region. They do not
+make an inventory repair plan or use the existing player-only confirm.
+
+Journal creation requires a matching private whole-container receipt
+and the sealed original/proposed native-slot proof; only the
+**private diagnostic file** is written. Inspection identifies ORIGINAL,
+PROPOSED or DIVERGED, or refuses malformed/mismatched evidence. Even a
+PROPOSED journal is **not a transaction commit record**, and DIVERGED
+does not authorize rollback. The real-world migration writer, hopper/Cargo
+isolation, machine storage and QuickShop SQL conservation tests remain
+unimplemented. New commands must pass the full CI compatibility suite
+before use on live AlbionMC.

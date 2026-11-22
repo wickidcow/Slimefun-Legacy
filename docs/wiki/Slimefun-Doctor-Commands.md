@@ -614,3 +614,36 @@ Meaningful text and functional typed-PDC differences remain refused.
 No pending plan is saved and there is deliberately NO matching chest
 `confirm` command. This is not permission to rewrite physical stock or
 a QuickShop sale reference. Use only on a backed-up staging clone.
+
+### Private read-only whole-container transaction journal
+
+The following **operator-only** commands apply to one loaded, single
+chest or barrel directly in front of you (within six blocks). They run
+on its Folia owning region, not on unloaded chunks, double chests or
+cross-region containers. They do not update any physical inventory:
+
+1. `/sf doctor identity live export-container-full` — write an exact
+   native original receipt to the private server recovery directory.
+2. `/sf doctor identity live preview-container-full <receipt-uuid>` —
+   classify potential historical style-only candidates. Meaningful
+   text or functional metadata changes are refused.
+3. `/sf doctor identity live journal-container-full <receipt-uuid>` —
+   create a private, crash-replayable original/proposed journal **only**
+   when the saved entire original inventory still matches and 1–8
+   style-only candidates pass strict proof. The journal records all
+   original and hypothetical after-slot identities and item totals.
+   This is a file write, **not a chest write**.
+4. `/sf doctor identity live inspect-container-journal <journal-uuid>` —
+   read the owner-scoped private journal and show `ORIGINAL` for
+   unchanged stock, `PROPOSED` for a byte-exact complete hypothetical
+   after-state, or `DIVERGED` for anything else. A replaced/tampered
+   original receipt causes refusal rather than a misleading state.
+   DIVERGED must not be interpreted as permission to restore or update.
+
+There is **no** corresponding `confirm`, `apply`, `rollback`,
+chest repair or QuickShop SQL mutation action. The existing
+`/sf doctor identity live confirm` affects only the operator's
+explicit player-inventory scan; it does **not** accept journal UUIDs.
+Keep `plugins/Slimefun/recovery/containers/` and
+`plugins/Slimefun/recovery/container-journals/` private because their
+native item evidence can contain protected owner or addon metadata.
