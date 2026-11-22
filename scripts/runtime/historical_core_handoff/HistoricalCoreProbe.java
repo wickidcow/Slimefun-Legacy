@@ -6,6 +6,10 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Objects;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Chest;
@@ -14,6 +18,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -144,6 +149,21 @@ public final class HistoricalCoreProbe extends JavaPlugin {
         Files.writeString(data.resolve("seed.pass"), "PASS published v4.1.55 original world chest\n");
     }
 
+    private static String plain(Component component) {
+        return component == null ? "" : PlainTextComponentSerializer.plainText().serialize(component);
+    }
+
+    private static List<String> plainLore(ItemMeta meta) {
+        List<Component> lore = meta.lore();
+        return lore == null ? List.of() : lore.stream().map(HistoricalCoreProbe::plain).toList();
+    }
+
+    private static boolean customModelSame(ItemMeta oldMeta, ItemMeta newMeta) {
+        return oldMeta.hasCustomModelData() == newMeta.hasCustomModelData()
+                && (!oldMeta.hasCustomModelData()
+                        || oldMeta.getCustomModelData() == newMeta.getCustomModelData());
+    }
+
     private void verify() throws Exception {
         require(version().contains("4.1.81"), "Second JVM did not load published v4.1.81");
         Path data = folder();
@@ -156,7 +176,11 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                 "Vanilla world stock changed between genuine released cores");
         int count = 0;
         StringBuilder report = new StringBuilder(
-                "id\told_sha256\tfresh_sha256\tis_similar\tmaterial_same\tquantity\n");
+                "id\told_sha256\tfresh_sha256\tis_similar\tmaterial_same\tquantity"
+                        + "\tname_component_same\tlore_component_same\tplain_name_same"
+                        + "\tplain_lore_same\tlegacy_name_same\tlegacy_lore_same"
+                        + "\tpdc_key_set_same\tcustom_model_data_same\titem_model_same"
+                        + "\tenchantments_same\told_lore_lines\tnew_lore_lines\n");
         for (int i = 0; i < IDS.length; i++) {
             String id = IDS[i];
             if (lines[i + 1].equals(id + "\tABSENT")) {
@@ -177,11 +201,29 @@ public final class HistoricalCoreProbe extends JavaPlugin {
             ItemStack current = fresh(id);
             require(current != null, "New version lost historical registered ID: " + id);
             count++;
+            ItemMeta oldMeta = stored.getItemMeta();
+            ItemMeta newMeta = current.getItemMeta();
+            require(oldMeta != null && newMeta != null, "Missing old or current item metadata");
+            List<Component> oldLore = oldMeta.lore();
+            List<Component> freshLore = newMeta.lore();
             report.append(id).append("\t").append(hash(original)).append("\t")
                     .append(hash(current.serializeAsBytes())).append("\t")
                     .append(stored.isSimilar(current)).append("\t")
                     .append(stored.getType() == current.getType()).append("\t")
-                    .append(AMOUNTS[i]).append("\n");
+                    .append(AMOUNTS[i]).append("\t")
+                    .append(Objects.equals(oldMeta.displayName(), newMeta.displayName())).append("\t")
+                    .append(Objects.equals(oldLore, freshLore)).append("\t")
+                    .append(plain(oldMeta.displayName()).equals(plain(newMeta.displayName()))).append("\t")
+                    .append(plainLore(oldMeta).equals(plainLore(newMeta))).append("\t")
+                    .append(Objects.equals(oldMeta.getDisplayName(), newMeta.getDisplayName())).append("\t")
+                    .append(Objects.equals(oldMeta.getLore(), newMeta.getLore())).append("\t")
+                    .append(oldMeta.getPersistentDataContainer().getKeys()
+                            .equals(newMeta.getPersistentDataContainer().getKeys())).append("\t")
+                    .append(customModelSame(oldMeta, newMeta)).append("\t")
+                    .append(Objects.equals(oldMeta.getItemModel(), newMeta.getItemModel())).append("\t")
+                    .append(oldMeta.getEnchants().equals(newMeta.getEnchants())).append("\t")
+                    .append(oldLore == null ? -1 : oldLore.size()).append("\t")
+                    .append(freshLore == null ? -1 : freshLore.size()).append("\n");
         }
         require(count >= 2, "Not enough source-to-current item pairs");
         for (int i = IDS.length; i < 26; i++) {

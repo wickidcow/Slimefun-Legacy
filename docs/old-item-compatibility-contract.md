@@ -643,3 +643,25 @@ and Paper 1.21.11 build 132 SHA-256
 `5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba`.
 All native receipts remain inside the throwaway workflow directory;
 only redacted comparisons and runtime logs are uploaded.
+
+## Historical mismatch attribution (follow-on diagnostic branch) — 2026-11-22
+
+The real v4.1.55 -> v4.1.81 native world handoff **passed** and
+verified that genuinely persisted CARBONADO (63), CARBON_CHUNK (8),
+RAW_CARBONADO (7) and STEEL_INGOT (12) retain their exact original
+bytes and unchanged material/quantities after restart, **but all four
+were incompatible with newly registered v4.1.81 items under Bukkit
+`isSimilar`**. This proves the reproducible problem exists without
+QuickShop, and must not be reduced to a QuickShop bug.
+
+A separately staged follow-on test extends only the read-only TSV
+comparison (the chest and source receipts remain unchanged) to report
+**boolean equality only** for Adventure display-name components, lore
+components, plain display names, plain lore lines, legacy Bukkit text,
+PDC key sets, custom model data, item model and enchantments, as well
+as lore line counts. It deliberately does **not** print or upload
+names, raw lore, owner values or other stored PDC data. Equal plain
+text and PDC keys alone do not prove functional equivalence and never
+authorize mass migration. This attribution is needed to distinguish
+safe presentation-only compatibility repairs from functional or
+meaningful-text changes before any production auto-updater is enabled.
