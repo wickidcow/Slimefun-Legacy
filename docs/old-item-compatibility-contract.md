@@ -699,3 +699,37 @@ historical release pair. A false result requires per-item
 investigation, not unsafe conversion. Native acceptance on public
 v55 data remains separate from an AlbionMC real-world QuickShop
 transaction rollback/price/owner/stock conservation proof.
+
+## Three-JVM direct Doctor repair acceptance on genuine published source items
+
+The pinned native historical handoff now executes three independent
+server JVM boots against the same saved disposable physical chest:
+published Slimefun Legacy v4.1.55 source item generation; published
+v4.1.81 mismatch observation; then a locally **built, unreleased
+exact-PR candidate** core with the production
+`DoctorHistoricalStackRepair.prepare` method invoked reflectively on
+real old item/source pairs. The candidate JAR and source commit are
+recorded by the workflow; no release assets are modified or uploaded
+for use on AlbionMC.
+
+The third boot requires **every** original v55 item (CARBONADO,
+CARBON_CHUNK, RAW_CARBONADO and STEEL_INGOT) to be eligible for
+Doctor's strictly presentation-only detached repair, and demands the
+proposed result stack naturally with the current registered template,
+preserve all original non-presentation bytes including typed PDC,
+have the exact original quantity, match the current functional
+native-byte identity, and pass Doctor's receipt/rollback
+`matchesSavedBackup` safety contract.
+
+The fixture additionally requires Doctor to refuse an old item with
+a newly injected typed-owner PDC field; for CARBON_CHUNK it requires
+Doctor to refuse a RAW_CARBONADO template despite both being PLAYER_HEAD
+material. All original world item serialized bytes are independently
+checked again after the candidate methods run, including unrelated
+vanilla chest stock and empty slots.
+
+This remains **detached-copy and read-only**, with no physical inventory
+setter in the candidate phase and no QuickShop, Cargo, hopper or live
+player writes. Success proves the *existing current Doctor classifier*
+handles the real pinned v55 old-item pair; it is not automatic permission
+to use that classifier to rewrite every older release's data or shops.

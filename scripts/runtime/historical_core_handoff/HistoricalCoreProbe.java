@@ -1,6 +1,7 @@
 package com.wickidcow.doctorfixture;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -45,16 +46,19 @@ public final class HistoricalCoreProbe extends JavaPlugin {
     }
 
     private boolean command(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length != 1 || !(args[0].equals("seed") || args[0].equals("verify"))) {
-            sender.sendMessage("sflhistoricprobe seed|verify");
+        if (args.length != 1
+                || !(args[0].equals("seed") || args[0].equals("verify") || args[0].equals("candidate"))) {
+            sender.sendMessage("sflhistoricprobe seed|verify|candidate");
             return true;
         }
         String phase = args[0];
         try {
             if (phase.equals("seed")) {
                 seed();
-            } else {
+            } else if (phase.equals("verify")) {
                 verify();
+            } else {
+                candidate();
             }
             getLogger().info("SFL_HISTORICAL_CORE_" + phase.toUpperCase() + "_PASS");
         } catch (Exception | LinkageError error) {
@@ -312,4 +316,104 @@ public final class HistoricalCoreProbe extends JavaPlugin {
         Files.writeString(data.resolve("comparison.tsv"), report.toString());
         Files.writeString(data.resolve("verify.pass"), "PASS published old/new JVM native world conservation\n");
     }
+    /**
+     * THIRD separate JVM with an unreleased exact-PR Doctor core, after
+     * genuinely registered 4.1.55 source and published 4.1.81 observation.
+     *
+     * <p>Run the real production historical repair classifier on detached
+     * old/current pairs only; the original loaded physical chest is never
+     * modified, even when the candidate would pass.
+     */
+    private void candidate() throws Exception {
+        require(version().contains("4.1.81"), "Candidate Doctor is not built on the expected version floor");
+        Path data = folder();
+        require(Files.isRegularFile(data.resolve("seed.pass"))
+                        && Files.isRegularFile(data.resolve("verify.pass")),
+                "Third-boot Doctor gate requires both actual published-core JVM evidence receipts");
+        Inventory inventory = chest(false);
+        require(inventory.getSize() == 27
+                        && inventory.getItem(26) != null
+                        && inventory.getItem(26).getType() == Material.STONE
+                        && inventory.getItem(26).getAmount() == 17,
+                "Real historic chest or unrelated vanilla stock changed before candidate Doctor");
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method prepare = doctor.getDeclaredMethod(
+                "prepare", ItemStack.class, ItemStack.class, ItemStack.class);
+        prepare.setAccessible(true);
+        Method backup = doctor.getDeclaredMethod(
+                "matchesSavedBackup", ItemStack.class, ItemStack.class, ItemStack.class, ItemStack.class);
+        backup.setAccessible(true);
+
+        StringBuilder report = new StringBuilder(
+                "id\tprepare_accepted\tcandidate_similar\tfunctional_original_preserved"
+                        + "\tfunctional_fresh_equal\tquantity_same\tverified_backup_match"
+                        + "\ttyped_extra_pdc_rejected\tcross_id_same_material_rejected\n");
+        for (int i = 0; i < IDS.length; i++) {
+            String id = IDS[i];
+            Path originalFile = data.resolve(id + ".bin");
+            if (!Files.isRegularFile(originalFile)) {
+                require(inventory.getItem(i) == null, "Missing historic source unexpectedly appeared: " + id);
+                continue;
+            }
+            byte[] originalBytes = Files.readAllBytes(originalFile);
+            ItemStack old = inventory.getItem(i);
+            require(old != null && old.getAmount() == AMOUNTS[i]
+                            && Arrays.equals(old.serializeAsBytes(), originalBytes),
+                    "Original historic item bytes changed on third candidate JVM: " + id);
+            ItemStack fresh = fresh(id);
+            require(fresh != null && !old.isSimilar(fresh),
+                    "Candidate did not reproduce old-vs-current mismatch: " + id);
+            byte[] referenceBytes = fresh.serializeAsBytes();
+
+            // Actual unmodified Slimefun Doctor implementation under test.
+            Object result = prepare.invoke(null, old, fresh, fresh);
+            boolean accepted = result instanceof ItemStack;
+            ItemStack preview = accepted ? (ItemStack) result : null;
+            boolean compatible = accepted && preview.isSimilar(fresh);
+            boolean preserved = accepted && sameNativeNonPresentation(old, preview);
+            boolean equivalent = accepted && sameNativeNonPresentation(preview, fresh);
+            boolean conserved = accepted && preview.getAmount() == AMOUNTS[i];
+            boolean backedUp = accepted && Boolean.TRUE.equals(
+                    backup.invoke(null, old, preview, fresh, fresh));
+
+            ItemStack wrongTyped = ItemStack.deserializeBytes(originalBytes);
+            wrongTyped.editMeta(meta -> meta.getPersistentDataContainer().set(
+                    new NamespacedKey("sfl_historic_probe", "typed_owner"),
+                    PersistentDataType.INTEGER, 42));
+            boolean typedRefused = prepare.invoke(null, wrongTyped, fresh, fresh) == null;
+
+            boolean wrongIdRefused = true;
+            if (id.equals("CARBON_CHUNK")) {
+                ItemStack other = fresh("RAW_CARBONADO");
+                require(other != null && other.getType() == fresh.getType(),
+                        "Real cross-ID negative must use the SAME Bukkit material");
+                wrongIdRefused = prepare.invoke(null, old, other, other) == null;
+            }
+
+            require(accepted && compatible && preserved && equivalent
+                            && conserved && backedUp && typedRefused && wrongIdRefused,
+                    "Current Doctor rejected safe authentic v55 source or unsafe controls: " + id
+                            + " [accepted=" + accepted + ",compatible=" + compatible
+                            + ",preserved=" + preserved + ",equivalent=" + equivalent
+                            + ",conserved=" + conserved + ",backup=" + backedUp
+                            + ",typed=" + typedRefused + ",crossId=" + wrongIdRefused + "]");
+            require(Arrays.equals(inventory.getItem(i).serializeAsBytes(), originalBytes)
+                            && Arrays.equals(fresh.serializeAsBytes(), referenceBytes),
+                    "Core Doctor mutated original chest or registered template: " + id);
+            report.append(id).append("\t").append(accepted).append("\t")
+                    .append(compatible).append("\t").append(preserved).append("\t")
+                    .append(equivalent).append("\t").append(conserved).append("\t")
+                    .append(backedUp).append("\t").append(typedRefused).append("\t")
+                    .append(wrongIdRefused).append("\n");
+        }
+        for (int i = IDS.length; i < 26; i++) {
+            require(inventory.getItem(i) == null,
+                    "Doctor candidate caused an unrelated empty physical chest slot to change");
+        }
+        Files.writeString(data.resolve("candidate-comparison.tsv"), report.toString());
+        Files.writeString(data.resolve("candidate.pass"),
+                "PASS actual published v55 source against candidate Doctor detached repairs, world unchanged\n");
+    }
+
 }
