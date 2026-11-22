@@ -512,6 +512,12 @@ public final class HistoricalCoreProbe extends JavaPlugin {
 
         UUID owner = UUID.randomUUID();
         Path privateOriginals = data.resolve("candidate-batch-receipts");
+        // The production writer intentionally refuses a nonexistent plugin
+        // root (or a symlink). The disposable native probe must provision a
+        // new real local root, just as a real installed Slimefun folder exists.
+        require(!Files.exists(privateOriginals),
+                "Native live-batch test recovery root must be new and private");
+        Files.createDirectory(privateOriginals);
         Method apply = live.getDeclaredMethod(
                 "apply", Inventory.class, plan.getClass(), Function.class, Path.class, UUID.class);
         apply.setAccessible(true);
