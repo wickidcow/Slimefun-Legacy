@@ -431,6 +431,7 @@ public final class HistoricalCoreProbe extends JavaPlugin {
         }
         Files.writeString(data.resolve("candidate-comparison.tsv"), report.toString());
         verifyActualLiveBatchInMemory(data, inventory);
+        verifyGenuineChestJournal(data, inventory, false);
         Files.writeString(data.resolve("candidate.pass"),
                 "PASS actual published v55 source against candidate Doctor detached repairs, world unchanged\n");
     }
@@ -643,10 +644,193 @@ public final class HistoricalCoreProbe extends JavaPlugin {
             require(chest.getItem(index) == null,
                     "Fourth JVM gained an unrelated item in historical physical chest");
         }
+        verifyGenuineChestJournal(data, chest, true);
         Files.writeString(data.resolve("replay.pass"),
-                "PASS four real-JVM historical live-batch exact original receipts and identity\n");
+                "PASS four real-JVM historical live-batch and exact genuine chest journal receipts\n");
         getLogger().info("SFL_HISTORICAL_CORE_LIVE_BATCH_REPLAY_PASS four_receipts=4"
                 + " quantities=" + expectedTotal + " physical_chest_unchanged=true");
+    }
+
+
+    /**
+     * Uses the ACTUAL unchanged v55 physical chest and production original
+     * envelope+after-image journal, not a synthetic old item source. Every
+     * hypothetical after-state exists ONLY in a disposable Bukkit inventory.
+     *
+     * Boot 3 seals the bound private proof and tests ORIGINAL/PROPOSED/PARTIAL.
+     * Boot 4 reopens the saved world and private files from an independent JVM,
+     * then repeats exact-native classification and interference refusal.
+     *
+     * No physical-world setter or transaction resume/rollback exists here.
+     */
+    private void verifyGenuineChestJournal(Path data, Inventory physical, boolean restart) throws Exception {
+        Path directory = data.resolve("candidate-real-world-journal");
+        Path ids = directory.resolve("journal-ids.txt");
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 8);
+        require(block.getState() instanceof Chest, "Historical bound physical chest missing");
+        var state = block.getState();
+        require(physical.getSize() == 27, "Genuine historical journal must bind a single chest");
+
+        Class<?> evidence = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method bindingFrom = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                Inventory.class);
+        bindingFrom.setAccessible(true);
+        Object binding = bindingFrom.invoke(null, block.getLocation(), state, physical);
+        Method capture = evidence.getDeclaredMethod(
+                "capture", Path.class, UUID.class, bindingClass, Inventory.class);
+        capture.setAccessible(true);
+        Method sourceVerify = evidence.getDeclaredMethod(
+                "verify", Path.class, UUID.class, UUID.class, bindingClass, Inventory.class);
+        sourceVerify.setAccessible(true);
+
+        Class<?> journalClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method journalBegin = journalClass.getDeclaredMethod(
+                "begin", Path.class, UUID.class, UUID.class, bindingClass,
+                Inventory.class, Function.class);
+        journalBegin.setAccessible(true);
+        Method inspect = journalClass.getDeclaredMethod(
+                "inspect", Path.class, UUID.class, UUID.class, bindingClass, Inventory.class);
+        inspect.setAccessible(true);
+
+        Class<?> live = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method registered = live.getDeclaredMethod("registeredTemplate", ItemStack.class);
+        registered.setAccessible(true);
+        Function<ItemStack, ItemStack> realRegisteredResolver = item -> {
+            try {
+                return (ItemStack) registered.invoke(null, item);
+            } catch (ReflectiveOperationException error) {
+                throw new IllegalStateException("Actual registered Doctor item lookup failed", error);
+            }
+        };
+
+        UUID owner;
+        UUID originId;
+        UUID journalId;
+        if (restart) {
+            String[] parts = Files.readString(ids).trim().split(":", -1);
+            require(parts.length == 3, "Fourth JVM lost original/journal source identifiers");
+            owner = UUID.fromString(parts[0]);
+            originId = UUID.fromString(parts[1]);
+            journalId = UUID.fromString(parts[2]);
+        } else {
+            owner = UUID.randomUUID();
+            Object origin = capture.invoke(null, directory, owner, binding, physical);
+            Method originalReceipt = origin.getClass().getDeclaredMethod("id");
+            originalReceipt.setAccessible(true);
+            originId = (UUID) originalReceipt.invoke(origin);
+            Object journal = journalBegin.invoke(null, directory, owner, originId,
+                    binding, physical, realRegisteredResolver);
+            Method journalReceipt = journal.getClass().getDeclaredMethod("id");
+            journalReceipt.setAccessible(true);
+            journalId = (UUID) journalReceipt.invoke(journal);
+            Method slots = journal.getClass().getDeclaredMethod("changedSlots");
+            slots.setAccessible(true);
+            require(List.of(0, 1, 2, 3).equals(slots.invoke(journal)),
+                    "Production genuine-source journal did not classify all four real historical stacks");
+            Files.writeString(ids, owner + ":" + originId + ":" + journalId);
+        }
+
+        Object checkOriginal = sourceVerify.invoke(
+                null, directory, owner, originId, binding, physical);
+        Method unchanged = checkOriginal.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require((boolean) unchanged.invoke(checkOriginal),
+                "Durable exact original receipt did not recognize genuine historic world chest");
+        Object originalReport = inspect.invoke(
+                null, directory, owner, journalId, binding, physical);
+        Method classification = originalReport.getClass().getDeclaredMethod("state");
+        classification.setAccessible(true);
+        Method applied = originalReport.getClass().getDeclaredMethod("appliedCandidates");
+        applied.setAccessible(true);
+        Method pending = originalReport.getClass().getDeclaredMethod("originalCandidates");
+        pending.setAccessible(true);
+        Method unexpected = originalReport.getClass().getDeclaredMethod("unexpectedSlots");
+        unexpected.setAccessible(true);
+        Method partialFlag = originalReport.getClass().getDeclaredMethod("expectedOnlyPartial");
+        partialFlag.setAccessible(true);
+        require("ORIGINAL".equals(classification.invoke(originalReport).toString())
+                        && (int) applied.invoke(originalReport) == 0
+                        && (int) pending.invoke(originalReport) == 4
+                        && (int) unexpected.invoke(originalReport) == 0,
+                "Journal mislabeled unchanged actual v55 physical world item source");
+
+        Inventory predicted = Bukkit.createInventory(null, 27);
+        Inventory interrupted = Bukkit.createInventory(null, 27);
+        for (int slot = 0; slot < 27; slot++) {
+            ItemStack stack = physical.getItem(slot);
+            if (stack != null) {
+                byte[] bytes = stack.serializeAsBytes();
+                predicted.setItem(slot, ItemStack.deserializeBytes(bytes));
+                interrupted.setItem(slot, ItemStack.deserializeBytes(bytes));
+            }
+        }
+        for (int slot = 0; slot < IDS.length; slot++) {
+            byte[] source = Files.readAllBytes(data.resolve(IDS[slot] + ".bin"));
+            require(physical.getItem(slot) != null
+                            && Arrays.equals(source, physical.getItem(slot).serializeAsBytes()),
+                    "Actual historical original changed while journal was reopened");
+            ItemStack after = ItemStack.deserializeBytes(Files.readAllBytes(
+                    data.resolve("candidate-updated-" + IDS[slot] + ".bin")));
+            require(after.isSimilar(fresh(IDS[slot])) && after.getAmount() == AMOUNTS[slot],
+                    "Live-batch after-image is not actual published-core compatible");
+            predicted.setItem(slot, after);
+            if (slot < 2) {
+                interrupted.setItem(slot, after);
+            }
+        }
+
+        Object complete = inspect.invoke(null, directory, owner, journalId, binding, predicted);
+        require("PROPOSED".equals(classification.invoke(complete).toString())
+                        && (int) applied.invoke(complete) == 4
+                        && (int) pending.invoke(complete) == 0
+                        && (int) unexpected.invoke(complete) == 0,
+                "Real historical chest journal did not recognize exact production-batch proposed bytes");
+
+        Object interruptedState = inspect.invoke(null, directory, owner, journalId, binding, interrupted);
+        require("DIVERGED".equals(classification.invoke(interruptedState).toString())
+                        && (boolean) partialFlag.invoke(interruptedState)
+                        && (int) applied.invoke(interruptedState) == 2
+                        && (int) pending.invoke(interruptedState) == 2
+                        && (int) unexpected.invoke(interruptedState) == 0,
+                "Real historical chest journal failed to attribute an expected-only two-stack interruption");
+
+        interrupted.setItem(26, new ItemStack(Material.STONE, 16));
+        Object stoneInterference = inspect.invoke(null, directory, owner, journalId, binding, interrupted);
+        require("DIVERGED".equals(classification.invoke(stoneInterference).toString())
+                        && !(boolean) partialFlag.invoke(stoneInterference)
+                        && (int) unexpected.invoke(stoneInterference) == 1,
+                "Changed unrelated vanilla stock was incorrectly interpreted as safe partial progress");
+
+        predicted.setItem(20, ItemStack.deserializeBytes(
+                Files.readAllBytes(data.resolve("CARBON_CHUNK.bin"))));
+        predicted.getItem(20).editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("sfl_historic_probe", "typed_owner"),
+                PersistentDataType.LONG, 75123L));
+        Object typedInterference = inspect.invoke(null, directory, owner, journalId, binding, predicted);
+        require("DIVERGED".equals(classification.invoke(typedInterference).toString())
+                        && (int) unexpected.invoke(typedInterference) == 1,
+                "Journal treated inserted typed owner PDC as an approved historical style migration");
+
+        for (int slot = 0; slot < IDS.length; slot++) {
+            byte[] saved = Files.readAllBytes(data.resolve(IDS[slot] + ".bin"));
+            require(Arrays.equals(saved, physical.getItem(slot).serializeAsBytes()),
+                    "Real historical physical source stack changed during evidence/journal replay");
+        }
+        require(physical.getItem(26) != null
+                        && physical.getItem(26).getType() == Material.STONE
+                        && physical.getItem(26).getAmount() == 17
+                        && physical.getItem(20) == null,
+                "Original native world chest changed during read-only replay checks");
+
+        getLogger().info(restart
+                ? "SFL_HISTORICAL_REAL_CHEST_JOURNAL_RESTART_PASS"
+                : "SFL_HISTORICAL_REAL_CHEST_JOURNAL_SEED_PASS");
     }
 
 

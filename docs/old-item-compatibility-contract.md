@@ -769,3 +769,42 @@ real old public-release item data and durable, restart-readable receipts.
 It is NOT a live physical chest writer, QuickShop transaction lock, hopper
 or Cargo isolation test; it does not prove that historical AlbionMC
 shop/owner/price/SQL fields can safely be migrated.
+
+## Genuine v55-source physical-world journal replay on the fourth JVM (2026-11-22)
+
+The native historical handoff is extended to validate the current Doctor
+**production** `DoctorContainerEvidenceEnvelope` and
+`DoctorContainerTransactionJournal` against four actual **published
+v4.1.55 item stacks stored in a real physical 27-slot world chest**,
+rather than synthetic old-style names/lore. The third server JVM captures
+a complete private, owner/world/block-bound exact native original receipt
+and saves a complete proposed after-image journal through the real
+production planner using the real registered-template resolver.
+Candidates must be exactly physical slots 0–3 (CARBONADO,
+CARBON_CHUNK, RAW_CARBONADO, STEEL_INGOT). All other slots, including
+unrelated stone x17, must remain unchanged.
+
+The actual world chest is NEVER changed. A separate disposable
+27-slot inventory simulates an entire after-image using the **exact
+outputs of the real production live-batch** established in the same
+third JVM. The original chest must inspect as ORIGINAL; the complete
+hypothetical result as PROPOSED; a two-of-four simulated interruption
+must be DIVERGED with two exact-original and two exact-proposed
+candidates and no unexpected changes. Unrelated stone 17->16 and
+insertion of a typed-PDC owner-controlled item must independently be
+rejected as unexpected, never as an expected-only interruption.
+
+On the **fourth independent JVM restart of the same saved world**, the
+test reopens the unchanged true-world source chest, all owner-bound
+native source receipts and journal, repeats the original/proposed/
+partial/unexpected classification, and requires uniquely counted
+`SFL_HISTORICAL_REAL_CHEST_JOURNAL_SEED_PASS` and
+`SFL_HISTORICAL_REAL_CHEST_JOURNAL_RESTART_PASS` markers from the
+correct third/fourth server boots. The native runner will not accept
+a pass based solely on the preexisting batch tests. Every actual v55
+source byte, amount, unused slot and vanilla stone count must survive.
+
+This proves read-only **genuine historical-world journal evidence** and
+complete hypothetical after-images, NOT safe production live container
+writes, hopper/Cargo isolation, QuickShop SQL owner/price/trade state
+or automatic recovery.
