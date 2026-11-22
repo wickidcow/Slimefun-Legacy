@@ -386,3 +386,31 @@ No plan survives the command and no production chest mutation or
 QuickShop SQL writer is introduced. This proves **read-only, stale
 original rejection**, not atomic chests/shops, genuine historical
 migration eligibility or full live transaction/recovery safety.
+
+## Read-only whole-container transaction after-image preflight — 2026-11-21
+
+`DoctorContainerMigrationPreflight` is an **internal, unexposed** draft
+engine. It starts only with the private, owner-scoped, location-bound
+complete original receipt; performs the strict Doctor historical style
+classifier against the already-loaded 27/54-slot block inventory; and
+builds a hash of a **hypothetical** after-image containing only proven
+style-only replacements. It verifies registered-template fingerprints,
+exact-native round trips, item quantities, complete original slot
+metadata (including empty slots and typed-PDC negative controls), and
+rechecks the full original receipt after planning. More than eight
+eligible historical stacks refuses the entire plan rather than silently
+attempting a partial rewrite. It returns only redacted slot indices,
+before/after hashes, stock totals and number of changed stacks. There
+is **no chest setter, durable write-ahead transaction status, automated
+rollback or operator `confirm` command** in this class.
+
+Unit tests exercise exact before/after hashes on a **separate disposable
+inventory**, 63+1+9+17 item conservation, refusal of altered unrelated
+vanilla stock, wrong owner, racing addon writes, meaningful text changes,
+typed-PDC mismatch, and over-eight candidate refusal. The native CI
+two-JVM disposable physical world chest now tests the same preflight
+against a restarted block and saved all-slot receipt and requires
+one bounded cosmetic candidate, zero loss of all original items and
+refusal after unrelated stock drift. Existing full-envelope PASS
+markers remain mandatory. These **synthetic** tests do not prove
+actual historical AlbionMC data or QuickShop trade safety.

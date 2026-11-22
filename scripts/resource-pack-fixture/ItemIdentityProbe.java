@@ -1112,6 +1112,32 @@ final class ItemIdentityProbe {
         require((int) eligible.invoke(assessment) == 1 && (int) refused.invoke(assessment) >= 1,
                 "physical receipt-bound assessment did not isolate style-only stock from typed-PDC refusal");
 
+
+        Class<?> preflight = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerMigrationPreflight");
+        Method preparePlan = preflight.getDeclaredMethod(
+                "prepare", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        preparePlan.setAccessible(true);
+        Object plan = preparePlan.invoke(
+                null, fixture, owner, receiptId, binding, contents, templateResolver);
+        Method changeCount = plan.getClass().getDeclaredMethod("changedStacks");
+        Method beforeCount = plan.getClass().getDeclaredMethod("originalItems");
+        Method afterCount = plan.getClass().getDeclaredMethod("proposedItems");
+        changeCount.setAccessible(true);
+        beforeCount.setAccessible(true);
+        afterCount.setAccessible(true);
+        require((int) changeCount.invoke(plan) == 1
+                        && (long) beforeCount.invoke(plan) == 90L
+                        && (long) afterCount.invoke(plan) == 90L,
+                "native physical full-envelope preflight failed item/typed-owner conservation");
+
+        Method matchesAfter = preflight.getDeclaredMethod(
+                "matchesProposedAfter", plan.getClass(), bindingClass, org.bukkit.inventory.Inventory.class);
+        matchesAfter.setAccessible(true);
+        require(!(boolean) matchesAfter.invoke(null, plan, binding, contents),
+                "native read-only draft treated unmodified source chest as a committed after-image");
+
         if (restart) {
             // Read-only verification MUST refuse an unrelated changed stock
             // count while preserving the original owner receipt, then accept
@@ -1120,6 +1146,13 @@ final class ItemIdentityProbe {
             Object changed = verify.invoke(null, fixture, owner, receiptId, binding, contents);
             require(!(boolean) unchanged.invoke(changed),
                     "physical full-envelope ignored unrelated inventory drift");
+            try {
+                preparePlan.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+                throw new IllegalStateException("Stale physical chest original unexpectedly yielded transaction draft");
+            } catch (java.lang.reflect.InvocationTargetException refusedDraft) {
+                require(refusedDraft.getCause() instanceof java.io.IOException,
+                        "physical chest preflight must refuse changed unrelated stock with IOException");
+            }
             try {
                 assess.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
                 throw new IllegalStateException("Stale physical receipt unexpectedly produced migration candidates");
