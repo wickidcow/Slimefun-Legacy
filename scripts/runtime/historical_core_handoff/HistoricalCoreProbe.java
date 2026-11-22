@@ -12,6 +12,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -19,6 +20,7 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -164,7 +166,47 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                         || oldMeta.getCustomModelData() == newMeta.getCustomModelData());
     }
 
-    private void verify() throws Exception {
+    /**
+     * Exact complete native-byte comparison after removing only the two
+     * presentation fields from detached, amount-normalized stacks. This
+     * retains every typed PDC key/value, material/model, skull, enchantment,
+     * future component and opaque field in the resulting native witness.
+     */
+    private static boolean sameNativeNonPresentation(ItemStack left, ItemStack right) {
+        ItemStack a = ItemStack.deserializeBytes(left.serializeAsBytes());
+        ItemStack b = ItemStack.deserializeBytes(right.serializeAsBytes());
+        a.setAmount(1);
+        b.setAmount(1);
+        a.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        b.editMeta(meta -> {
+            meta.displayName(null);
+            meta.lore(null);
+        });
+        return Arrays.equals(a.serializeAsBytes(), b.serializeAsBytes());
+    }
+
+    /**
+     * The only preview edit targets a detached copy of the genuine persisted
+     * old source item. The original world chest and private receipt are never
+     * written by this comparison.
+     */
+    private static ItemStack previewPresentationOnly(ItemStack old, ItemStack current) {
+        ItemStack preview = ItemStack.deserializeBytes(old.serializeAsBytes());
+        ItemMeta referenceMeta = current.getItemMeta();
+        if (referenceMeta == null) {
+            throw new IllegalStateException("Registered current template has no metadata");
+        }
+        preview.editMeta(meta -> {
+            meta.displayName(referenceMeta.displayName());
+            meta.lore(referenceMeta.lore());
+        });
+        return preview;
+    }
+
+    private static void verify() throws Exception {
         require(version().contains("4.1.81"), "Second JVM did not load published v4.1.81");
         Path data = folder();
         String[] lines = Files.readString(data.resolve("original.tsv")).trim().split("\n");
@@ -180,7 +222,13 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                         + "\tname_component_same\tlore_component_same\tplain_name_same"
                         + "\tplain_lore_same\tlegacy_name_same\tlegacy_lore_same"
                         + "\tpdc_key_set_same\tcustom_model_data_same\titem_model_same"
-                        + "\tenchantments_same\told_lore_lines\tnew_lore_lines\n");
+                        + "\tenchantments_same\told_lore_lines\tnew_lore_lines"
+                        + "\told_fresh_nonpresentation_native_exact"
+                        + "\tpreview_matches_current_is_similar"
+                        + "\tpreview_preserves_original_nonpresentation"
+                        + "\tpreview_matches_current_nonpresentation_native"
+                        + "\tpreview_same_original_quantity"
+                        + "\ttyped_pdc_negative_refused\n");
         for (int i = 0; i < IDS.length; i++) {
             String id = IDS[i];
             if (lines[i + 1].equals(id + "\tABSENT")) {
@@ -206,6 +254,32 @@ public final class HistoricalCoreProbe extends JavaPlugin {
             require(oldMeta != null && newMeta != null, "Missing old or current item metadata");
             List<Component> oldLore = oldMeta.lore();
             List<Component> freshLore = newMeta.lore();
+
+            ItemStack detached = previewPresentationOnly(stored, current);
+            boolean sourceFunctionalExact = sameNativeNonPresentation(stored, current);
+            boolean detachedSimilar = detached.isSimilar(current);
+            boolean detachedPreserves = sameNativeNonPresentation(stored, detached);
+            boolean detachedFunctionalExact = sameNativeNonPresentation(detached, current);
+            boolean quantityConserved = detached.getAmount() == AMOUNTS[i];
+            require(quantityConserved && detachedPreserves
+                            && Arrays.equals(original, inv.getItem(i).serializeAsBytes()),
+                    "Detached style-only preview changed source functional state or chest: " + id);
+
+            // Safety negative: same presentation and same base item, but a
+            // *typed* owner value changes. The native non-presentation guard
+            // must reject that even if its numeric value looks equal.
+            NamespacedKey syntheticOwner = new NamespacedKey(
+                    "sfl_historic_probe", "typed_owner");
+            ItemStack longOwner = ItemStack.deserializeBytes(current.serializeAsBytes());
+            ItemStack intOwner = ItemStack.deserializeBytes(current.serializeAsBytes());
+            longOwner.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(syntheticOwner, PersistentDataType.LONG, 42L));
+            intOwner.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(syntheticOwner, PersistentDataType.INTEGER, 42));
+            boolean typedRejected = !sameNativeNonPresentation(longOwner, intOwner)
+                    && !longOwner.isSimilar(intOwner);
+            require(typedRejected, "Typed owner-PDC mismatch was not rejected: " + id);
+
             report.append(id).append("\t").append(hash(original)).append("\t")
                     .append(hash(current.serializeAsBytes())).append("\t")
                     .append(stored.isSimilar(current)).append("\t")
@@ -223,7 +297,13 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                     .append(Objects.equals(oldMeta.getItemModel(), newMeta.getItemModel())).append("\t")
                     .append(oldMeta.getEnchants().equals(newMeta.getEnchants())).append("\t")
                     .append(oldLore == null ? -1 : oldLore.size()).append("\t")
-                    .append(freshLore == null ? -1 : freshLore.size()).append("\n");
+                    .append(freshLore == null ? -1 : freshLore.size()).append("\t")
+                    .append(sourceFunctionalExact).append("\t")
+                    .append(detachedSimilar).append("\t")
+                    .append(detachedPreserves).append("\t")
+                    .append(detachedFunctionalExact).append("\t")
+                    .append(quantityConserved).append("\t")
+                    .append(typedRejected).append("\n");
         }
         require(count >= 2, "Not enough source-to-current item pairs");
         for (int i = IDS.length; i < 26; i++) {
