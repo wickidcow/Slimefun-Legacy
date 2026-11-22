@@ -206,7 +206,7 @@ public final class HistoricalCoreProbe extends JavaPlugin {
         return preview;
     }
 
-    private static void verify() throws Exception {
+    private void verify() throws Exception {
         require(version().contains("4.1.81"), "Second JVM did not load published v4.1.81");
         Path data = folder();
         String[] lines = Files.readString(data.resolve("original.tsv")).trim().split("\n");
