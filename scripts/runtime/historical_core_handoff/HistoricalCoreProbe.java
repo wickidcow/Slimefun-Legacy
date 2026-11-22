@@ -807,11 +807,12 @@ public final class HistoricalCoreProbe extends JavaPlugin {
                         && (int) unexpected.invoke(stoneInterference) == 1,
                 "Changed unrelated vanilla stock was incorrectly interpreted as safe partial progress");
 
-        predicted.setItem(20, ItemStack.deserializeBytes(
-                Files.readAllBytes(data.resolve("CARBON_CHUNK.bin"))));
-        predicted.getItem(20).editMeta(meta -> meta.getPersistentDataContainer().set(
+        ItemStack typedOwned = ItemStack.deserializeBytes(
+                Files.readAllBytes(data.resolve("CARBON_CHUNK.bin")));
+        typedOwned.editMeta(meta -> meta.getPersistentDataContainer().set(
                 new NamespacedKey("sfl_historic_probe", "typed_owner"),
                 PersistentDataType.LONG, 75123L));
+        predicted.setItem(20, typedOwned);
         Object typedInterference = inspect.invoke(null, directory, owner, journalId, binding, predicted);
         require("DIVERGED".equals(classification.invoke(typedInterference).toString())
                         && (int) unexpected.invoke(typedInterference) == 1,
