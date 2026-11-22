@@ -609,3 +609,37 @@ owner metadata or sale information. Native two-JVM tests and the
 separate mocked-journal regression require this classification to
 remain accurate across a persisted first-of-two simulated write,
 detect unrelated stone drift, and protect typed-PDC owner changes.
+
+## Native published historical-core item preservation — November 22, 2026
+
+`Published Historical Core Item Handoff` is a new independent native
+workflow that uses exactly pinned, published Slimefun Legacy **v4.1.55**
+and **v4.1.81** plugin JARs, rather than synthetic old-style names/lore.
+It first boots pinned Paper 1.21.11 with published v4.1.55 and an
+independent Bukkit-only fixture, mints the real old release's registered
+CARBONADO and CARBON_CHUNK (and RAW_CARBONADO/STEEL_INGOT if registered),
+places them in a fresh disposable physical chest, saves exact native
+bytes and item counts, then stops the server normally. A **new JVM**
+boots that exact saved test world with published v4.1.81 and refuses
+native byte loss, missing source stacks, changed amounts, new occupied
+slots or unrelated vanilla stock mutation.
+
+The second JVM records redacted per-ID source/fresh SHA-256 and normal
+Bukkit `isSimilar` and material-match results. A mismatch is **an
+observation, not permission to rewrite old stock**: the test does not
+change stored chest items, convert metadata, alter `isSimilar`, or
+touch any production plugin data. This is historical core provenance
+evidence missing from source-derived synthetic fixtures, but it is not
+an exact copy of **AlbionMC's** original QuickShop snapshot, addon
+owner PDC, custom names/lore or old persisted world data. Live
+restoration/update requires further backed-up staging proof and
+transactional protection for machine/Cargo/hopper/QuickShop storage.
+
+The new gate pins old JAR SHA-256
+`353c530f9369ebce1d08ddfdbd52b69a2a3b97172cb27210105285068845c6e0`,
+new JAR SHA-256
+`9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1`,
+and Paper 1.21.11 build 132 SHA-256
+`5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba`.
+All native receipts remain inside the throwaway workflow directory;
+only redacted comparisons and runtime logs are uploaded.

@@ -1,0 +1,74 @@
+name: Published Historical Core Item Handoff
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/runtime/historical_core_handoff/**'
+      - '.github/workflows/historical-core-handoff.yml'
+      - 'docs/old-item-compatibility-contract.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  genuine-source:
+    name: Real 4.1.55 to 4.1.81 world chest on Paper 1.21.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download exactly pinned published Slimefun cores
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          gh release download v4.1.55 --repo wickidcow/Slimefun-Legacy \
+            --pattern 'Slimefun-Legacy4.1.55.jar' --dir candidate
+          gh release download v4.1.81 --repo wickidcow/Slimefun-Legacy \
+            --pattern 'Slimefun-Legacy4.1.81.jar' --dir candidate
+          printf '%s\n' \
+            '353c530f9369ebce1d08ddfdbd52b69a2a3b97172cb27210105285068845c6e0  candidate/Slimefun-Legacy4.1.55.jar' \
+            '9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1  candidate/Slimefun-Legacy4.1.81.jar' | sha256sum --check --strict
+      - name: Download exactly pinned Paper 1.21.11
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            'https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar' \
+            candidate/server.jar
+          echo '5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba  candidate/server.jar' | sha256sum --check --strict
+      - name: Persist genuine v55 source and independently reopen under v81
+        run: |
+          set -euo pipefail
+          python3 scripts/runtime/historical_core_handoff/run_probe.py \
+            --server-jar candidate/server.jar \
+            --server-sha256 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba \
+            --old-core candidate/Slimefun-Legacy4.1.55.jar \
+            --new-core candidate/Slimefun-Legacy4.1.81.jar \
+            --java-home "$JAVA_HOME" \
+            --work-dir "$RUNNER_TEMP/sfl-historical-core-handoff"
+      - name: Show redacted compatibility results
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/sfl-historical-core-handoff/PASS.txt" ]]; then
+            cat "$RUNNER_TEMP/sfl-historical-core-handoff/PASS.txt" >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/comparison.tsv" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Retain redacted logs without uploading native item receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: historical-core-handoff-55-to-81
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/sfl-historical-core-handoff/console-*.log
+            ${{ runner.temp }}/sfl-historical-core-handoff/bootstrap.log
+            ${{ runner.temp }}/sfl-historical-core-handoff/PASS.txt
+            ${{ runner.temp }}/sfl-historical-core-handoff/plugins/SFLHistoricalHandoffProbe/comparison.tsv

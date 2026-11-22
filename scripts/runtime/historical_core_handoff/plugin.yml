@@ -1,0 +1,8 @@
+name: SFLHistoricalHandoffProbe
+version: '1.0'
+main: com.wickidcow.doctorfixture.HistoricalCoreProbe
+api-version: '1.21'
+depend: [Slimefun]
+commands:
+  sflhistoricprobe:
+    description: Disposable published-core historical item persistence test
