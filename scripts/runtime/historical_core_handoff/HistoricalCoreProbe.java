@@ -665,6 +665,17 @@ public final class HistoricalCoreProbe extends JavaPlugin {
      */
     private void verifyGenuineChestJournal(Path data, Inventory physical, boolean restart) throws Exception {
         Path directory = data.resolve("candidate-real-world-journal");
+        // Production Doctor requires an EXISTING, ordinary plugin data root.
+        // Provision only the throwaway test's private root on seed boot;
+        // restart must reopen the exact same persisted directory, never repair it.
+        if (restart) {
+            require(Files.isDirectory(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS),
+                    "Real historic chest journal source directory did not survive restart");
+        } else {
+            require(!Files.exists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS),
+                    "Disposable historical journal directory unexpectedly exists");
+            Files.createDirectory(directory);
+        }
         Path ids = directory.resolve("journal-ids.txt");
         var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 8);
         require(block.getState() instanceof Chest, "Historical bound physical chest missing");
