@@ -509,3 +509,31 @@ does not prove crash-consistent live transaction isolation,
 Cargo/hopper/QuickShop trade safety or compatibility with genuine
 historical AlbionMC source records. All production chest and shop
 migration commands remain absent.
+
+## Independently rebooted interrupted two-stack migration fixture — 2026-11-22
+
+The native Doctor test plugin now separately creates a third **disposable
+world chest** at (12,180,6). It saves two distinct style-eligible old
+CARBONADO stacks (63 and 8) alongside a fresh stack (1), functionally
+owned-PDC negative control (9) and vanilla stone (17). The private original
+all-slot receipt and complete proposed after-image journal must identify
+**exactly two eligible slots** before the test writes anything.
+
+On the first JVM boot the native test, not production Doctor, changes **only
+the first** of those two eligible slots and stops without completing the
+second. The private journal must refuse to call this mixed physical chest
+either ORIGINAL or PROPOSED; it must report **DIVERGED**. After a clean
+server shutdown and restart in an independent second JVM, the exact mixed
+native source/after bytes and owned metadata must survive, and journal
+inspection must remain DIVERGED. The test then deliberately finishes the
+second slot *only in the disposable test fixture*, and the journal must
+switch to PROPOSED, with 98 items conserved, normal 63+1 stacking, and
+the typed-owner/vanilla stock unchanged. Any unrelated stone drift must
+return to DIVERGED, then PROPOSED again only after restoring the same
+original 17 stone.
+
+The native Python runner independently requires one first-boot and
+one second-boot partial-journal PASS marker for all six supported CI
+runtime lanes. No live physical repair, rollback, shop transaction,
+machine/Cargo sync or production writer has been added; **DIVERGED is
+diagnostic, not permission to restore or complete a live migration**.

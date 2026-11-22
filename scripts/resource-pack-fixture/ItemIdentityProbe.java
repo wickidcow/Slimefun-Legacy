@@ -935,6 +935,7 @@ final class ItemIdentityProbe {
             verifyPhysicalChestStyleMigration(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestFullEnvelope(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestProposedJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestPartialJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -987,6 +988,7 @@ final class ItemIdentityProbe {
         verifyPhysicalChestStyleMigration(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestFullEnvelope(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestProposedJournal(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestPartialJournal(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
@@ -1378,6 +1380,166 @@ final class ItemIdentityProbe {
             Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS");
         } else {
             Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS");
+        }
+    }
+
+    /**
+     * Crash-interruption simulation: two style-eligible source stacks, but only
+     * the first is rewritten in a separate, disposable world chest on boot 1.
+     * The second JVM must call that DIVERGED, and test-only completion of the
+     * second eligible slot must be fully PROPOSED with stock conserved.
+     *
+     * Production Doctor never performs these setters.
+     */
+    private static void verifyPhysicalChestPartialJournal(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(12, 180, 6);
+        Path fixture = directory.resolve("physical-chest-partial-journal");
+        Path idsFile = fixture.resolve("operator-source-journal.txt");
+        if (restart) {
+            require(block.getType() == Material.CHEST,
+                    "disposable partial-journal chest did not persist across actual JVM restart");
+        } else {
+            require(block.getType().isAir(), "disposable partial-journal chest already occupied");
+            block.setType(Material.CHEST);
+            Files.createDirectories(fixture);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "disposable partial-journal target is not a physical chest");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "disposable partial-journal chest must have 27 slots");
+
+        ItemStack proposed63 = ItemStack.deserializeBytes(registeredBytes);
+        proposed63.setAmount(63);
+        ItemStack proposed8 = ItemStack.deserializeBytes(registeredBytes);
+        proposed8.setAmount(8);
+        byte[] after63 = proposed63.serializeAsBytes();
+        byte[] after8 = proposed8.serializeAsBytes();
+        ItemStack old8 = ItemStack.deserializeBytes(oldBytes);
+        old8.setAmount(8);
+        byte[] old8Bytes = old8.serializeAsBytes();
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        Class<?> evidence = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method from = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        from.setAccessible(true);
+        Object binding = from.invoke(null, block.getLocation(), block.getState(), contents);
+        Method capture = evidence.getDeclaredMethod(
+                "capture", Path.class, java.util.UUID.class, bindingClass, org.bukkit.inventory.Inventory.class);
+        capture.setAccessible(true);
+        Method verify = evidence.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verify.setAccessible(true);
+
+        Class<?> journal = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method begin = journal.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        begin.setAccessible(true);
+        Method inspect = journal.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+
+        java.util.UUID operator;
+        java.util.UUID receiptId;
+        java.util.UUID journalId;
+        if (restart) {
+            String[] saved = Files.readString(idsFile).trim().split(":", -1);
+            require(saved.length == 3, "disposable partial-journal recovery identifiers not persisted");
+            operator = java.util.UUID.fromString(saved[0]);
+            receiptId = java.util.UUID.fromString(saved[1]);
+            journalId = java.util.UUID.fromString(saved[2]);
+        } else {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, old8);
+            contents.setItem(2, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(3, typed);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            operator = java.util.UUID.randomUUID();
+            Object receipt = capture.invoke(null, fixture, operator, binding, contents);
+            Method id = receipt.getClass().getDeclaredMethod("id");
+            id.setAccessible(true);
+            receiptId = (java.util.UUID) id.invoke(receipt);
+            Object savedJournal = begin.invoke(null, fixture, operator, receiptId, binding, contents, resolver);
+            Method journalAccessor = savedJournal.getClass().getDeclaredMethod("id");
+            journalAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalAccessor.invoke(savedJournal);
+            Method changedSlots = savedJournal.getClass().getDeclaredMethod("changedSlots");
+            changedSlots.setAccessible(true);
+            require(java.util.List.of(0, 1).equals(changedSlots.invoke(savedJournal)),
+                    "partial-journal setup must have exactly two independently eligible source stacks");
+            Files.writeString(idsFile, operator + ":" + receiptId + ":" + journalId);
+            // ONLY a synthetic crash at the first of two planned changes.
+            contents.setItem(0, proposed63);
+        }
+
+        require(contents.getItem(0) != null
+                        && Arrays.equals(after63, contents.getItem(0).serializeAsBytes())
+                        && contents.getItem(1) != null
+                        && Arrays.equals(old8Bytes, contents.getItem(1).serializeAsBytes())
+                        && contents.getItem(2) != null
+                        && Arrays.equals(currentBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(3) != null
+                        && Arrays.equals(typedBytes, contents.getItem(3).serializeAsBytes())
+                        && contents.getItem(26) != null && contents.getItem(26).getAmount() == 17
+                        && contents.getItem(4) == null,
+                "partial-journal source/stock/owner-PDC did not persist native-exactly");
+        Object partial = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+        Method status = partial.getClass().getDeclaredMethod("state");
+        status.setAccessible(true);
+        require("DIVERGED".equals(status.invoke(partial).toString()),
+                "partially migrated physical chest must NEVER be classified as PROPOSED or ORIGINAL");
+        Object origin = verify.invoke(null, fixture, operator, receiptId, binding, contents);
+        Method unchanged = origin.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require(!(boolean) unchanged.invoke(origin),
+                "partially migrated chest must not be certified unchanged source");
+
+        if (restart) {
+            // Simulates a manual operator completing ONLY THE TEST FIXTURE;
+            // NEVER call a production recovery writer.
+            contents.setItem(1, proposed8);
+            Object completed = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+            require("PROPOSED".equals(status.invoke(completed).toString()),
+                    "full after-image did not validate after test-only second-slot completion");
+            var quantity = Bukkit.createInventory(null, 9);
+            int total = 0;
+            for (int slot : new int[] {0, 1, 2, 3, 26}) {
+                total += contents.getItem(slot).getAmount();
+            }
+            require(total == 98, "partial-journal two-slot migration lost or duplicated stock");
+            require(quantity.addItem(contents.getItem(0).clone(), contents.getItem(2).clone()).isEmpty()
+                            && quantity.getItem(0) != null && quantity.getItem(0).getAmount() == 64,
+                    "partial-journal 63+1 stacking failed after test-only completion");
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object drift = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+            require("DIVERGED".equals(status.invoke(drift).toString()),
+                    "partial-journal completion failed to reject unrelated stock mutation");
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            require("PROPOSED".equals(status.invoke(
+                            inspect.invoke(null, fixture, operator, journalId, binding, contents)).toString()),
+                    "partial-journal after-image did not recover after test-only stock restoration");
+            require(Arrays.equals(typedBytes, contents.getItem(3).serializeAsBytes())
+                            && Arrays.equals(registeredBytes,
+                                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "partial-journal fixture modified typed-PDC original or global CARBONADO");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_RESTART_PASS");
+        } else {
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_SEED_PASS");
         }
     }
 
