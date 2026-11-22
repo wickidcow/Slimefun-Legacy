@@ -18,6 +18,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * Unexposed, read-only crash-replay journal of a proposed chest style update.
@@ -30,9 +31,10 @@ import org.bukkit.inventory.Inventory;
 final class DoctorContainerTransactionJournal {
 
     private static final int MAGIC = 0x53464C4A; // SFLJ
-    private static final int VERSION = 1;
-    private static final int MAX_FILE_BYTES = 4096;
-    private static final int MAX_BLOCK_DATA = 512;
+    private static final int VERSION = 2;
+    private static final int MAX_NATIVE_BYTES = 2 * 1024 * 1024;
+    private static final int MAX_FILE_BYTES = MAX_NATIVE_BYTES + 4096;
+    private static final int MAX_STACK_BYTES = 256 * 1024;
     private static final int MAX_CHANGES = 8;
     private static final int SHA256_BYTES = 32;
 
@@ -51,6 +53,8 @@ final class DoctorContainerTransactionJournal {
 
     record Inspection(State state, int slots, int changes, long originalItems, long proposedItems) {}
 
+    private record Stored(Journal journal, byte[][] proposedSlots) {}
+
     /**
      * Creates a durable, immutable diagnostic proposal. Complete original
      * evidence and all-source stock must still match both before and AFTER
@@ -61,15 +65,16 @@ final class DoctorContainerTransactionJournal {
             DoctorContainerEvidenceEnvelope.Binding binding, Inventory inventory,
             java.util.function.Function<org.bukkit.inventory.ItemStack, org.bukkit.inventory.ItemStack> templates)
             throws IOException {
-        var draft = DoctorContainerMigrationPreflight.prepare(
+        var prepared = DoctorContainerMigrationPreflight.prepareSnapshot(
                 pluginFolder, operator, receipt, binding, inventory, templates);
+        var draft = prepared.draft();
         validateDraft(draft, operator);
         UUID id = UUID.randomUUID();
         Journal journal = new Journal(
                 id, operator, binding, receipt,
                 draft.beforeSha256(), draft.proposedSha256(),
                 draft.originalItems(), draft.proposedItems(), List.copyOf(draft.changedSlots()));
-        byte[] body = encode(journal);
+        byte[] body = encode(journal, prepared.proposedSlots());
         byte[] digest = sha256(body);
         Path dir = directory(pluginFolder);
         Path destination = dir.resolve(operator + "-" + id + ".bin");
@@ -79,8 +84,9 @@ final class DoctorContainerTransactionJournal {
             writeAll(channel, digest);
             channel.force(true);
         }
-        Journal reread = read(pluginFolder, operator, id);
-        if (!journal.equals(reread)
+        Stored reopened = read(pluginFolder, operator, id);
+        if (!journal.equals(reopened.journal())
+                || !sameSlots(prepared.proposedSlots(), reopened.proposedSlots())
                 || !DoctorContainerEvidenceEnvelope.verify(
                                 pluginFolder, operator, receipt, binding, inventory)
                         .unchanged()
@@ -88,7 +94,7 @@ final class DoctorContainerTransactionJournal {
                         DoctorLiveItemUpdate.captureContainerPreimage(inventory).sha256())) {
             throw new IOException("Physical container changed while persisting proposed transaction");
         }
-        return reread;
+        return reopened.journal();
     }
 
     /**
@@ -103,7 +109,8 @@ final class DoctorContainerTransactionJournal {
         if (binding == null || inventory == null || inventory.getSize() != binding.slots()) {
             throw new IOException("Invalid physical container replay binding");
         }
-        Journal journal = read(pluginFolder, operator, journalId);
+        Stored stored = read(pluginFolder, operator, journalId);
+        Journal journal = stored.journal();
         if (!journal.binding().equals(binding)) {
             throw new IOException("Journal is bound to a different world, block, state or slot count");
         }
@@ -111,10 +118,18 @@ final class DoctorContainerTransactionJournal {
         // it is allowed to return false after a hypothetical migration.
         boolean original = DoctorContainerEvidenceEnvelope.verify(
                 pluginFolder, operator, journal.originalReceipt(), binding, inventory).unchanged();
-        String observed = DoctorLiveItemUpdate.captureContainerPreimage(inventory).sha256();
+        var before = DoctorLiveItemUpdate.captureContainerPreimage(inventory);
+        byte[][] observedSlots = DoctorLiveItemUpdate.exactContainerSlots(inventory);
+        if (!DoctorLiveItemUpdate.containerUnchanged(inventory, before)) {
+            throw new IOException("Physical container changed during journal read-only replay");
+        }
+        String observed = before.sha256();
         State state = original && journal.beforeSha256().equals(observed)
                 ? State.ORIGINAL
-                : journal.afterSha256().equals(observed) ? State.PROPOSED : State.DIVERGED;
+                : journal.afterSha256().equals(observed)
+                        && sameSlots(stored.proposedSlots(), observedSlots)
+                        ? State.PROPOSED
+                        : State.DIVERGED;
         return new Inspection(
                 state, binding.slots(), journal.changedSlots().size(),
                 journal.beforeItems(), journal.afterItems());
@@ -139,7 +154,12 @@ final class DoctorContainerTransactionJournal {
         }
     }
 
-    private static byte[] encode(Journal record) throws IOException {
+    private static byte[] encode(Journal record, byte[][] proposed) throws IOException {
+        if (proposed == null || proposed.length != record.binding().slots()
+                || !DoctorContainerMigrationPreflight.hashSlots(proposed).equals(record.afterSha256())
+                || DoctorContainerMigrationPreflight.countItems(proposed) != record.afterItems()) {
+            throw new IOException("Invalid or unconserved proposed container witness");
+        }
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(bytes)) {
             out.writeInt(MAGIC);
@@ -162,6 +182,21 @@ final class DoctorContainerTransactionJournal {
             for (int slot : record.changedSlots()) {
                 out.writeInt(slot);
             }
+            out.writeInt(proposed.length);
+            int consumed = 0;
+            for (byte[] bytesAtSlot : proposed) {
+                if (bytesAtSlot == null) {
+                    out.writeInt(-1);
+                } else {
+                    if (bytesAtSlot.length < 1 || bytesAtSlot.length > MAX_STACK_BYTES
+                            || consumed > MAX_NATIVE_BYTES - bytesAtSlot.length) {
+                        throw new IOException("Physical container witness exceeded native-byte budget");
+                    }
+                    consumed += bytesAtSlot.length;
+                    out.writeInt(bytesAtSlot.length);
+                    out.write(bytesAtSlot);
+                }
+            }
         }
         byte[] body = bytes.toByteArray();
         if (body.length + SHA256_BYTES > MAX_FILE_BYTES) {
@@ -170,7 +205,7 @@ final class DoctorContainerTransactionJournal {
         return body;
     }
 
-    private static Journal read(Path pluginFolder, UUID owner, UUID journalId) throws IOException {
+    private static Stored read(Path pluginFolder, UUID owner, UUID journalId) throws IOException {
         if (owner == null || journalId == null) {
             throw new IOException("Missing private journal owner or ID");
         }
@@ -216,16 +251,63 @@ final class DoctorContainerTransactionJournal {
                 changes.add(slot);
                 prior = slot;
             }
-            if (in.available() != 0 || !validHash(before) || !validHash(after)
+            if (!validHash(before) || !validHash(after)
                     || before.equals(after) || beforeItems < 1 || beforeItems != afterItems) {
-                throw new IOException("Physical container journal has invalid or trailing metadata");
+                throw new IOException("Physical container journal has invalid stock or hash metadata");
             }
-            return new Journal(
-                    journalId, owner, binding, originalReceipt,
-                    before, after, beforeItems, afterItems, List.copyOf(changes));
+            int witnessCount = in.readInt();
+            if (witnessCount != slotCount) {
+                throw new IOException("Physical container journal witness slot count mismatch");
+            }
+            byte[][] proposed = new byte[witnessCount][];
+            int consumed = 0;
+            for (int slot = 0; slot < witnessCount; slot++) {
+                int length = in.readInt();
+                if (length == -1) {
+                    continue;
+                }
+                if (length < 1 || length > MAX_STACK_BYTES
+                        || consumed > MAX_NATIVE_BYTES - length) {
+                    throw new IOException("Physical container journal witness has invalid item length");
+                }
+                consumed += length;
+                byte[] nativeBytes = new byte[length];
+                in.readFully(nativeBytes);
+                try {
+                    ItemStack restored = ItemStack.deserializeBytes(nativeBytes);
+                    if (restored == null || restored.getType().isAir()
+                            || !Arrays.equals(nativeBytes, restored.serializeAsBytes())) {
+                        throw new IOException("Physical container journal witness is not native-byte exact");
+                    }
+                } catch (RuntimeException exception) {
+                    throw new IOException("Physical container journal witness native metadata failed", exception);
+                }
+                proposed[slot] = nativeBytes;
+            }
+            if (in.available() != 0
+                    || !DoctorContainerMigrationPreflight.hashSlots(proposed).equals(after)
+                    || DoctorContainerMigrationPreflight.countItems(proposed) != afterItems) {
+                throw new IOException("Physical container journal after-image is not byte-exact/conserved");
+            }
+            return new Stored(
+                    new Journal(journalId, owner, binding, originalReceipt,
+                            before, after, beforeItems, afterItems, List.copyOf(changes)),
+                    proposed);
         } catch (IllegalArgumentException exception) {
             throw new IOException("Malformed physical container transaction journal binding", exception);
         }
+    }
+
+    private static boolean sameSlots(byte[][] left, byte[][] right) {
+        if (left.length != right.length) {
+            return false;
+        }
+        for (int slot = 0; slot < left.length; slot++) {
+            if (!Arrays.equals(left[slot], right[slot])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean validHash(String value) {

@@ -449,3 +449,28 @@ migration still needs a separate crash-consistent protocol,
 concurrency-safe isolation from Cargo/hoppers/shop trades, verified
 original and after states, real-world item+shop SQL acceptance and
 recovery semantics before any production write is enabled.
+
+## Exact-native proposed-slot witness in the private transaction journal — 2026-11-22
+
+Version 2 of the **unexposed diagnostic** `DoctorContainerTransactionJournal`
+now persists a bounded complete proposed after-image: exact native bytes
+for every planned occupied slot, plus explicit empty-slot positions. The
+source all-slot original receipt remains unchanged and mandatory. The
+journal independently validates that its native round-trips, item totals,
+slot hash and operator/world/block binding agree after fsync/readback.
+A separate-JVM replay reports PROPOSED only if the *actual current chest*
+matches both the expected whole-container fingerprint **and each
+individually stored proposed native slot**, never because a candidate
+identifier or item display name happens to match. Otherwise it reports
+DIVERGED, without touching the chest or shop.
+
+All records remain private under `recovery/container-journals/`, bounded
+to 2 MiB native item data plus metadata, and can contain owner IDs,
+machine data and arbitrary personal item metadata. Version-1 staging
+proposal files do not automatically upgrade; recapture a fresh proposal
+from the original receipt on a backed-up test clone. The new unit
+regression checks truncated after-image refusal without writing or
+altering original typed-PDC stock. There is still **no production commit,
+rollback, journal replay writer or QuickShop migration command**. Genuine
+historical AlbionMC source bytes and economic trade conservation remain
+unverified.

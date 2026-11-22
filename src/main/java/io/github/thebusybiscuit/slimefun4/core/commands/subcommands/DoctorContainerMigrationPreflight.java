@@ -39,7 +39,23 @@ final class DoctorContainerMigrationPreflight {
             long proposedItems,
             List<Integer> changedSlots) {}
 
+    record Snapshot(Draft draft, byte[][] proposedSlots) {}
+
     static Draft prepare(
+            Path pluginFolder,
+            UUID operator,
+            UUID receipt,
+            DoctorContainerEvidenceEnvelope.Binding binding,
+            Inventory inventory,
+            Function<ItemStack, ItemStack> templates) throws IOException {
+        return prepareSnapshot(pluginFolder, operator, receipt, binding, inventory, templates).draft();
+    }
+
+    /**
+     * Internal immutable planning data used only to persist a sealed
+     * proposal witness. No physical-inventory setter is exposed.
+     */
+    static Snapshot prepareSnapshot(
             Path pluginFolder,
             UUID operator,
             UUID receipt,
@@ -113,8 +129,9 @@ final class DoctorContainerMigrationPreflight {
                         .unchanged()) {
             throw new IOException("Physical-container original changed while building draft");
         }
-        return new Draft(receipt, binding, before.sha256(), hashSlots(proposed),
+        Draft draft = new Draft(receipt, binding, before.sha256(), hashSlots(proposed),
                 changed.size(), beforeTotal, afterTotal, List.copyOf(changed));
+        return new Snapshot(draft, proposed);
     }
 
     /**
@@ -129,7 +146,7 @@ final class DoctorContainerMigrationPreflight {
         return DoctorLiveItemUpdate.captureContainerPreimage(inventory).sha256().equals(draft.proposedSha256());
     }
 
-    private static long countItems(byte[][] slots) throws IOException {
+    static long countItems(byte[][] slots) throws IOException {
         long count = 0;
         int bytes = 0;
         try {
@@ -155,7 +172,7 @@ final class DoctorContainerMigrationPreflight {
         return count;
     }
 
-    private static String hashSlots(byte[][] slots) throws IOException {
+    static String hashSlots(byte[][] slots) throws IOException {
         try {
             var digest = MessageDigest.getInstance("SHA-256");
             digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(slots.length).array());

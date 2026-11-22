@@ -94,6 +94,11 @@ class TestDoctorContainerTransactionJournal {
         assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
         assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
         assertEquals(true, Files.isRegularFile(file));
+        // V2 carries every proposed native stack including empty-slot positions.
+        // The private journal remains a proposal and never mutates chest stock.
+        assertEquals(DoctorContainerTransactionJournal.State.ORIGINAL,
+                DoctorContainerTransactionJournal.inspect(
+                        data, operator, journal.id(), binding, chest).state());
 
         // TEST ONLY: synthetic after image in separate disposable inventory.
         Inventory simulated = Bukkit.createInventory(null, 27);
@@ -147,6 +152,35 @@ class TestDoctorContainerTransactionJournal {
         assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.inspect(
                 data, operator, journal.id(), binding, chest));
         assertArrayEquals(before, chest.getItem(0).serializeAsBytes());
+    }
+
+
+    @Test
+    void truncatedNativeWitnessRefusesWithoutChangingOriginalOrOwnedItem() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        ItemStack old = historical(template, 63);
+        ItemStack owned = historical(template, 9);
+        owned.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787001));
+        chest.setItem(0, old);
+        chest.setItem(2, owned);
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] source = old.serializeAsBytes();
+        byte[] typed = owned.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var origin = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, origin.id(), location, chest, ignored -> template);
+        Path file = data.resolve("recovery/container-journals/" + operator + "-" + journal.id() + ".bin");
+        byte[] record = Files.readAllBytes(file);
+        Files.write(file, java.util.Arrays.copyOf(record, record.length - 13));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest));
+        assertArrayEquals(source, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(typed, chest.getItem(2).serializeAsBytes());
+        assertEquals(17, chest.getItem(26).getAmount());
     }
 
     @Test
