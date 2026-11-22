@@ -70,6 +70,13 @@ def phase(root: Path, java: Path, label: str) -> None:
             f"Historical {label} native item observation failed")
     require(output.count(f"SFL_HISTORICAL_CORE_{label.upper()}_PASS") == 1,
             f"Historical {label} JVM emitted an invalid proof marker")
+    if label in ("candidate", "replay"):
+        journal_marker = (
+            "SFL_HISTORICAL_REAL_CHEST_JOURNAL_SEED_PASS" if label == "candidate"
+            else "SFL_HISTORICAL_REAL_CHEST_JOURNAL_RESTART_PASS"
+        )
+        require(output.count(journal_marker) == 1,
+                f"Historical {label} real physical chest journal proof not observed")
 
 
 def main() -> None:
