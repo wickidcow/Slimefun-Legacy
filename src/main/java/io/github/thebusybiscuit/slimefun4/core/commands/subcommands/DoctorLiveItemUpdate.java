@@ -64,10 +64,19 @@ final class DoctorLiveItemUpdate {
             DoctorHistoricalStackEvidenceAudit.run(plugin, player, args[4], args[5]);
             return;
         }
+        if (args.length == 5 && args[3].equalsIgnoreCase("preview-container-full")) {
+            PLANS.remove(player.getUniqueId());
+            try {
+                inspectFullContainer(plugin, player, UUID.fromString(args[4]), true);
+            } catch (IllegalArgumentException exception) {
+                send(player, "&cProvide a valid UUID from your own full-container evidence receipt.");
+            }
+            return;
+        }
         if (args.length == 5 && args[3].equalsIgnoreCase("verify-container-full")) {
             PLANS.remove(player.getUniqueId());
             try {
-                inspectFullContainer(plugin, player, UUID.fromString(args[4]));
+                inspectFullContainer(plugin, player, UUID.fromString(args[4]), false);
             } catch (IllegalArgumentException exception) {
                 send(player, "&cProvide the UUID of your own private container receipt.");
             }
@@ -108,7 +117,7 @@ final class DoctorLiveItemUpdate {
         }
         if (action.equals("export-container-full")) {
             PLANS.remove(owner);
-            inspectFullContainer(plugin, player, null);
+            inspectFullContainer(plugin, player, null, false);
             return;
         }
         if (action.equals("scan-container")) {
@@ -185,6 +194,7 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live export-container <slot> &8(private evidence, 0-based slot)");
         send(sender, "&e/sf doctor identity live export-container-full &8(private all-slot receipt)");
         send(sender, "&e/sf doctor identity live verify-container-full <receipt> &8(read-only)");
+        send(sender, "&e/sf doctor identity live preview-container-full <receipt> &8(read-only, NO confirm)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live cancel");
@@ -196,7 +206,7 @@ final class DoctorLiveItemUpdate {
      * callback can create or check a private evidence file but never applies
      * or rolls back any chest, QuickShop shop or saved world record.
      */
-    private static void inspectFullContainer(Slimefun plugin, Player player, UUID receiptId) {
+    private static void inspectFullContainer(Slimefun plugin, Player player, UUID receiptId, boolean previewOnly) {
         Block target = player.getTargetBlockExact(6);
         if (target == null || target.getType().isAir()) {
             send(player, "&eLook directly at a loaded single chest or barrel within six blocks.");
@@ -224,6 +234,19 @@ final class DoctorLiveItemUpdate {
                     message = "&aPrivate all-slot container evidence written: &e" + receipt.id()
                             + " &8| &7Slots: &e" + receipt.slots()
                             + " &8| &cKeep recovery/containers PRIVATE. No chest/shop data changed.";
+                } else if (previewOnly) {
+                    var report = DoctorContainerEvidenceEnvelope.assess(
+                            plugin.getDataFolder().toPath(), player.getUniqueId(), receiptId, binding,
+                            inventory, DoctorLiveItemUpdate::registeredTemplate);
+                    message = "&6Original container receipt matches ALL slots &8| &7Scanned: &e"
+                            + report.slots() + " &8| &7Style-only candidates: &a" + report.eligible()
+                            + " &8| &7Refused/unknown: &e" + report.refused()
+                            + " &8| &7Blank lore: &e" + report.blankLoreOnly()
+                            + " &8| &7Meaningful text: &e" + report.meaningfulText()
+                            + " &8| &7Functional data: &e" + report.functionalMetadata()
+                            + " &8| &7Unknown ID: &e" + report.unknownIds()
+                            + " &8| &7Candidate slots (first 8): &e" + report.candidateSlots()
+                            + " &8| &cREAD-ONLY; no chest update/confirm exists.";
                 } else {
                     var verified = DoctorContainerEvidenceEnvelope.verify(
                             plugin.getDataFolder().toPath(), player.getUniqueId(), receiptId, binding, inventory);

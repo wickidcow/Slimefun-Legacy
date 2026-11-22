@@ -1098,6 +1098,20 @@ final class ItemIdentityProbe {
         require((boolean) unchanged.invoke(verified),
                 "physical full-container original evidence does not match world chest");
 
+        Method assess = evidence.getDeclaredMethod(
+                "assess", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        assess.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> templateResolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Object assessment = assess.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+        Method eligible = assessment.getClass().getDeclaredMethod("eligible");
+        Method refused = assessment.getClass().getDeclaredMethod("refused");
+        eligible.setAccessible(true);
+        refused.setAccessible(true);
+        require((int) eligible.invoke(assessment) == 1 && (int) refused.invoke(assessment) >= 1,
+                "physical receipt-bound assessment did not isolate style-only stock from typed-PDC refusal");
+
         if (restart) {
             // Read-only verification MUST refuse an unrelated changed stock
             // count while preserving the original owner receipt, then accept
@@ -1106,6 +1120,13 @@ final class ItemIdentityProbe {
             Object changed = verify.invoke(null, fixture, owner, receiptId, binding, contents);
             require(!(boolean) unchanged.invoke(changed),
                     "physical full-envelope ignored unrelated inventory drift");
+            try {
+                assess.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+                throw new IllegalStateException("Stale physical receipt unexpectedly produced migration candidates");
+            } catch (java.lang.reflect.InvocationTargetException refusedPreview) {
+                require(refusedPreview.getCause() instanceof java.io.IOException,
+                        "stale physical receipt must refuse preview with a checked IO error");
+            }
             contents.setItem(26, new ItemStack(Material.STONE, 17));
             Object restored = verify.invoke(null, fixture, owner, receiptId, binding, contents);
             require((boolean) unchanged.invoke(restored),

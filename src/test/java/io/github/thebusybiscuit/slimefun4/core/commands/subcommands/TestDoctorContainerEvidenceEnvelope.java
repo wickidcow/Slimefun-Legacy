@@ -75,6 +75,90 @@ class TestDoctorContainerEvidenceEnvelope {
         assertArrayEquals(originalBytes, chest.getItem(0).serializeAsBytes());
     }
 
+
+    @Test
+    void receiptBoundReadOnlyAssessmentRequiresAllSlotsAndRejectsFunctionalPdc() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack current = new ItemStack(Material.PAPER, 1);
+        current.editMeta(meta -> {
+            meta.displayName(net.kyori.adventure.text.Component.text("Carbonado")
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, false));
+            meta.lore(java.util.List.of(net.kyori.adventure.text.Component.text("Black Diamond")));
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO");
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey("addon", "stored_owner"), PersistentDataType.LONG, 787_001L);
+        });
+        ItemStack old = ItemStack.deserializeBytes(current.serializeAsBytes());
+        old.setAmount(63);
+        old.editMeta(meta -> meta.displayName(
+                meta.displayName().decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)));
+        ItemStack typedOwner = ItemStack.deserializeBytes(old.serializeAsBytes());
+        typedOwner.setAmount(9);
+        typedOwner.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787_001));
+        chest.setItem(0, old);
+        chest.setItem(1, current);
+        chest.setItem(2, typedOwner);
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] historicalBytes = old.serializeAsBytes();
+        byte[] typedBytes = typedOwner.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var source = binding(UUID.randomUUID(), 27);
+        var receipt = DoctorContainerEvidenceEnvelope.capture(data, operator, source, chest);
+
+        var assessment = DoctorContainerEvidenceEnvelope.assess(
+                data, operator, receipt.id(), source, chest, ignored -> current);
+        assertEquals(27, assessment.slots());
+        assertEquals(1, assessment.eligible());
+        assertEquals(1, assessment.boundedCandidates());
+        assertEquals(java.util.List.of(0), assessment.candidateSlots());
+        assertTrue(assessment.refused() >= 1);
+        assertTrue(assessment.functionalMetadata() >= 1);
+        assertArrayEquals(historicalBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
+
+        chest.setItem(26, new ItemStack(Material.STONE, 16));
+        assertThrows(IOException.class, () -> DoctorContainerEvidenceEnvelope.assess(
+                data, operator, receipt.id(), source, chest, ignored -> current));
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        assertThrows(IOException.class, () -> DoctorContainerEvidenceEnvelope.assess(
+                data, UUID.randomUUID(), receipt.id(), source, chest, ignored -> current));
+        assertThrows(IOException.class, () -> DoctorContainerEvidenceEnvelope.assess(
+                data, operator, receipt.id(), binding(UUID.randomUUID(), 27), chest, ignored -> current));
+        assertArrayEquals(historicalBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
+    }
+
+    @Test
+    void receiptBoundPreviewRefusesConcurrentUnrelatedChangesDuringTemplateResolution() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack current = new ItemStack(Material.PAPER, 1);
+        current.editMeta(meta -> {
+            meta.displayName(net.kyori.adventure.text.Component.text("Carbonado")
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, false));
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO");
+        });
+        ItemStack old = ItemStack.deserializeBytes(current.serializeAsBytes());
+        old.editMeta(meta -> meta.displayName(
+                meta.displayName().decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, true)));
+        chest.setItem(0, old);
+        chest.setItem(12, new ItemStack(Material.STONE, 5));
+        byte[] unchangedOriginal = old.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var source = binding(UUID.randomUUID(), 27);
+        var receipt = DoctorContainerEvidenceEnvelope.capture(data, operator, source, chest);
+
+        assertThrows(IOException.class, () -> DoctorContainerEvidenceEnvelope.assess(
+                data, operator, receipt.id(), source, chest, observed -> {
+                    chest.setItem(12, new ItemStack(Material.STONE, 4));
+                    return current;
+                }));
+        assertArrayEquals(unchangedOriginal, chest.getItem(0).serializeAsBytes());
+        assertEquals(4, chest.getItem(12).getAmount());
+    }
+
     @Test
     void ownerWorldBlockAndOpaqueDataAreNotInterchangeable() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);

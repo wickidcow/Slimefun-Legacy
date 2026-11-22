@@ -598,3 +598,19 @@ never migrate, write or restore a chest, QuickShop saved shop record,
 machine menu, player inventory or SQL row. A receipt is not permission for
 a live bulk migration; genuine AlbionMC historical data and staging
 conservation tests remain required.
+
+### Receipt-bound read-only physical-container preview (candidate)
+
+After `export-container-full`, use
+`/sf doctor identity live preview-container-full <receipt-uuid>` on the
+**same** loaded single chest/barrel. The command independently reopens the
+operator-owned original receipt, checks world UUID/location/block state,
+and compares **every current occupied and empty slot** against its saved
+original before resolving the current registered templates. It rejects a
+changed unrelated vanilla, Cargo or owned-PDC slot, and rechecks the full
+container after classification. The report shows only redacted counts and
+up to eight candidate **slot indices**, not native metadata, lore or PDC.
+Meaningful text and functional typed-PDC differences remain refused.
+No pending plan is saved and there is deliberately NO matching chest
+`confirm` command. This is not permission to rewrite physical stock or
+a QuickShop sale reference. Use only on a backed-up staging clone.

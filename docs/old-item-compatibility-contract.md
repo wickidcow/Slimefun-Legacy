@@ -367,3 +367,22 @@ The native runner requires both distinct redacted markers
 corresponding JVM boots. This does **not** permit production chest repairs,
 QuickShop SQL writes, automatic world scans or restoration, and does not
 substitute for a genuine backed-up AlbionMC old/new item pair.
+
+## Receipt-bound physical-container assessment (2026-11-21)
+
+The new read-only `identity live preview-container-full <receipt>`
+requires a valid unchanged private all-slot origin receipt before it
+even counts any style-only migration hints. Entire-slot bytes (including
+vanilla, PDC-owned and empty slots) must match the original physical
+world/block binding. The same complete snapshot must still match after
+template/classifier reads, or the operation refuses. The existing strict
+Doctor classifier caps its reported candidate slot list at eight; it
+refuses meaningful names/lore, typed ownership/ledger changes and
+unknown IDs. Native disposable Paper/Purpur/Folia CI on separate JVM
+boots now tests one style-only candidate, a typed-owner negative
+control, full receipt replay and refusal after unrelated stock drift.
+
+No plan survives the command and no production chest mutation or
+QuickShop SQL writer is introduced. This proves **read-only, stale
+original rejection**, not atomic chests/shops, genuine historical
+migration eligibility or full live transaction/recovery safety.

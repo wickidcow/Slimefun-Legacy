@@ -14,7 +14,9 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
 import org.bukkit.inventory.Inventory;
@@ -65,6 +67,10 @@ final class DoctorContainerEvidenceEnvelope {
 
     record Receipt(UUID id, int slots) {}
     record Verification(int slots, boolean unchanged) {}
+    record Assessment(
+            int slots, int mismatched, int eligible, int boundedCandidates, int refused,
+            int blankLoreOnly, int meaningfulText, int functionalMetadata, int unknownIds,
+            List<Integer> candidateSlots) {}
 
     static Receipt capture(Path pluginFolder, UUID operator, Binding binding, Inventory inventory) throws IOException {
         validateArguments(operator, binding, inventory);
@@ -113,6 +119,50 @@ final class DoctorContainerEvidenceEnvelope {
             throw new IOException("Physical inventory changed while verifying original evidence");
         }
         return new Verification(binding.slots(), sameSlots(saved.slots(), observed));
+    }
+
+    /**
+     * Read-only, receipt-bound assessment. A candidate is only a diagnostic
+     * hint; the receipt is not a repair plan and no chest write method exists.
+     *
+     * <p>Reject changes anywhere in the saved container, including empty,
+     * vanilla and functional-PDC stock. Retest the entire inventory after
+     * resolving registered templates, so hoppers/Cargo cannot silently race
+     * an otherwise matching historical item.
+     */
+    static Assessment assess(
+            Path pluginFolder, UUID operator, UUID receipt, Binding binding,
+            Inventory inventory, Function<ItemStack, ItemStack> templates) throws IOException {
+        validateArguments(operator, binding, inventory);
+        if (templates == null) {
+            throw new IOException("Missing read-only current-template resolver");
+        }
+        Saved saved = read(pluginFolder, operator, receipt);
+        if (!saved.binding().equals(binding)) {
+            throw new IOException("Private original receipt does not belong to this physical container");
+        }
+        var before = DoctorLiveItemUpdate.captureContainerPreimage(inventory);
+        byte[][] observed = DoctorLiveItemUpdate.exactContainerSlots(inventory);
+        if (!sameSlots(saved.slots(), observed)
+                || !DoctorLiveItemUpdate.containerUnchanged(inventory, before)) {
+            throw new IOException("Physical container no longer matches its private original receipt");
+        }
+        DoctorLiveItemUpdate.Preview preview =
+                DoctorLiveItemUpdate.preview(inventory, templates, binding.slots());
+        if (!DoctorLiveItemUpdate.containerUnchanged(inventory, before)) {
+            throw new IOException("Physical container changed during read-only identity assessment");
+        }
+        return new Assessment(
+                binding.slots(),
+                preview.mismatched(),
+                preview.eligible(),
+                preview.entries().size(),
+                preview.refused(),
+                preview.blankLoreOnly(),
+                preview.meaningfulText(),
+                preview.functionalMetadata(),
+                preview.unknownIds(),
+                preview.entries().stream().map(DoctorLiveItemUpdate.Entry::slot).toList());
     }
 
     private static void validateArguments(UUID operator, Binding binding, Inventory inventory) throws IOException {
