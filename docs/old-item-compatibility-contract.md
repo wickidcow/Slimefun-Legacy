@@ -414,3 +414,38 @@ one bounded cosmetic candidate, zero loss of all original items and
 refusal after unrelated stock drift. Existing full-envelope PASS
 markers remain mandatory. These **synthetic** tests do not prove
 actual historical AlbionMC data or QuickShop trade safety.
+
+## Durable diagnostic-only physical-container transaction journal — 2026-11-22
+
+The new internal `DoctorContainerTransactionJournal` records the
+**proposed** transaction from `DoctorContainerMigrationPreflight` in
+an owner-scoped, CREATE_NEW/fsync private record under
+`plugins/Slimefun/recovery/container-journals/`. It records source
+receipt ID, world UUID, block coordinate/state/slot count, exact
+original and **hypothetical** updated all-slot SHA-256 hashes, a sorted
+list of up to eight eligible changed slots, and conserved item totals.
+Each journal has a versioned bounded format, independent SHA-256
+integrity check and exact readback. Before reporting a created
+journal, it reopens the original native all-slot evidence and
+reconfirms the actual physical chest still matches that origin.
+
+After a distinct JVM restart, its TEST-ONLY inspection distinguishes
+`ORIGINAL` (full chest still matches original native bytes),
+`PROPOSED` (all-slot current bytes match only the hypothetical
+after-image), and `DIVERGED` (unexpected partial or unrelated
+changes). An invalid source receipt, owner/world/block mismatch,
+tampered journal or malformed/oversized record refuses inspection.
+The disposable physical chest native fixture creates the journal
+before its first clean shutdown, then reopens it on the second JVM and
+requires ORIGINAL; an unrelated 17-to-16 stone stock change must yield
+DIVERGED, and restoring the original stone count must yield ORIGINAL.
+
+**Critical:** This is an immutable, read-only **transaction proposal**,
+NOT a crash-safe write-ahead commit protocol, two-phase durable
+transaction log, rollback implementation, or a live repair feature.
+No physical container update or QuickShop SQL writer uses it.
+There is no operator-facing `journal confirm` command. A real
+migration still needs a separate crash-consistent protocol,
+concurrency-safe isolation from Cargo/hoppers/shop trades, verified
+original and after states, real-world item+shop SQL acceptance and
+recovery semantics before any production write is enabled.

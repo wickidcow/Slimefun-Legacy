@@ -1018,6 +1018,7 @@ final class ItemIdentityProbe {
         Path originalFile = fixture.resolve("old.bin");
         Path freshFile = fixture.resolve("fresh.bin");
         Path typedFile = fixture.resolve("typed.bin");
+        Path journalFile = fixture.resolve("journal-id.txt");
 
         if (restart) {
             require(block.getType() == Material.CHEST, "full-envelope physical chest block did not persist");
@@ -1138,6 +1139,37 @@ final class ItemIdentityProbe {
         require(!(boolean) matchesAfter.invoke(null, plan, binding, contents),
                 "native read-only draft treated unmodified source chest as a committed after-image");
 
+
+        // A durable, diagnostic-only transaction journal persists the exact
+        // hypothetical before/after fingerprints on first boot. On the second
+        // JVM, it must reopen with the persisted full-container source receipt.
+        Class<?> journalClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method createJournal = journalClass.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        createJournal.setAccessible(true);
+        Method inspectJournal = journalClass.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspectJournal.setAccessible(true);
+        java.util.UUID journalId;
+        if (restart) {
+            journalId = java.util.UUID.fromString(Files.readString(journalFile).trim());
+        } else {
+            Object draftJournal = createJournal.invoke(
+                    null, fixture, owner, receiptId, binding, contents, templateResolver);
+            Method journalIdAccessor = draftJournal.getClass().getDeclaredMethod("id");
+            journalIdAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalIdAccessor.invoke(draftJournal);
+            Files.writeString(journalFile, journalId.toString());
+        }
+        Object status = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+        Method state = status.getClass().getDeclaredMethod("state");
+        state.setAccessible(true);
+        require("ORIGINAL".equals(state.invoke(status).toString()),
+                "physical chest crash-replay journal must identify untouched original world chest");
+
         if (restart) {
             // Read-only verification MUST refuse an unrelated changed stock
             // count while preserving the original owner receipt, then accept
@@ -1146,6 +1178,9 @@ final class ItemIdentityProbe {
             Object changed = verify.invoke(null, fixture, owner, receiptId, binding, contents);
             require(!(boolean) unchanged.invoke(changed),
                     "physical full-envelope ignored unrelated inventory drift");
+            Object diverged = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+            require("DIVERGED".equals(state.invoke(diverged).toString()),
+                    "physical chest journal must flag unrelated stock drift as DIVERGED");
             try {
                 preparePlan.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
                 throw new IllegalStateException("Stale physical chest original unexpectedly yielded transaction draft");
@@ -1164,6 +1199,9 @@ final class ItemIdentityProbe {
             Object restored = verify.invoke(null, fixture, owner, receiptId, binding, contents);
             require((boolean) unchanged.invoke(restored),
                     "physical full-envelope did not revalidate original stock after idempotent restore");
+            Object replayed = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+            require("ORIGINAL".equals(state.invoke(replayed).toString()),
+                    "physical chest original recovery journal should remain valid across restart");
             require(contents.getItem(2) != null
                             && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
                             && contents.getItem(3) == null,
