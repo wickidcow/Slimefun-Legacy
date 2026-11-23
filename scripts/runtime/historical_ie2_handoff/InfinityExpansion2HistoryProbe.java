@@ -155,6 +155,27 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         return ItemStack.deserializeBytes(item.serializeAsBytes());
     }
 
+    /**
+     * Read-only historical source equivalence. A native compound reordering
+     * cannot replace a typed value, item ID, amount, or full item metadata.
+     * Never writes the physical chest or authorizes Doctor item replacement.
+     */
+    private static boolean sameTypedHistoricalValue(byte[] original, ItemStack observed) {
+        if (observed == null) return false;
+        byte[] bytes = observed.serializeAsBytes();
+        if (Arrays.equals(original, bytes)) return true;
+        if (!Boolean.TRUE.equals(NativeNbtStructuralEvidence.equivalent(original, bytes))) {
+            return false;
+        }
+        ItemStack recorded = ItemStack.deserializeBytes(original);
+        return recorded != null
+                && recorded.getType() == observed.getType()
+                && recorded.getAmount() == observed.getAmount()
+                && Objects.equals(itemId(recorded), itemId(observed))
+                && recorded.isSimilar(observed)
+                && Objects.equals(recorded.getItemMeta(), observed.getItemMeta());
+    }
+
     private static boolean nativeSameIgnoringAmount(ItemStack first, ItemStack second) {
         ItemStack a = nativeItem(first);
         ItemStack b = nativeItem(second);
