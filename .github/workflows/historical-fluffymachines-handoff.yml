@@ -55,7 +55,7 @@ jobs:
           cp "$jar" candidate/Slimefun-Legacy-unreleased-Doctor.jar
           git rev-parse HEAD > candidate/doctor-source-commit.txt
           sha256sum candidate/Slimefun-Legacy-unreleased-Doctor.jar > candidate/doctor-jar.sha256
-      - name: Verify real old-world cosmetic stabilization and Doctor across 4 JVM boots
+      - name: Verify old-world typed identity and Doctor across 5 JVM boots
         run: |
           set -euo pipefail
           python3 scripts/runtime/historical_fluffymachines_handoff/run_probe.py \
