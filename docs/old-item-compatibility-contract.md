@@ -733,3 +733,78 @@ setter in the candidate phase and no QuickShop, Cargo, hopper or live
 player writes. Success proves the *existing current Doctor classifier*
 handles the real pinned v55 old-item pair; it is not automatic permission
 to use that classifier to rewrite every older release's data or shops.
+
+## Genuine v55-source live-batch engine and restart backup gate (2026-11-22)
+
+A new child native test expands the pinned public release harness to four
+**independent server JVM boots**, using the REAL v4.1.55 physical chest source.
+The third JVM invokes the exact PR Doctor core's existing
+\`DoctorLiveItemUpdate.preview\` and \`apply\` on a **new, disposable
+36-slot in-memory inventory**, supplied with original native-byte stacks
+from the immutable historical physical chest. The template resolver is
+not test-supplied: it calls the **production registeredTemplate method**,
+including strict registered Slimefun IDs.
+
+The batch must find all four genuinely historical CARBONADO, CARBON_CHUNK,
+RAW_CARBONADO and STEEL_INGOT stacks (the other original source slots
+are untouched), produce exactly four distinct owner-scoped durable
+original-byte receipts before any test-inventory writes, and verify each
+result stacks with the exact current registered item, has its original
+quantity, and retains its entire native non-presentation identity. A
+same-material historical item carrying extra typed PDC ownership must be
+refused; unrelated stone stock and other fresh items must remain intact.
+The actual world chest is NEVER updated; only synthetic in-memory storage
+is written by this one integration test.
+
+A **fourth independent JVM** restarts with the candidate Doctor core,
+reopens every private original-byte receipt using the **real Doctor backup
+reader**, validates every source against the saved world chest/native
+witness, checks repaired item bytes and amount, checks strict rollback
+eligibility, and rejects any stock loss. Receipts and native item bytes
+remain in the disposable test server directory; the public CI artifact
+exposes redacted runtime logs, result flags and SHA witness only.
+
+PASS for this test verifies the live **player-inventory batch engine** on
+real old public-release item data and durable, restart-readable receipts.
+It is NOT a live physical chest writer, QuickShop transaction lock, hopper
+or Cargo isolation test; it does not prove that historical AlbionMC
+shop/owner/price/SQL fields can safely be migrated.
+
+## Genuine v55-source physical-world journal replay on the fourth JVM (2026-11-22)
+
+The native historical handoff is extended to validate the current Doctor
+**production** `DoctorContainerEvidenceEnvelope` and
+`DoctorContainerTransactionJournal` against four actual **published
+v4.1.55 item stacks stored in a real physical 27-slot world chest**,
+rather than synthetic old-style names/lore. The third server JVM captures
+a complete private, owner/world/block-bound exact native original receipt
+and saves a complete proposed after-image journal through the real
+production planner using the real registered-template resolver.
+Candidates must be exactly physical slots 0–3 (CARBONADO,
+CARBON_CHUNK, RAW_CARBONADO, STEEL_INGOT). All other slots, including
+unrelated stone x17, must remain unchanged.
+
+The actual world chest is NEVER changed. A separate disposable
+27-slot inventory simulates an entire after-image using the **exact
+outputs of the real production live-batch** established in the same
+third JVM. The original chest must inspect as ORIGINAL; the complete
+hypothetical result as PROPOSED; a two-of-four simulated interruption
+must be DIVERGED with two exact-original and two exact-proposed
+candidates and no unexpected changes. Unrelated stone 17->16 and
+insertion of a typed-PDC owner-controlled item must independently be
+rejected as unexpected, never as an expected-only interruption.
+
+On the **fourth independent JVM restart of the same saved world**, the
+test reopens the unchanged true-world source chest, all owner-bound
+native source receipts and journal, repeats the original/proposed/
+partial/unexpected classification, and requires uniquely counted
+`SFL_HISTORICAL_REAL_CHEST_JOURNAL_SEED_PASS` and
+`SFL_HISTORICAL_REAL_CHEST_JOURNAL_RESTART_PASS` markers from the
+correct third/fourth server boots. The native runner will not accept
+a pass based solely on the preexisting batch tests. Every actual v55
+source byte, amount, unused slot and vanilla stone count must survive.
+
+This proves read-only **genuine historical-world journal evidence** and
+complete hypothetical after-images, NOT safe production live container
+writes, hopper/Cargo isolation, QuickShop SQL owner/price/trade state
+or automatic recovery.
