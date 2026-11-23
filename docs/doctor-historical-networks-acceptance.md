@@ -1,0 +1,9 @@
+# Published Networks v1.0.65 → v1.0.66 historical-item handoff (Doctor v4.1.82)
+
+This **test-only draft** uses the exact published SHA-256-pinned Networks JARs v1.0.65 `114bfa0d2bc5a12f65e320640691bfa075470ddc9ff021969ade85e92333277f` and v1.0.66 `1769bdb6fc941c4c01d893bb0c3f0f2288598403c2c86b0368a16dffe2acc215`, published Slimefun Legacy v4.1.81 (SHA-256 `9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1`), the exact unpublished Doctor core and pinned Paper 1.21.11.
+
+Five independent JVM boots use two disposable, physical 27-slot chests with a vanilla stone control: old-version seed, old-version save/load stabilization, *another independent unchanged-old-version baseline*, updated addon/Doctor inspection, and a separate newer-version replay. Only the seed stage writes world stock. Genuine old registered source items are sampled deterministically (first 52 sorted Networks IDs plus mandatory `NTW_MONITOR` if outside the first 52); this is not exhaustive for all versions or identifiers.
+
+Strict original bytes remain private and unchanged. Read-only structural NBT evidence distinguishes nondestructive compound ordering from differences in typed NBT values; only complete matching typed NBT, full Bukkit ItemMeta, Slimefun ID, type, quantity and presentation are admitted as a test-observed ordering difference. All ambiguous or functional drift fails. The production Doctor's exact-byte backup, candidate classifier and owner-bound receipts are exercised **only on detached copies**. Never assume a passed test means that chest, QuickShop, Cargo, storage, offline inventories or machine contents can be updated.
+
+The real AlbanyMC historical world, historical Networks quantum storage and actual live player changes require independent backed-up staging/rollback evidence before production migration. No bulk writer is included.
