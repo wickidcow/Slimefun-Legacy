@@ -471,6 +471,10 @@ def validate_phase_evidence(phase: str, token: str, pid: int, exit_code: int, ti
         require(total == audit.get("registered")
                 and repairable == audit.get("strict_style_repairable"),
                 "Addon style summary does not match pinned installed plugin registrations")
+    require(started["registered_style_audit"] == stopped["registered_style_audit"],
+            "Registered addon item audit changed between startup and shutdown")
+    require(native.count("PAIRED_ADDON_REGISTERED_STYLE_AUDIT_PASS") == 1,
+            "Missing or duplicate genuine-addon production Doctor audit PASS marker")
     require(stopped.get("server_stopping") is True, "Missing normal server shutdown receipt")
     require(not BAD_LOG.search(native) and not BAD_LOG.search(console), "Unexpected native/console runtime error")
     markers = ["PAIRED_STORAGE_RECEIPT READY phase=" + phase + " token=" + token,
