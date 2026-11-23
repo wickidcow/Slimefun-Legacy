@@ -32,6 +32,10 @@ final class DoctorIdentityCommand {
             DoctorIdentityEvidenceExport.run(plugin, sender, args);
             return;
         }
+        if (args.length > 2 && args[2].equalsIgnoreCase("live")) {
+            DoctorLiveItemUpdate.run(plugin, sender, args);
+            return;
+        }
         if (!(sender instanceof Player player)) {
             send(sender, "&cIdentity comparison requires a player with two held items.");
             return;

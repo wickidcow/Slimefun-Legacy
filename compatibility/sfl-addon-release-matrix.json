@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "365c30bdd9fedd0bb9989c13829341c501150a5a"
+      "source_commit": "6ab739439c083bcaf8e7514d51c9b9b431fca31a"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -173,7 +173,7 @@
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "1cc5d9962ea7d11e282240ef29a741e681a1fbd4"
+      "source_commit": "94e64236312a8c0b3fb18812143c6a02a806405b"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -215,7 +215,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "1d46a1afd04ceae7f04c7e0849397350ce273ec5"
+      "source_commit": "8853a85c99acdb22c8d05d93f010272889922c9d"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",

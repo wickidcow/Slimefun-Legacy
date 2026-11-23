@@ -1,0 +1,143 @@
+name: QuickShop-Hikari Public API Contract
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorQuickShopReadOnly.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorQuickShopReadOnly.java'
+      - 'scripts/verify_quickshop_hikari_api.py'
+      - '.github/workflows/quickshop-hikari-abi.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/main/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/DoctorQuickShopReadOnly.java'
+      - 'src/test/java/io/github/thebusybiscuit/slimefun4/core/commands/subcommands/TestDoctorQuickShopReadOnly.java'
+      - 'scripts/verify_quickshop_hikari_api.py'
+      - '.github/workflows/quickshop-hikari-abi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quickshop-hikari-abi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-pinned-hikari-public-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download official QuickShop-Hikari 6.3.0.4 (no version fallback)
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            https://github.com/QuickShop-Community/QuickShop-Hikari/releases/download/6.3.0.4/QuickShop-Hikari-6.3.0.4.jar \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.4.jar"
+          # SHA-256 published in the upstream GitHub Release's asset digest.
+          printf '%s  %s\n' \
+            ce1e36d4bd6081b1258a9943ed28416b3e26c3bf0bbca6ec69cf0a397e320b5d \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.4.jar" | sha256sum --check --strict
+      - name: Verify public ABI used by Doctor against official upstream JAR
+        run: |
+          python3 scripts/verify_quickshop_hikari_api.py \
+            --jar "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.4.jar"
+          echo 'Official QuickShop-Hikari 6.3.0.4 ABI verified; this does not test a live shop.' >> "$GITHUB_STEP_SUMMARY"
+
+  verify-older-albionmc-hikari:
+    name: Verify official 6.3.0.3 legacy installed ABI
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download exact published 6.3.0.3 binary and verify SHA-256
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            https://github.com/QuickShop-Community/QuickShop-Hikari/releases/download/6.3.0.3/QuickShop-Hikari-6.3.0.3.jar \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar"
+          printf '%s  %s\n' \
+            eb65b63d803b2c61be6827f803572ba71f56bbad9f1cd5959b9b746df0669c3a \
+            "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar" | sha256sum --check --strict
+      - name: Verify every Doctor public API signature on 6.3.0.3
+        run: |
+          python3 scripts/verify_quickshop_hikari_api.py \
+            --jar "$RUNNER_TEMP/QuickShop-Hikari-6.3.0.3.jar"
+
+  native-paper-quickshop-api:
+    name: Disposable QuickShop-Hikari matcher on ${{ matrix.label }} (2 boots)
+    needs: [verify-pinned-hikari-public-api, verify-older-albionmc-hikari]
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: paper-26.2-129
+            runtime: '26.2-129'
+            sha256: b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083
+          - label: paper-26.3-145
+            runtime: '26.3-145'
+            sha256: 64bc3219f7ee2a23ad79690c911bfc35767b2ce7383c78aa191980f7e383426a
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Build exact child-PR Slimefun JAR
+        run: |
+          set -euo pipefail
+          ./gradlew shadowJar --no-daemon
+          mkdir -p candidate
+          cp "$(find build/libs -maxdepth 1 -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)" candidate/Slimefun-Legacy-doctor.jar
+      - name: Download pinned Paper 26.2 and upstream QuickShop-Hikari JARs
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            https://fill-data.papermc.io/v1/objects/${{ matrix.sha256 }}/paper-${{ matrix.runtime }}.jar \
+            candidate/server.jar
+          printf '%s  candidate/server.jar\n' \
+            '${{ matrix.sha256 }}' | sha256sum --check --strict
+          runtime_download \
+            https://github.com/QuickShop-Community/QuickShop-Hikari/releases/download/6.3.0.4/QuickShop-Hikari-6.3.0.4.jar \
+            candidate/QuickShop-Hikari-6.3.0.4.jar
+          printf '%s  candidate/QuickShop-Hikari-6.3.0.4.jar\n' \
+            ce1e36d4bd6081b1258a9943ed28416b3e26c3bf0bbca6ec69cf0a397e320b5d | sha256sum --check --strict
+      - name: Start real QuickShop and Slimefun twice, inspect public service
+        run: |
+          set -euo pipefail
+          python3 scripts/resource_pack_doctor_probe.py \
+            --server-jar candidate/server.jar \
+            --core candidate/Slimefun-Legacy-doctor.jar \
+            --quickshop-jar candidate/QuickShop-Hikari-6.3.0.4.jar \
+            --quickshop-api-only \
+            --java-home "$JAVA_HOME" \
+            --work-dir "$RUNNER_TEMP/quickshop-disposable-native"
+      - name: Preserve evidence from native service boot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-quickshop-hikari-6.3.0.4-${{ matrix.label }}
+          path: |
+            ${{ runner.temp }}/quickshop-disposable-native/*.log
+            ${{ runner.temp }}/quickshop-disposable-native/PASS.txt
+            ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/*.pass
+            ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/quickshop-matcher-observed.txt
+            ${{ runner.temp }}/quickshop-disposable-native/plugins/ResourcePackDoctorProbe/quickshop-prospective-observed.txt
+          if-no-files-found: warn
