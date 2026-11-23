@@ -898,9 +898,16 @@ native bytes and amounts into **two separate physical world chests**
 The test fails rather than silently truncating the old registry if its
 size is outside 24–53 entries.
 
-Two subsequent **independent JVM boots of the same saved world** load the
+Three subsequent **independent JVM boots of the same saved world** run a read-only old-version stabilization phase and then load the
 published updated FluffyMachines v26.2.24 and exact, unreleased Doctor
-candidate, checking all old-source slot bytes, quantities, registry ID
+candidate. The independent old-version-only stabilization boot first
+reopens the world and records its genuine persisted native item bytes as
+the migration baseline; any first-save normalization MUST retain Slimefun
+IDs, amounts, Bukkit presentation similarity and all non-presentation
+bytes, otherwise the test refuses that item. The untouched pre-save
+constructor bytes remain in private fixture receipts for evidence.
+The new-version candidate and replay boots then check all stabilized
+old-source slot bytes, quantities, registry ID
 identity, baseline vanilla control and unchanged current templates.
 Each genuinely stored item is classified as an exact native match,
 strict presentation-only repairable candidate, or explicit refusal
@@ -912,6 +919,10 @@ readable **owner-private original-byte backup**. A third JVM reopens
 all eligible original receipts and candidate after-image bytes.
 
 **No physical chest is modified after the original v26.2.23 seed**;
+the stabilization boot only updates private fixture original-byte references
+after independently checking that the old-version world save/load has not
+changed functional data or meaningful display text. Any source that fails
+this old-version-only safety gate remains refused.
 no Fluffy barrel capacity/state, machine output, Cargo, shop owner,
 QuickShop SQL, stock/price or player inventory is rewritten. Private
 native item bytes and PDC values never enter uploaded CI artifacts.

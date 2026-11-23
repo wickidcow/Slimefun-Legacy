@@ -45,14 +45,15 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
     }
 
     private boolean command(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length != 1 || !(args[0].equals("seed") || args[0].equals("candidate")
-                || args[0].equals("replay"))) {
-            sender.sendMessage("sflfluffymachineshistory seed|candidate|replay");
+        if (args.length != 1 || !(args[0].equals("seed") || args[0].equals("stabilize")
+                || args[0].equals("candidate") || args[0].equals("replay"))) {
+            sender.sendMessage("sflfluffymachineshistory seed|stabilize|candidate|replay");
             return true;
         }
         try {
             switch (args[0]) {
                 case "seed" -> seed();
+                case "stabilize" -> stabilize();
                 case "candidate" -> compare(false);
                 case "replay" -> compare(true);
                 default -> throw new IllegalArgumentException("unknown command");
@@ -177,6 +178,92 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         Files.writeString(dir.resolve("original-item-ids.txt"), String.join("\n", ids) + "\n");
         Files.writeString(dir.resolve("original-count.txt"), String.valueOf(total) + "\n");
         getLogger().info("SFL_TRUE_FLUFFYMACHINES_SEED items=" + ids.size() + " total=" + total);
+    }
+
+    /**
+     * The first Paper world-save can canonicalize text component NBT even
+     * when Bukkit considers an item unchanged. Reopen the SAME old version
+     * before upgrading and establish source identity from the truly persisted
+     * physical world, not from a detached pre-save constructor instance.
+     *
+     * Permit new baseline private receipts ONLY when the old and persisted
+     * versions agree on quantity, Slimefun ID, all non-presentation native
+     * bytes and Bukkit presentation semantics. Otherwise refuse migration.
+     * Never change either physical chest on the stabilization boot.
+     */
+    private void stabilize() throws Exception {
+        Path base = data();
+        Path originalDir = base.resolve("private-originals");
+        Path seedDir = base.resolve("private-before-world-save");
+        check(Files.isDirectory(originalDir) && !Files.exists(seedDir),
+                "Old-world source stabilization already performed or source receipts missing");
+        List<String> ids = Files.readAllLines(base.resolve("original-item-ids.txt"));
+        check(ids.size() >= 24 && ids.size() <= MAX_ITEMS
+                        && ids.stream().distinct().count() == ids.size(),
+                "Saved old FluffyMachines source ID manifest invalid during baseline restart");
+        List<ItemStack> loadedRegistry = registered().stream().map(SlimefunItem::getItem).toList();
+        check(loadedRegistry.size() == ids.size(),
+                "Old FluffyMachines registry count changed on independent old-version restart");
+
+        List<byte[]> persisted = new ArrayList<>();
+        long total = 0;
+        int harmlessSaveNormalizations = 0;
+        for (int slot = 0; slot < CHEST_SLOTS; slot++) {
+            ItemStack live = sourceSlot(slot);
+            if (slot < ids.size()) {
+                String id = ids.get(slot);
+                check(live != null && id.equals(itemId(live)),
+                        "Old FluffyMachines item ID disappeared from saved-world slot " + slot + " " + id);
+                byte[] oldBytes = Files.readAllBytes(originalDir.resolve(slot + ".bin"));
+                ItemStack original = ItemStack.deserializeBytes(oldBytes);
+                byte[] observedBytes = live.serializeAsBytes();
+                check(id.equals(itemId(original)) && original.getType() == live.getType()
+                                && original.getAmount() == live.getAmount(),
+                        "Saved-world source type, ID or count changed in old plugin slot " + slot + " " + id);
+                if (!Arrays.equals(oldBytes, observedBytes)) {
+                    ItemStack originalNoText = nativeItem(original);
+                    ItemStack observedNoText = nativeItem(live);
+                    originalNoText.editMeta(meta -> {
+                        meta.displayName(null);
+                        meta.lore(null);
+                    });
+                    observedNoText.editMeta(meta -> {
+                        meta.displayName(null);
+                        meta.lore(null);
+                    });
+                    check(original.isSimilar(live)
+                                    && Arrays.equals(originalNoText.serializeAsBytes(),
+                                            observedNoText.serializeAsBytes()),
+                            "Saved-world native normalization changed functional data or text in old plugin slot "
+                                    + slot + " " + id);
+                    harmlessSaveNormalizations++;
+                }
+                total += live.getAmount();
+                persisted.add(observedBytes);
+            } else if (slot == STONE_SLOT) {
+                check(live != null && live.getType() == Material.STONE && live.getAmount() == 17,
+                        "Old-world vanilla control changed after source restart");
+            } else {
+                check(live == null || live.getType().isAir(),
+                        "Old-world source gained unexpected chest stock");
+            }
+        }
+        check(total == Long.parseLong(Files.readString(base.resolve("original-count.txt")).trim()),
+                "Old-world quantities changed during same-version Paper persistence");
+        // All 51 sources have passed conservation before replacing the
+        // private reference files. Preserve the pre-save bytes independently.
+        Files.createDirectory(seedDir);
+        for (int slot = 0; slot < persisted.size(); slot++) {
+            Path previous = originalDir.resolve(slot + ".bin");
+            Files.copy(previous, seedDir.resolve(slot + ".bin"));
+            Files.write(previous, persisted.get(slot));
+        }
+        Files.writeString(base.resolve("world-save-normalization-count.txt"),
+                "registered=" + persisted.size()
+                        + ";strict_cosmetic_normalizations=" + harmlessSaveNormalizations + "\n");
+        assertOriginalChest(ids);
+        getLogger().info("SFL_TRUE_FLUFFYMACHINES_STABILIZED_OLD_WORLD_PASS items="
+                + persisted.size() + " cosmetic_save_normalizations=" + harmlessSaveNormalizations);
     }
 
     private void assertOriginalChest(List<String> ids) throws Exception {

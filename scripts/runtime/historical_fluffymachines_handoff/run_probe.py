@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -71,6 +72,9 @@ def boot(root: Path, java: Path, stage: str) -> None:
     marker = "SFL_TRUE_FLUFFYMACHINES_" + stage.upper() + "_PASS"
     require(output.count(marker) == 1 and "SFL_TRUE_FLUFFYMACHINES_FAIL" not in output,
             "Actual historical addon server lacked unique " + stage + " success marker")
+    if stage == "stabilize":
+        require(output.count("SFL_TRUE_FLUFFYMACHINES_STABILIZED_OLD_WORLD_PASS") == 1,
+                "Old-version independent world-save normalization proof was not observed")
     if stage in ("candidate", "replay"):
         diagnostic = "SFL_TRUE_FLUFFYMACHINES_DIAGNOSTIC_" + (
             "CANDIDATE" if stage == "candidate" else "RESTART") + "_PASS"
@@ -133,6 +137,11 @@ def main() -> None:
     shutil.copyfile(args.baseline_core, current_core)
     shutil.copyfile(args.old_addon, current_addon)
     boot(root, java, "seed")
+    # Separate independent *old addon + old core* JVM reopens the SAME
+    # saved world and normalizes the fixture's original receipts only when
+    # initial Paper save/load changed cosmetic text encoding exclusively.
+    # It never writes the actual world inventory.
+    boot(root, java, "stabilize")
 
     current_core.unlink()
     current_addon.unlink()
@@ -155,11 +164,17 @@ def main() -> None:
     eligible = classifications.count("STRICT_STYLE_REPAIRABLE")
     refused = len(ids) - exact - eligible
     require(all((proof / f"{stage}.pass").is_file()
-                for stage in ("seed", "candidate", "replay")),
-            "Three independent FluffyMachines JVM boots not proven")
+                for stage in ("seed", "stabilize", "candidate", "replay")),
+            "Four independent FluffyMachines JVM boots not proven")
+    normalization = (proof / "world-save-normalization-count.txt").read_text().strip()
+    match = re.fullmatch(r"registered=([0-9]+);strict_cosmetic_normalizations=([0-9]+)", normalization)
+    require(match is not None and int(match.group(1)) == len(ids)
+            and 0 <= int(match.group(2)) <= len(ids),
+            "Exact old-version native item stabilization report missing or invalid")
     message = (
         "PASS true published FluffyMachines v26.2.23 -> v26.2.24 identity across "
-        "three independent JVM boots and the SAME physical world chest\n"
+        "four independent JVM boots and the SAME two physical world chests\n"
+        + normalization + "\n"
         f"source_ids={len(ids)} exact_native={exact} "
         f"strict_presentation_eligible={eligible} refused={refused}\n"
         "world_chest_written_only_in_seed=true; current_and_replay_read_only=true\n"
