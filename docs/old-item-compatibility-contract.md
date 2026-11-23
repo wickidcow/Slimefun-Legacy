@@ -885,6 +885,39 @@ InfinityExpansion2/Networks item from a different released version.
 Nor does a successful two-boot addon registration audit permit a live
 QuickShop, Cargo, hopper, storage or SQL repair.
 
+## Genuine published FastMachines v1.0.4 → v1.0.5 native-world handoff (v4.1.82 staging)
+
+The independent Published FastMachines Historical Item Handoff workflow
+loads checksum-verified **published** FastMachines **v1.0.4**, with published
+Slimefun Legacy **v4.1.81**, and saves every actually registered FastMachines
+item ID (up to the reviewed 24-definition source ceiling) into a
+**disposable physical 27-slot world chest**. The saved exact native bytes,
+original item IDs and quantities remain private to the disposable runner.
+
+Two subsequent **independent JVM server boots** load the **published**
+FastMachines **v1.0.5** plugin and the exact compiled unreleased Doctor core.
+The test refuses absent/changed registered IDs, checks that every true
+previous-version chest item and unrelated stone x17 survives each restart
+unchanged, invokes the production registeredTemplate resolver and strict
+DoctorHistoricalStackRepair.prepare/matchesSavedBackup, and classifies each
+real old-vs-new item as native match, strict presentation-only candidate,
+or a refused/unknown difference. No mismatch is fabricated; **zero repairable
+items is a valid outcome** if actual releases already match native identity.
+
+Each eligible candidate must conserve count, produce the exact new registered
+native identity, reject renamed/typed-owner payloads and save an owner-scoped
+private original Doctor receipt before simulation. The third JVM rereads all
+receipts, exact proposed bytes and the same unchanged physical-world source.
+Public CI outputs contain only **public Slimefun item IDs and categorical
+outcomes**. Native originals, private PDC values and owner details are excluded.
+
+This is genuine **historical addon-saved item evidence** for this single
+published FastMachines version pair. It does not prove that all FastMachines
+player inventories, machine outputs, FastFurnace recipes, QuickShop stock,
+Cargo or other addon versions are safe to change.
+**Neither the candidate nor replay phase mutates the physical chest,
+QuickShop database or any server storage.** No automatic migration is enabled.
+
 ## Genuine published FluffyMachines v26.2.23 → v26.2.24 physical-world item handoff
 
 The separate draft Published FluffyMachines Historical Item Handoff CI
