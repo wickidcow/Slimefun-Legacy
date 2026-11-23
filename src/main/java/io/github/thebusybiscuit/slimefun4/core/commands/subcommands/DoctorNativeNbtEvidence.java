@@ -34,11 +34,12 @@ final class DoctorNativeNbtEvidence {
     }
 
     /**
-     * Compare detached native items as one-unit stacks so quantity does not
-     * affect the diagnostic, while leaving every source untouched.
+     * Compare the actual serialized source bytes without deserializing and
+     * reconstructing a potentially lossy detached copy. Only the root item
+     * count is normalized by the bounded NBT reader for this diagnostic.
      *
-     * <p>Do not infer that identical NBT allows replacing an item's historical
-     * custom name, typed owner, soulbound state, charge, or other data.
+     * <p>Do not infer that identical typed NBT allows replacing an item's
+     * historical custom name, owner, soulbound state, charge or other data.
      */
     static Verdict compare(ItemStack historical, ItemStack current) {
         if (historical == null || current == null) {
@@ -48,14 +49,7 @@ final class DoctorNativeNbtEvidence {
             return Verdict.DIFFERENT_TYPED_NBT;
         }
         try {
-            ItemStack first = ItemStack.deserializeBytes(historical.serializeAsBytes());
-            ItemStack second = ItemStack.deserializeBytes(current.serializeAsBytes());
-            if (first == null || second == null) {
-                return Verdict.UNAVAILABLE;
-            }
-            first.setAmount(1);
-            second.setAmount(1);
-            return compareNativeBytes(first.serializeAsBytes(), second.serializeAsBytes());
+            return compareNativeBytes(historical.serializeAsBytes(), current.serializeAsBytes());
         } catch (RuntimeException exception) {
             return Verdict.UNAVAILABLE;
         }
@@ -177,7 +171,21 @@ final class DoctorNativeNbtEvidence {
                     var entryBytes = new ByteArrayOutputStream();
                     var entry = new DataOutputStream(entryBytes);
                     entry.writeByte(element);
-                    canonicalPayload(in, entry, element, depth + 1);
+                    if (depth == 0 && (name.equals("count") || name.equals("Count"))
+                            && (element == 1 || element == 3)) {
+                        // Root ItemStack quantity is intentionally ignored.
+                        // Preserve its original primitive tag type, but never
+                        // ignore an owner-defined nested "count" key.
+                        if (element == 1) {
+                            in.readByte();
+                            entry.writeByte(1);
+                        } else {
+                            in.readInt();
+                            entry.writeInt(1);
+                        }
+                    } else {
+                        canonicalPayload(in, entry, element, depth + 1);
+                    }
                     if (entries.putIfAbsent(name, entryBytes.toByteArray()) != null) {
                         throw new IOException("Duplicate native compound tag name");
                     }
