@@ -173,5 +173,6 @@ jobs:
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-produced-compressed-carbon.bin
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-registry.json
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-registry-clone.json
+            ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/identity-registry-style-audit-*.json
             ${{ runner.temp }}/resource-pack-doctor/plugins/ResourcePackDoctorProbe/*.pass
           if-no-files-found: warn

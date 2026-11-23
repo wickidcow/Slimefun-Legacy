@@ -808,3 +808,45 @@ This proves read-only **genuine historical-world journal evidence** and
 complete hypothetical after-images, NOT safe production live container
 writes, hopper/Cargo isolation, QuickShop SQL owner/price/trade state
 or automatic recovery.
+
+## Registry-wide reconstructed legacy-text audit (v4.1.82 testing)
+
+The resource-pack Doctor native fixture now visits **every item in the
+currently loaded Slimefun registry**, ordered by registered ID. For each
+current registered template with a static display name and Slimefun PDC ID,
+it constructs a **disposable, hypothetical** old-Bukkit-text metadata
+variant using the legacy `setDisplayName` and `setLore` APIs, while
+retaining the original registered item's exact other native components.
+This matches a known text *API path*, but it is **not** genuine historical
+stored data from the specific version of each maintained addon.
+
+For each reconstructed item the test checks the production
+`DoctorLiveItemUpdate.registeredTemplate` resolver and the strict
+`DoctorHistoricalStackRepair.prepare` candidate guard. Already-identical
+items must never be rewritten; true presentation-only differences must
+yield an identical modern native item with exactly conserved amount and
+verified `matchesSavedBackup` rollback eligibility; meaningful text,
+changed functional components, missing registration and dynamic addon
+metadata must never be silently promoted into a live batch. A bounded
+sample of eligible items also runs custom-name and typed-PDC negative
+guards. All registered templates and source test bytes are rechecked for
+mutation. The entire audit is repeated **after a second independent
+server JVM restart**; the exact registered ID/addon set must remain
+stable between boots.
+
+Two JSON outputs (`identity-registry-style-audit-seed.json` and
+`identity-registry-style-audit-restart.json`) contain **public item IDs,
+addon/plugin names and categorical outcomes only**, with per-addon
+totals and explicit `real_historical_addon_acceptance: UNTESTED`.
+The Python native runtime requires both report files and exactly one
+per-boot PASS marker, and verifies count partition integrity and stable
+ID/addon provenance. No PDC values, inventories, personal ownership,
+native stack bytes, coordinates or SQL contents enter the reports.
+
+This test runs against **loaded registrations**. With only core installed,
+it tests core registrations; it does not claim all 44 maintained addons
+were loaded, historic versions actually saved those bytes, or that a
+real QuickShop/Cargo/storage transaction is safe. Expanding the native
+test installation to pinned addon jars and separately saved real
+old/current addon items remains necessary before claiming universal
+addon repair.
