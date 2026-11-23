@@ -53,6 +53,9 @@ jobs:
       - name: Verify Slimefun Legacy invariants
         run: python3 scripts/verify_legacy.py .
 
+      - name: Verify official Leaf Fill v3 runtime selection and digest guards
+        run: python3 -m unittest scripts/test_leaf_v3_runtime_download.py
+
       - name: Build production Slimefun JAR
         run: |
           chmod +x gradlew scripts/paper_family_26_2_runtime_smoke.sh
