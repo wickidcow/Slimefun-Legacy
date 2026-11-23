@@ -444,6 +444,33 @@ def validate_phase_evidence(phase: str, token: str, pid: int, exit_code: int, ti
                 and proof.get("minecraft") == platform["minecraft"]
                 and proof.get("server_version", "").startswith(platform["minecraft"] + "-" + platform["build"] + "-")
                 and proof.get("primary_thread") is True, "Loaded native platform or ownership mismatch")
+        audit = proof.get("registered_style_audit")
+        require(isinstance(audit, dict)
+                and audit.get("schema") == 1
+                and audit.get("scope") == "actual_loaded_published_addons_reconstructed_legacy_setters"
+                and audit.get("genuine_old_saved_addon_items") == "UNTESTED",
+                "Missing or overstated real addon style audit")
+        groups = audit.get("addons")
+        require(isinstance(groups, dict) and set(groups) == {"Networks", "InfinityExpansion2"},
+                "Did not verify BOTH actual loaded Networks and IE2 plugin registries")
+        total = 0
+        repairable = 0
+        for addon in sorted(groups):
+            counts = groups[addon]
+            keys = ("registered", "already_matching", "strict_style_repairable",
+                    "refused", "unsupported", "typed_pdc_guards")
+            require(isinstance(counts, dict)
+                    and all(type(counts.get(key)) is int and counts[key] >= 0 for key in keys)
+                    and counts["registered"] > 0
+                    and counts["registered"] == sum(counts[key] for key in (
+                        "already_matching", "strict_style_repairable", "refused", "unsupported"))
+                    and counts["typed_pdc_guards"] == min(8, counts["strict_style_repairable"]),
+                    "Actual registered addon item audit lost coverage or PDC negative checks")
+            total += counts["registered"]
+            repairable += counts["strict_style_repairable"]
+        require(total == audit.get("registered")
+                and repairable == audit.get("strict_style_repairable"),
+                "Addon style summary does not match pinned installed plugin registrations")
     require(stopped.get("server_stopping") is True, "Missing normal server shutdown receipt")
     require(not BAD_LOG.search(native) and not BAD_LOG.search(console), "Unexpected native/console runtime error")
     markers = ["PAIRED_STORAGE_RECEIPT READY phase=" + phase + " token=" + token,
@@ -643,6 +670,9 @@ def run_native(args: argparse.Namespace, lock: dict) -> None:
         receipt["bound_files"] = bound
         receipt["seed"] = run_phase(java_home / "bin/java", work, "seed", manifest, platform, bound)
         receipt["verify"] = run_phase(java_home / "bin/java", work, "verify", manifest, platform, bound)
+        require(receipt["seed"]["startup"]["registered_style_audit"]
+                == receipt["verify"]["startup"]["registered_style_audit"],
+                "Pinned installed addon registry/style classifications drifted across separate JVM boots")
         require(receipt["seed"]["pid"] != receipt["verify"]["pid"], "Separate JVM identifiers are required")
         validate_inputs(inputs, args.expected_source, lock)
         receipt["status"] = "PASS"
