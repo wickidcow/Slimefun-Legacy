@@ -1,0 +1,87 @@
+name: Published FluffyMachines Historical Item Handoff
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/runtime/historical_fluffymachines_handoff/**'
+      - '.github/workflows/historical-fluffymachines-handoff.yml'
+      - 'docs/old-item-compatibility-contract.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  published-fluffymachines:
+    name: Published FluffyMachines v26.2.23 to v26.2.24 saved world on Paper 1.21.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download exact published old/current FluffyMachines and baseline Slimefun
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          gh release download v26.2.23 --repo wickidcow/SF_FluffyMachines \
+            --pattern 'SF_FluffyMachines26.2.23.jar' --dir candidate
+          gh release download v26.2.24 --repo wickidcow/SF_FluffyMachines \
+            --pattern 'SF_FluffyMachines26.2.24.jar' --dir candidate
+          gh release download v4.1.81 --repo wickidcow/Slimefun-Legacy \
+            --pattern 'Slimefun-Legacy4.1.81.jar' --dir candidate
+          printf '%s\n' \
+            '2278fb367e6eeb95619718139f7fa5d43131b73c6b65eddfd0953353261392e9  candidate/SF_FluffyMachines26.2.23.jar' \
+            '1cfa3da859cea788af405c47bd3b1222ee975e8d27b368e2c5afe8c844afc033  candidate/SF_FluffyMachines26.2.24.jar' \
+            '9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1  candidate/Slimefun-Legacy4.1.81.jar' | sha256sum --check --strict
+      - name: Download exactly pinned Paper 1.21.11
+        run: |
+          set -euo pipefail
+          source scripts/runtime_download.sh
+          runtime_download \
+            'https://fill-data.papermc.io/v1/objects/5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba/paper-1.21.11-132.jar' \
+            candidate/server.jar
+          echo '5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba  candidate/server.jar' | sha256sum --check --strict
+      - name: Compile exact unreleased Doctor candidate (never publish)
+        run: |
+          set -euo pipefail
+          ./gradlew shadowJar --no-daemon
+          jar="$(find build/libs -maxdepth 1 -type f -name 'Slimefun-*.jar' ! -name '*-sources.jar' -print -quit)"
+          test -n "$jar" && test -s "$jar"
+          cp "$jar" candidate/Slimefun-Legacy-unreleased-Doctor.jar
+          git rev-parse HEAD > candidate/doctor-source-commit.txt
+          sha256sum candidate/Slimefun-Legacy-unreleased-Doctor.jar > candidate/doctor-jar.sha256
+      - name: Verify genuine published addon source and candidate Doctor over 3 JVM boots
+        run: |
+          set -euo pipefail
+          python3 scripts/runtime/historical_fluffymachines_handoff/run_probe.py \
+            --server-jar candidate/server.jar \
+            --server-sha256 5ffef465eeeb5f2a3c23a24419d97c51afd7dbb4923ff42df9a3f58bba1ccfba \
+            --baseline-core candidate/Slimefun-Legacy4.1.81.jar \
+            --candidate-core candidate/Slimefun-Legacy-unreleased-Doctor.jar \
+            --old-addon candidate/SF_FluffyMachines26.2.23.jar \
+            --new-addon candidate/SF_FluffyMachines26.2.24.jar \
+            --java-home "$JAVA_HOME" \
+            --work-dir "$RUNNER_TEMP/sfl-fluffymachines-history"
+      - name: Display redacted real-addon acceptance result
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/sfl-fluffymachines-history/PASS.txt"; then
+            cat "$RUNNER_TEMP/sfl-fluffymachines-history/PASS.txt" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Retain only redacted logs and public item-ID classification
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: historical-fluffymachines-2323-to-2324
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/sfl-fluffymachines-history/bootstrap.log
+            ${{ runner.temp }}/sfl-fluffymachines-history/console-*.log
+            ${{ runner.temp }}/sfl-fluffymachines-history/PASS.txt
+            ${{ runner.temp }}/sfl-fluffymachines-history/plugins/SFLFluffyMachinesHistoryProbe/classification.tsv

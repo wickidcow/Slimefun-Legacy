@@ -884,3 +884,38 @@ InfinityExpansion2/Networks item from a different released version.
 `genuine_old_saved_addon_items` therefore remains `UNTESTED`.
 Nor does a successful two-boot addon registration audit permit a live
 QuickShop, Cargo, hopper, storage or SQL repair.
+
+## Genuine published FluffyMachines v26.2.23 → v26.2.24 physical-world item handoff
+
+The separate draft Published FluffyMachines Historical Item Handoff CI
+uses **immutable, checksum-verified actual released** v26.2.23 and
+v26.2.24 FluffyMachines JARs. Unlike synthetic legacy text reconstruction,
+the first independent Paper 1.21.11 JVM actually starts old
+FluffyMachines v26.2.23 with published Slimefun Legacy v4.1.81, collects
+all registered FluffyMachines item IDs and writes their exact saved
+native bytes and amounts into **two separate physical world chests**
+(up to 53 item positions plus one unchanged vanilla stone ×17 control).
+The test fails rather than silently truncating the old registry if its
+size is outside 24–53 entries.
+
+Two subsequent **independent JVM boots of the same saved world** load the
+published updated FluffyMachines v26.2.24 and exact, unreleased Doctor
+candidate, checking all old-source slot bytes, quantities, registry ID
+identity, baseline vanilla control and unchanged current templates.
+Each genuinely stored item is classified as an exact native match,
+strict presentation-only repairable candidate, or explicit refusal
+(including meaningful text, unknown ID and functional metadata drift).
+For an eligible source the test invokes the real Doctor registry
+resolver, strict preparation and exact-native rollback verifier,
+verifies typed-PDC and custom rename refusal, and saves an independently
+readable **owner-private original-byte backup**. A third JVM reopens
+all eligible original receipts and candidate after-image bytes.
+
+**No physical chest is modified after the original v26.2.23 seed**;
+no Fluffy barrel capacity/state, machine output, Cargo, shop owner,
+QuickShop SQL, stock/price or player inventory is rewritten. Private
+native item bytes and PDC values never enter uploaded CI artifacts.
+Zero repairable items is an honest passing outcome if both published
+releases already agree natively. This specific two-release historical
+pair does not certify every old FluffyMachines version or justify live
+world-wide automatic migration.
