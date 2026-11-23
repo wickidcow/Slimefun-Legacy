@@ -184,9 +184,35 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
             ItemStack live = sourceSlot(slot);
             if (slot < ids.size()) {
                 byte[] original = Files.readAllBytes(data().resolve("private-originals").resolve(slot + ".bin"));
-                check(live != null && Arrays.equals(original, live.serializeAsBytes())
-                                && ids.get(slot).equals(itemId(live)),
-                        "True saved FluffyMachines source changed in world slot " + slot);
+                check(live != null, "True saved FluffyMachines source missing in world slot " + slot);
+                boolean nativeEqual = Arrays.equals(original, live.serializeAsBytes());
+                boolean idEqual = ids.get(slot).equals(itemId(live));
+                if (!nativeEqual || !idEqual) {
+                    ItemStack recorded = ItemStack.deserializeBytes(original);
+                    ItemStack recordedPlain = nativeItem(recorded);
+                    ItemStack observedPlain = nativeItem(live);
+                    recordedPlain.editMeta(meta -> {
+                        meta.displayName(null);
+                        meta.lore(null);
+                    });
+                    observedPlain.editMeta(meta -> {
+                        meta.displayName(null);
+                        meta.lore(null);
+                    });
+                    boolean functionalBytesSame = Arrays.equals(
+                            recordedPlain.serializeAsBytes(), observedPlain.serializeAsBytes());
+                    boolean oldSimilarity = recorded.isSimilar(live);
+                    boolean amountSame = recorded.getAmount() == live.getAmount();
+                    // Only public item ID plus boolean categories. Never report
+                    // serialized native bytes, owner data or PDC contents.
+                    throw new SourceInvariantFailure(
+                            "Published old world item drift slot=" + slot
+                                    + " id=" + ids.get(slot)
+                                    + " oldIdSame=" + idEqual
+                                    + " amountSame=" + amountSame
+                                    + " nativeSimilarity=" + oldSimilarity
+                                    + " nonPresentationBytesSame=" + functionalBytesSame);
+                }
             } else if (slot == STONE_SLOT) {
                 check(live != null && live.getType() == Material.STONE && live.getAmount() == 17,
                         "Unrelated vanilla stock changed after restart");
