@@ -37,6 +37,18 @@ class DoctorNativeNbtEvidenceTest {
     }
 
     @Test
+    void ignoresOnlyRootItemCountAndRetainsNestedTypedCounts() throws IOException {
+        byte[] one = synthetic(false, false, false, 1, 33);
+        byte[] sixtyFour = synthetic(false, false, false, 64, 33);
+        byte[] mutatedNestedCounter = synthetic(false, false, false, 1, 34);
+
+        assertEquals(DoctorNativeNbtEvidence.Verdict.SAME_TYPED_NBT,
+                DoctorNativeNbtEvidence.compareNativeBytes(one, sixtyFour));
+        assertEquals(DoctorNativeNbtEvidence.Verdict.DIFFERENT_TYPED_NBT,
+                DoctorNativeNbtEvidence.compareNativeBytes(one, mutatedNestedCounter));
+    }
+
+    @Test
     void refusesMalformedOrOverBudgetNativeInput() throws IOException {
         byte[] source = synthetic(false, false, false);
         assertEquals(DoctorNativeNbtEvidence.Verdict.UNAVAILABLE,
@@ -51,6 +63,12 @@ class DoctorNativeNbtEvidenceTest {
     }
 
     private static byte[] synthetic(boolean reverseCompound, boolean useLong, boolean reverseList)
+            throws IOException {
+        return synthetic(reverseCompound, useLong, reverseList, 1, 33);
+    }
+
+    private static byte[] synthetic(
+            boolean reverseCompound, boolean useLong, boolean reverseList, int rootCount, int nestedCount)
             throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (GZIPOutputStream zipped = new GZIPOutputStream(bytes);
@@ -70,6 +88,15 @@ class DoctorNativeNbtEvidenceTest {
             if (!reverseCompound) {
                 writeList(out, reverseList);
             }
+            out.writeByte(3);
+            out.writeUTF("count");
+            out.writeInt(rootCount);
+            out.writeByte(10);
+            out.writeUTF("private-storage");
+            out.writeByte(3);
+            out.writeUTF("count");
+            out.writeInt(nestedCount);
+            out.writeByte(0);
             out.writeByte(0);
         }
         return bytes.toByteArray();
