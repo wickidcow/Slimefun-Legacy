@@ -46,14 +46,15 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
 
     private boolean command(CommandSender sender, Command command, String label, String[] args) {
         if (args.length != 1 || !(args[0].equals("seed") || args[0].equals("stabilize")
-                || args[0].equals("candidate") || args[0].equals("replay"))) {
-            sender.sendMessage("sflfluffymachineshistory seed|stabilize|candidate|replay");
+                || args[0].equals("baseline") || args[0].equals("candidate") || args[0].equals("replay"))) {
+            sender.sendMessage("sflfluffymachineshistory seed|stabilize|baseline|candidate|replay");
             return true;
         }
         try {
             switch (args[0]) {
                 case "seed" -> seed();
                 case "stabilize" -> stabilize();
+                case "baseline" -> baseline();
                 case "candidate" -> compare(false);
                 case "replay" -> compare(true);
                 default -> throw new IllegalArgumentException("unknown command");
@@ -264,6 +265,19 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         assertOriginalChest(ids);
         getLogger().info("SFL_TRUE_FLUFFYMACHINES_STABILIZED_OLD_WORLD_PASS items="
                 + persisted.size() + " cosmetic_save_normalizations=" + harmlessSaveNormalizations);
+    }
+
+    /**
+     * One additional independent same-version server restart must preserve
+     * the pinned old-world bytes before we attribute ANY drift to an addon
+     * upgrade or Doctor candidate. This stage never changes world stock.
+     */
+    private void baseline() throws Exception {
+        List<String> ids = Files.readAllLines(data().resolve("original-item-ids.txt"));
+        check(ids.size() >= 24 && ids.size() <= MAX_ITEMS,
+                "Published old-version saved-world manifest unexpectedly changed");
+        assertOriginalChest(ids);
+        getLogger().info("SFL_TRUE_FLUFFYMACHINES_SAME_VERSION_BASELINE_VALIDATED");
     }
 
     private void assertOriginalChest(List<String> ids) throws Exception {

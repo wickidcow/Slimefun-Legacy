@@ -142,6 +142,9 @@ def main() -> None:
     # initial Paper save/load changed cosmetic text encoding exclusively.
     # It never writes the actual world inventory.
     boot(root, java, "stabilize")
+    # Prove a third independent boot under the exact unchanged released
+    # old core/addon pair is byte-stable BEFORE switching plugin versions.
+    boot(root, java, "baseline")
 
     current_core.unlink()
     current_addon.unlink()
@@ -164,8 +167,8 @@ def main() -> None:
     eligible = classifications.count("STRICT_STYLE_REPAIRABLE")
     refused = len(ids) - exact - eligible
     require(all((proof / f"{stage}.pass").is_file()
-                for stage in ("seed", "stabilize", "candidate", "replay")),
-            "Four independent FluffyMachines JVM boots not proven")
+                for stage in ("seed", "stabilize", "baseline", "candidate", "replay")),
+            "Five independent FluffyMachines JVM boots not proven")
     normalization = (proof / "world-save-normalization-count.txt").read_text().strip()
     match = re.fullmatch(r"registered=([0-9]+);strict_cosmetic_normalizations=([0-9]+)", normalization)
     require(match is not None and int(match.group(1)) == len(ids)
@@ -173,11 +176,11 @@ def main() -> None:
             "Exact old-version native item stabilization report missing or invalid")
     message = (
         "PASS true published FluffyMachines v26.2.23 -> v26.2.24 identity across "
-        "four independent JVM boots and the SAME two physical world chests\n"
+        "five independent JVM boots and the SAME two physical world chests\n"
         + normalization + "\n"
         f"source_ids={len(ids)} exact_native={exact} "
         f"strict_presentation_eligible={eligible} refused={refused}\n"
-        "world_chest_written_only_in_seed=true; current_and_replay_read_only=true\n"
+        "world_chest_written_only_in_seed=true; baseline_current_and_replay_read_only=true\n"
         "native_originals_and_owner_receipts_remain_private=true\n"
         "This does not authorize any production chest, machine, QuickShop, Cargo or SQL repair.\n")
     (root / "PASS.txt").write_text(message)
