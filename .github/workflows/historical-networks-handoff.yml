@@ -36,7 +36,7 @@ jobs:
             --pattern 'Slimefun-Legacy4.1.81.jar' --dir candidate
           printf '%s\n' \
             '114bfa0d2bc5a12f65e320640691bfa075470ddc9ff021969ade85e92333277f  candidate/SF_Networks1.0.65.jar' \
-            '1cfa3da859cea788af405c47bd3b1222ee975e8d27b368e2c5afe8c844afc033  candidate/SF_Networks1.0.66.jar' \
+            '1769bdb6fc941c4c01d893bb0c3f0f2288598403c2c86b0368a16dffe2acc215  candidate/SF_Networks1.0.66.jar' \
             '9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1  candidate/Slimefun-Legacy4.1.81.jar' | sha256sum --check --strict
       - name: Download exactly pinned Paper 1.21.11
         run: |
