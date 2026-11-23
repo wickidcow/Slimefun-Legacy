@@ -6,4 +6,4 @@ Five independent JVM boots use two disposable, physical 27-slot chests with a va
 
 Strict original bytes remain private and unchanged. Read-only structural NBT evidence distinguishes nondestructive compound ordering from differences in typed NBT values; only complete matching typed NBT, full Bukkit ItemMeta, Slimefun ID, type, quantity and presentation are admitted as a test-observed ordering difference. All ambiguous or functional drift fails. The production Doctor's exact-byte backup, candidate classifier and owner-bound receipts are exercised **only on detached copies**. Never assume a passed test means that chest, QuickShop, Cargo, storage, offline inventories or machine contents can be updated.
 
-The real AlbanyMC historical world, historical Networks quantum storage and actual live player changes require independent backed-up staging/rollback evidence before production migration. No bulk writer is included.
+The real AlbionMC historical world, historical Networks quantum storage and actual live player changes require independent backed-up staging/rollback evidence before production migration. No bulk writer is included.
