@@ -1,0 +1,9 @@
+name: SFLNetworksHistoryProbe
+version: 1.0.0
+main: com.wickidcow.doctorfixture.NetworksHistoryProbe
+api-version: '1.21.11'
+depend: [Slimefun, Networks]
+commands:
+  sflnetworkshistory:
+    description: Disposable real-published Networks item history verification
+    permission: op
