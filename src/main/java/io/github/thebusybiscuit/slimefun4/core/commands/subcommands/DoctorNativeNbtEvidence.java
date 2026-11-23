@@ -159,6 +159,7 @@ final class DoctorNativeNbtEvidence {
             case 10 -> {
                 Map<String, byte[]> entries = new TreeMap<>();
                 int count = 0;
+                boolean rootQuantitySeen = false;
                 while (true) {
                     int element = in.readUnsignedByte();
                     if (element == 0) {
@@ -168,6 +169,15 @@ final class DoctorNativeNbtEvidence {
                         throw new IOException("Invalid native compound tags");
                     }
                     String name = in.readUTF();
+                    // A legitimate root ItemStack has one quantity field.
+                    // Never discard either value if conflicting historical
+                    // count/Count aliases coexist: classification is unsafe.
+                    if (depth == 0 && (name.equals("count") || name.equals("Count"))) {
+                        if (rootQuantitySeen) {
+                            throw new IOException("Ambiguous root item quantity fields");
+                        }
+                        rootQuantitySeen = true;
+                    }
                     var entryBytes = new ByteArrayOutputStream();
                     var entry = new DataOutputStream(entryBytes);
                     entry.writeByte(element);
