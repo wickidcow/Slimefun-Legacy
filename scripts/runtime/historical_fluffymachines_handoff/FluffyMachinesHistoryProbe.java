@@ -290,15 +290,32 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                             recordedPlain.serializeAsBytes(), observedPlain.serializeAsBytes());
                     boolean oldSimilarity = recorded.isSimilar(live);
                     boolean amountSame = recorded.getAmount() == live.getAmount();
-                    // Only public item ID plus boolean categories. Never report
-                    // serialized native bytes, owner data or PDC contents.
+                    // Distinguish a changed on-disk item from native serialization
+                    // canonicalization on the newer Paper/Slimefun/addon runtime.
+                    // Preserve the original private bytes and still fail closed.
+                    byte[] reserializedOriginal = recorded.serializeAsBytes();
+                    boolean sourceCanonicalizedOnRead = !Arrays.equals(original, reserializedOriginal);
+                    boolean canonicalizedSourceMatchesWorld =
+                            Arrays.equals(reserializedOriginal, live.serializeAsBytes());
+                    ItemMeta sourceMeta = recorded.getItemMeta();
+                    ItemMeta worldMeta = live.getItemMeta();
+                    boolean componentNameSame = sourceMeta != null && worldMeta != null
+                            && Objects.equals(sourceMeta.displayName(), worldMeta.displayName());
+                    boolean componentLoreSame = sourceMeta != null && worldMeta != null
+                            && Objects.equals(sourceMeta.lore(), worldMeta.lore());
+                    // Only public ID plus boolean categories. Never print names, lore,
+                    // serialized bytes, typed owner data or PDC values.
                     throw new SourceInvariantFailure(
                             "Published old world item drift slot=" + slot
                                     + " id=" + ids.get(slot)
                                     + " oldIdSame=" + idEqual
                                     + " amountSame=" + amountSame
                                     + " nativeSimilarity=" + oldSimilarity
-                                    + " nonPresentationBytesSame=" + functionalBytesSame);
+                                    + " nonPresentationBytesSame=" + functionalBytesSame
+                                    + " sourceCanonicalizedOnRead=" + sourceCanonicalizedOnRead
+                                    + " canonicalizedSourceMatchesWorld=" + canonicalizedSourceMatchesWorld
+                                    + " componentNameSame=" + componentNameSame
+                                    + " componentLoreSame=" + componentLoreSame);
                 }
             } else if (slot == STONE_SLOT) {
                 check(live != null && live.getType() == Material.STONE && live.getAmount() == 17,
