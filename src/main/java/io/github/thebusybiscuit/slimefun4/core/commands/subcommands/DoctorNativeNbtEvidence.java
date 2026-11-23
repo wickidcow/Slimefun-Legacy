@@ -201,12 +201,16 @@ final class DoctorNativeNbtEvidence {
             case 11 -> {
                 int count = boundedLength(in);
                 out.writeInt(count);
-                for (int index = 0; index < count; index++) out.writeInt(in.readInt());
+                for (int index = 0; index < count; index++) {
+                    out.writeInt(in.readInt());
+                }
             }
             case 12 -> {
                 int count = boundedLength(in);
                 out.writeInt(count);
-                for (int index = 0; index < count; index++) out.writeLong(in.readLong());
+                for (int index = 0; index < count; index++) {
+                    out.writeLong(in.readLong());
+                }
             }
             default -> throw new IOException("Unsupported native tag type");
         }
