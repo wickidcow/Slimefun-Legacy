@@ -917,3 +917,77 @@ player inventories, machine outputs, FastFurnace recipes, QuickShop stock,
 Cargo or other addon versions are safe to change.
 **Neither the candidate nor replay phase mutates the physical chest,
 QuickShop database or any server storage.** No automatic migration is enabled.
+
+## Genuine published FluffyMachines v26.2.23 → v26.2.24 physical-world item handoff
+
+The separate draft Published FluffyMachines Historical Item Handoff CI
+uses **immutable, checksum-verified actual released** v26.2.23 and
+v26.2.24 FluffyMachines JARs. Unlike synthetic legacy text reconstruction,
+the first independent Paper 1.21.11 JVM actually starts old
+FluffyMachines v26.2.23 with published Slimefun Legacy v4.1.81, collects
+all registered FluffyMachines item IDs and writes their exact saved
+native bytes and amounts into **two separate physical world chests**
+(up to 53 item positions plus one unchanged vanilla stone ×17 control).
+The test fails rather than silently truncating the old registry if its
+size is outside 24–53 entries.
+
+Four subsequent **independent JVM boots of the same saved world** run read-only old-version stabilization, an additional unchanged-old-version baseline, then load the
+published updated FluffyMachines v26.2.24 and exact, unreleased Doctor
+candidate. The independent old-version-only stabilization boot first
+reopens the world and records its genuine persisted native item bytes as
+the migration baseline; any first-save normalization MUST retain Slimefun
+IDs, amounts, Bukkit presentation similarity and all non-presentation
+bytes, otherwise the test refuses that item. The untouched pre-save
+constructor bytes remain in private fixture receipts for evidence.
+The new-version candidate and replay boots then check all stabilized
+old-source slot bytes, quantities, registry ID
+identity, baseline vanilla control and unchanged current templates.
+Each genuinely stored item is classified as an exact native match,
+strict presentation-only repairable candidate, or explicit refusal
+(including meaningful text, unknown ID and functional metadata drift).
+For an eligible source the test invokes the real Doctor registry
+resolver, strict preparation and exact-native rollback verifier,
+verifies typed-PDC and custom rename refusal, and saves an independently
+readable **owner-private original-byte backup**. A later independent JVM reopens
+all eligible original receipts and candidate after-image bytes.
+
+**No physical chest is modified after the original v26.2.23 seed**;
+the stabilization boot only updates private fixture original-byte references
+after independently checking that the old-version world save/load has not
+changed functional data or meaningful display text. Any source that fails
+this old-version-only safety gate remains refused.
+No Fluffy barrel capacity/state, machine output, Cargo, shop owner,
+QuickShop SQL, stock/price or player inventory is rewritten. Private
+native item bytes and PDC values never enter uploaded CI artifacts.
+Zero repairable items is an honest passing outcome if both published
+releases already agree natively. This specific two-release historical
+pair does not certify every old FluffyMachines version or justify live
+world-wide automatic migration.
+
+### Same-version baseline mismatch and native-byte comparison limit (2026-11-23)
+
+The immutable published old **Slimefun Legacy v4.1.81 +
+FluffyMachines v26.2.23** combination itself changes the native
+serialization of the genuinely saved `BIG_PORTABLE_CHARGER` in physical
+chest slot 14 on an additional same-version Paper 1.21.11 world reload.
+The item ID, quantity, Bukkit similarity, all serialized non-presentation
+bytes (after removing name/lore from detached copies), full Bukkit
+`ItemMeta.equals`, Adventure name and Adventure lore remain equal.
+Each observed object serializes to stable bytes on repeated calls, but
+the original bytes differ from world-read bytes after one or two independent
+native round-trip conversions. The historical-item gate correctly refuses
+to certify this as byte-exact. This is **not evidence that upgrading the
+addon corrupted the item**, and it cannot be waved through as a
+presentation-only migration.
+
+The independent read-only probe now tests whether canonical NBT structure,
+with compound keys sorted but every native tag type/value and list order
+preserved, is equal; a bounded typed-data self-test checks that a changed
+int/long type is not treated as equivalent. This diagnostic does **not**
+change the production Doctor's exact-byte guards and does **not** authorize
+any world, player inventory, Fluffy Barrel or QuickShop rewrite.
+
+**Draft remains blocked until this source persistence behavior is understood
+and exact-head CI, original quantities, typed data, durable receipts and
+two-version restart evidence pass.** Do not conceal the baseline failure by
+renormalizing private receipts or relabeling it as a passing migration.
