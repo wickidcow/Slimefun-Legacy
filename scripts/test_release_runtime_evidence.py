@@ -15,7 +15,7 @@ import uuid
 import zipfile
 
 from scripts.runtime.paired_addon_storage import run_probe as paired
-from scripts.test_paired_addon_storage_probe import database_receipt
+from scripts.test_paired_addon_storage_probe import database_receipt, VALID_ADDON_STYLE
 from scripts.verify_release_runtime_evidence import (
     ADDONS, FIXED_JOBS, REPOSITORY, WORKFLOW, ReleaseRuntimeEvidenceError, verify_native_evidence,
 )
@@ -221,9 +221,11 @@ class Fixture:
                        "server_version": platform["minecraft"] + "-" + platform["build"] + "-test",
                        "core_source": SOURCE, "core_commit": SOURCE, "core_version": "4.1.76",
                        "networks_version": self.lock["addons"]["networks"]["version"],
-                       "ie2_version": self.lock["addons"]["ie2"]["version"], "primary_thread": True}
+                       "ie2_version": self.lock["addons"]["ie2"]["version"], "primary_thread": True,
+                       "registered_style_audit": deepcopy(VALID_ADDON_STYLE)}
             stopped = dict(started, status="STOPPED", server_stopping=True)
-            native = ("PAIRED_STORAGE_RECEIPT READY phase=" + phase + " token=" + token + "\nDone (1.0s)!\n"
+            native = ("PAIRED_ADDON_REGISTERED_STYLE_AUDIT_PASS plugins=2 registered=10 repairable=3\n"
+                      "PAIRED_STORAGE_RECEIPT READY phase=" + phase + " token=" + token + "\nDone (1.0s)!\n"
                       + paired.PHASE_RESULTS[phase] + "\nStopping server\nPAIRED_STORAGE_RECEIPT STOPPED phase="
                       + phase + " token=" + token + "\n").encode()
             console = b"Bootstrap output\n"

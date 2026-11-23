@@ -21,6 +21,25 @@ MANIFEST = {
     "inputs": {"networks": {"version": "1.0.60"}, "ie2": {"version": "2.0.15"}},
 }
 PLATFORM = {"software": "Purpur", "minecraft": "26.3", "build": "2652"}
+VALID_ADDON_STYLE = {
+    "schema": 1,
+    "scope": "actual_loaded_published_addons_reconstructed_legacy_setters",
+    "genuine_old_saved_addon_items": "UNTESTED",
+    "registered": 10,
+    "strict_style_repairable": 3,
+    "addons": {
+        "Networks": {
+            "registered": 4, "already_matching": 2,
+            "strict_style_repairable": 1, "refused": 1,
+            "unsupported": 0, "typed_pdc_guards": 1,
+        },
+        "InfinityExpansion2": {
+            "registered": 6, "already_matching": 2,
+            "strict_style_repairable": 2, "refused": 1,
+            "unsupported": 1, "typed_pdc_guards": 2,
+        },
+    },
+}
 
 
 def phase_receipts(phase="seed", token=TOKEN, pid=PID):
@@ -29,9 +48,11 @@ def phase_receipts(phase="seed", token=TOKEN, pid=PID):
         "software": "Purpur", "minecraft": "26.3", "server_version": "26.3-2652-candidate",
         "core_source": SOURCE, "core_commit": SOURCE, "core_version": "4.1.76",
         "networks_version": "1.0.60", "ie2_version": "2.0.15", "primary_thread": True,
+        "registered_style_audit": deepcopy(VALID_ADDON_STYLE),
     }
     stopped = dict(started, status="STOPPED", server_stopping=True)
     native = "\n".join((
+        "PAIRED_ADDON_REGISTERED_STYLE_AUDIT_PASS plugins=2 registered=10 repairable=3",
         "PAIRED_STORAGE_RECEIPT READY phase=" + phase + " token=" + token,
         'Done (1.0s)! For help, type "help"',
         probe.PHASE_RESULTS[phase],
@@ -96,6 +117,32 @@ class PairedReceiptTests(unittest.TestCase):
         for phase in ("seed", "verify"):
             with self.subTest(phase=phase):
                 self.accept(phase)
+
+    def test_registered_addon_style_proof_must_be_complete_and_fail_closed(self):
+        # This is a *synthetic* completed native startup receipt. Every
+        # missing/forged addon partition and overstated historical claim
+        # must be rejected while the original storage DB fixture remains.
+        changes = [
+            lambda x: x.pop("registered_style_audit"),
+            lambda x: x["registered_style_audit"].update(
+                {"genuine_old_saved_addon_items": "VERIFIED"}),
+            lambda x: x["registered_style_audit"].update({"registered": 9}),
+            lambda x: x["registered_style_audit"].update({"strict_style_repairable": 4}),
+            lambda x: x["registered_style_audit"]["addons"].pop("Networks"),
+            lambda x: x["registered_style_audit"]["addons"]["Networks"].update({"registered": 0}),
+            lambda x: x["registered_style_audit"]["addons"]["Networks"].update({"refused": 8}),
+            lambda x: x["registered_style_audit"]["addons"]["Networks"].update({"typed_pdc_guards": 0}),
+            lambda x: x["registered_style_audit"]["addons"]["InfinityExpansion2"].update(
+                {"strict_style_repairable": -1}),
+            lambda x: x["registered_style_audit"]["addons"]["InfinityExpansion2"].update(
+                {"already_matching": True}),
+        ]
+        for role in ("started", "stopped"):
+            for i, mutation in enumerate(changes):
+                altered = phase_receipts()[0 if role == "started" else 1]
+                mutation(altered)
+                with self.subTest(role=role, change=i), self.assertRaises(RuntimeError):
+                    self.accept(**{role: altered})
 
     def test_error_in_either_stream_rejects_complete_proof(self):
         for diagnostic in (

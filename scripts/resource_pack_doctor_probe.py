@@ -281,6 +281,44 @@ def main() -> None:
             return
         process, log = boot(1)
         probe(process, 1, "identity")
+        # This registry-wide reconstructed historical setter contract is
+        # separate from the genuine published v55 world-chest handoff.
+        def require_registry_style_audit(number, boot):
+            name = "identity-registry-style-audit-" + boot + ".json"
+            artifact = proof / name
+            if not artifact.is_file():
+                raise RuntimeError("Missing native all-registered style audit: " + name)
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+            count = data.get("registered_count")
+            counters = (
+                data.get("already_matching"),
+                data.get("strict_style_repairable"),
+                data.get("refused"),
+                data.get("unsupported"),
+            )
+            if (data.get("schema") != 1
+                    or data.get("boot") != boot
+                    or data.get("scope") != "reconstructed_legacy_text_from_current_registered_templates"
+                    or data.get("real_historical_addon_acceptance") != "UNTESTED"
+                    or type(count) is not int or not (26 <= count <= 8192)
+                    or any(type(n) is not int or n < 0 for n in counters)
+                    or sum(counters) != count
+                    or not isinstance(data.get("items"), list)
+                    or len(data["items"]) != count
+                    or not isinstance(data.get("addons"), list)
+                    or not data["addons"]):
+                raise RuntimeError("Native all-registered style counts invalid: " + name)
+            marker = "SFL_REGISTERED_STYLE_AUDIT_" + boot.upper() + "_PASS"
+            output = (root / f"console-{number}.log").read_text(
+                encoding="utf-8", errors="replace")
+            if output.count(marker) != 1:
+                raise RuntimeError("Missing native all-registered Doctor pass marker " + marker)
+            # Per-addon partition must cover the exact public ID list. No
+            # private owner/item bytes are retained or printed in this report.
+            if sum(group["registered"] for group in data["addons"]) != count:
+                raise RuntimeError("Registered audit per-addon partition lost items")
+            return data
+        audit_seed = require_registry_style_audit(1, "seed")
         # An overall native identity PASS is not enough: explicitly require
         # this physical-chest preservation fixture on each runtime and boot.
         # Keep these redacted PASS markers independent of private item receipts.
@@ -330,6 +368,11 @@ def main() -> None:
         stop(process, log)
         process, log = boot(2)
         probe(process, 2, "identity-restart")
+        audit_restart = require_registry_style_audit(2, "restart")
+        if (audit_seed["registered_count"] != audit_restart["registered_count"]
+                or [(row["item_id"], row["addon"]) for row in audit_seed["items"]]
+                != [(row["item_id"], row["addon"]) for row in audit_restart["items"]]):
+            raise RuntimeError("Registered IDs/addon provenance changed across identical runtime restarts")
         require_chest_migration_marker(2, "RESTART")
         if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
                 "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS") != 1:

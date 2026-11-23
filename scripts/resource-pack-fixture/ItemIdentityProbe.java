@@ -95,6 +95,7 @@ final class ItemIdentityProbe {
     }
 
     static void verify(Path folder, boolean restart) throws Exception {
+        verifyRegisteredPresentationAudit(folder, restart);
         ItemStack reference = fixture();
         if (restart) {
             ItemStack persisted = ItemStack.deserializeBytes(Files.readAllBytes(folder.resolve("identity-item.bin")));
@@ -204,6 +205,183 @@ final class ItemIdentityProbe {
                 "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
         Files.writeString(folder.resolve("identity-registry.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
+    }
+
+
+    /**
+     * System-wide registered-item STYLE audit: derive only a hypothetical
+     * pre-Adventure Bukkit presentation from today's immutable template.
+     *
+     * Every currently loaded registered Slimefun item is visited, including
+     * addons WHEN installed in the disposable native server. This is not an
+     * actual saved 2025/2026 addon item and cannot certify a historic shop.
+     *
+     * A candidate must pass Doctor's PRODUCTION source lookup, strict repair,
+     * native count/PDC preservation and original backup/rollback checker.
+     * Meaningful name/lore and functional metadata edits must fail closed.
+     *
+     * Emit public registered IDs, plugin names and categorical counters only;
+     * never print privately serialized stacks, PDC contents or owners.
+     */
+    @SuppressWarnings("deprecation")
+    private static void verifyRegisteredPresentationAudit(Path folder, boolean restart) throws Exception {
+        Class<?> updateType = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method lookup = updateType.getDeclaredMethod("registeredTemplate", ItemStack.class);
+        lookup.setAccessible(true);
+        var all = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                .sorted(java.util.Comparator.comparing(SlimefunItem::getId)).toList();
+        require(all.size() >= 26 && all.size() <= 8192,
+                "Registered-wide presentation gate has no valid bounded inventory of item templates");
+        var serializer = LegacyComponentSerializer.legacySection();
+        var rows = new java.util.ArrayList<Map<String, Object>>();
+        var perAddon = new java.util.TreeMap<String, int[]>();
+        int matched = 0;
+        int eligible = 0;
+        int refused = 0;
+        int unsupported = 0;
+        int typedGuards = 0;
+        int meaningfulGuards = 0;
+
+        for (SlimefunItem item : all) {
+            String id = item.getId();
+            String plugin = item.getAddon().getName();
+            int[] group = perAddon.computeIfAbsent(plugin, ignored -> new int[4]);
+            group[0]++;
+            ItemStack sourceTemplate = item.getItem();
+            if (sourceTemplate == null || sourceTemplate.getType().isAir()) {
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "NO_TEMPLATE"));
+                unsupported++;
+                group[3]++;
+                continue;
+            }
+            byte[] templateBytes = sourceTemplate.serializeAsBytes();
+            ItemStack current = ItemStack.deserializeBytes(templateBytes);
+            var meta = current.getItemMeta();
+            if (meta == null || meta.displayName() == null
+                    || meta.getPersistentDataContainer().get(
+                            new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING) == null) {
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "NO_STATIC_NAME_OR_ID"));
+                require(Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                        "Registered template changed while inspecting untestable ID: " + id);
+                unsupported++;
+                group[3]++;
+                continue;
+            }
+            ItemStack hypotheticalOld = ItemStack.deserializeBytes(templateBytes);
+            int amount = Math.max(1, Math.min(31, hypotheticalOld.getMaxStackSize()));
+            hypotheticalOld.setAmount(amount);
+            String originalName = serializer.serialize(meta.displayName());
+            var currentLore = meta.lore();
+            List<String> oldLore = currentLore == null ? null
+                    : currentLore.stream().map(serializer::serialize).toList();
+            hypotheticalOld.editMeta(oldMeta -> {
+                oldMeta.setDisplayName(originalName);
+                oldMeta.setLore(oldLore);
+            });
+            byte[] hypotheticalBytes = hypotheticalOld.serializeAsBytes();
+            ItemStack registeredTemplate = (ItemStack) lookup.invoke(null, hypotheticalOld);
+            if (registeredTemplate == null) {
+                // Some addons deliberately use their own dynamic registration
+                // semantics. Such IDs are counted, never auto-approved.
+                // The raw style helper accepts shape-compatible items, but the
+                // OP batch updater will never select this candidate without
+                // the independent production registeredTemplate resolver.
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "UNKNOWN_PRODUCTION_ID"));
+                refused++;
+                group[2]++;
+                require(Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                        "Registered template changed after lookup refusal: " + id);
+                continue;
+            }
+            require(sameNativeItemIgnoringCount(registeredTemplate, sourceTemplate),
+                    "Production resolver found a noncanonical registered template for " + id);
+            ItemStack proposed = repairCandidate(hypotheticalOld, current, registeredTemplate);
+            String status;
+            if (hypotheticalOld.isSimilar(current)) {
+                require(proposed == null,
+                        "Doctor proposed rewriting an already compatible registered item: " + id);
+                matched++;
+                group[1]++;
+                status = "MATCH";
+            } else {
+                Object assessment = historical(hypotheticalOld, current);
+                boolean strictCandidate = flag(assessment, "candidate");
+                if (strictCandidate) {
+                    require(proposed != null
+                                    && proposed.getAmount() == amount
+                                    && proposed.isSimilar(current)
+                                    && sameNativeItemIgnoringCount(proposed, current)
+                                    && matchesDoctorBackup(hypotheticalOld, proposed, current, registeredTemplate),
+                            "Doctor refused or damaged presentation-only registered item: " + id);
+                    eligible++;
+                    group[1]++;
+                    status = "STYLE_ONLY_REPAIRABLE";
+                    if (typedGuards < 48) {
+                        ItemStack owned = ItemStack.deserializeBytes(hypotheticalBytes);
+                        owned.editMeta(ownedMeta -> ownedMeta.getPersistentDataContainer().set(
+                                OWNER, PersistentDataType.LONG, 919001L));
+                        require(repairCandidate(owned, current, registeredTemplate) == null,
+                                "Doctor accepted typed-owner PDC on registered item " + id);
+                        typedGuards++;
+                    }
+                    if (meaningfulGuards < 48) {
+                        ItemStack altered = ItemStack.deserializeBytes(hypotheticalBytes);
+                        altered.editMeta(alteredMeta -> alteredMeta.displayName(Component.text("Custom item rename")));
+                        require(repairCandidate(altered, current, registeredTemplate) == null,
+                                "Doctor accepted changed meaningful registered item name " + id);
+                        meaningfulGuards++;
+                    }
+                } else {
+                    require(proposed == null,
+                            "Doctor bypassed its own strict historical presentation refusal: " + id);
+                    refused++;
+                    group[2]++;
+                    status = flag(assessment, "nonPresentationSame")
+                            ? "MEANINGFUL_OR_UNSUPPORTED_TEXT" : "FUNCTIONAL_METADATA_REFUSED";
+                }
+            }
+            // Every source and template is immutable, even for refused cases.
+            require(Arrays.equals(hypotheticalBytes, hypotheticalOld.serializeAsBytes())
+                            && Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                    "Registered-item audit mutated its source or template: " + id);
+            rows.add(Map.of("item_id", id, "addon", plugin, "classification", status));
+        }
+
+        var addonSummary = new java.util.ArrayList<Map<String, Object>>();
+        for (var entry : perAddon.entrySet()) {
+            int[] counts = entry.getValue();
+            addonSummary.add(Map.of(
+                    "addon", entry.getKey(), "registered", counts[0],
+                    "presentation_verified", counts[1], "refused", counts[2],
+                    "unsupported", counts[3]));
+        }
+        require(rows.size() == all.size() && matched + eligible + refused + unsupported == all.size(),
+                "Registered-item audit lost an item or double counted a source");
+        // This is a broad registry gate, not a blanket claim that saved old
+        // inventory items are safe. Both seed and restart must run the audit.
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("schema", 1);
+        report.put("scope", "reconstructed_legacy_text_from_current_registered_templates");
+        report.put("real_historical_addon_acceptance", "UNTESTED");
+        report.put("boot", restart ? "restart" : "seed");
+        report.put("registered_count", all.size());
+        report.put("already_matching", matched);
+        report.put("strict_style_repairable", eligible);
+        report.put("refused", refused);
+        report.put("unsupported", unsupported);
+        report.put("typed_pdc_guard_count", typedGuards);
+        report.put("meaningful_text_guard_count", meaningfulGuards);
+        report.put("addons", addonSummary);
+        report.put("items", rows);
+        String suffix = restart ? "restart" : "seed";
+        Files.writeString(folder.resolve("identity-registry-style-audit-" + suffix + ".json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(report));
+        Bukkit.getLogger().info("SFL_REGISTERED_STYLE_AUDIT_" + suffix.toUpperCase(java.util.Locale.ROOT)
+                + "_PASS items=" + all.size() + " style=" + eligible + " match=" + matched
+                + " refused=" + refused + " unsupported=" + unsupported
+                + " guarded=" + typedGuards + "/" + meaningfulGuards
+                + " addons=" + perAddon.size());
     }
 
     private static void verifyRegisteredCloneIdentity(Path folder) throws Exception {

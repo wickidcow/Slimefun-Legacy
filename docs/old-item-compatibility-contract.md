@@ -808,3 +808,79 @@ This proves read-only **genuine historical-world journal evidence** and
 complete hypothetical after-images, NOT safe production live container
 writes, hopper/Cargo isolation, QuickShop SQL owner/price/trade state
 or automatic recovery.
+
+## Registry-wide reconstructed legacy-text audit (v4.1.82 testing)
+
+The resource-pack Doctor native fixture now visits **every item in the
+currently loaded Slimefun registry**, ordered by registered ID. For each
+current registered template with a static display name and Slimefun PDC ID,
+it constructs a **disposable, hypothetical** old-Bukkit-text metadata
+variant using the legacy `setDisplayName` and `setLore` APIs, while
+retaining the original registered item's exact other native components.
+This matches a known text *API path*, but it is **not** genuine historical
+stored data from the specific version of each maintained addon.
+
+For each reconstructed item the test checks the production
+`DoctorLiveItemUpdate.registeredTemplate` resolver and the strict
+`DoctorHistoricalStackRepair.prepare` candidate guard. Already-identical
+items must never be rewritten; true presentation-only differences must
+yield an identical modern native item with exactly conserved amount and
+verified `matchesSavedBackup` rollback eligibility; meaningful text,
+changed functional components, missing registration and dynamic addon
+metadata must never be silently promoted into a live batch. A bounded
+sample of eligible items also runs custom-name and typed-PDC negative
+guards. All registered templates and source test bytes are rechecked for
+mutation. The entire audit is repeated **after a second independent
+server JVM restart**; the exact registered ID/addon set must remain
+stable between boots.
+
+Two JSON outputs (`identity-registry-style-audit-seed.json` and
+`identity-registry-style-audit-restart.json`) contain **public item IDs,
+addon/plugin names and categorical outcomes only**, with per-addon
+totals and explicit `real_historical_addon_acceptance: UNTESTED`.
+The Python native runtime requires both report files and exactly one
+per-boot PASS marker, and verifies count partition integrity and stable
+ID/addon provenance. No PDC values, inventories, personal ownership,
+native stack bytes, coordinates or SQL contents enter the reports.
+
+This test runs against **loaded registrations**. With only core installed,
+it tests core registrations; it does not claim all 44 maintained addons
+were loaded, historic versions actually saved those bytes, or that a
+real QuickShop/Cargo/storage transaction is safe. Expanding the native
+test installation to pinned addon jars and separately saved real
+old/current addon items remains necessary before claiming universal
+addon repair.
+
+## Actual pinned Networks and InfinityExpansion2 plugin registry audit
+
+The **native paired-storage test** now augments its existing two independent
+Purpur server boots with a registry-wide Doctor style audit for the
+actual published, checksum-pinned `Networks` and `InfinityExpansion2`
+plugin JARs installed into that disposable server alongside the exact
+candidate core. Unlike the core-only resource-pack fixture, both addons
+must be loaded, enabled, and must have registered at least one real item ID.
+
+For *every currently registered item belonging to those two plugins*,
+the test constructs a hypothetical legacy Bukkit name/lore setter variant
+from the exact modern template, invokes production Doctor's registered
+template resolver and strict presentation-repair / rollback checks,
+conserves the native amount, and checks for any changes to the source
+or canonical registered template. Items that have no static registered
+text/Slimefun PDC, cannot be resolved by production, or have meaningful
+or functional differences are recorded as **unsupported or refused**.
+A bounded sample of each addon's repairable registrations also proves
+that adding typed-owner PDC causes strict repair refusal.
+
+Per-addon counts are recorded in `startup.json` and `shutdown.json`
+and independently validated by the native two-JVM Python runner. The
+exact per-addon counts/classifications must remain identical across
+restarts, along with existing 192-item IE2 storage and topology/database
+conservation tests. The audit reports only category counters, not
+private PDC, item text, ownership, or serialized bytes.
+
+This tests **real currently installed addon registrations** with
+*reconstructed* old text setters, not an actual saved historical
+InfinityExpansion2/Networks item from a different released version.
+`genuine_old_saved_addon_items` therefore remains `UNTESTED`.
+Nor does a successful two-boot addon registration audit permit a live
+QuickShop, Cargo, hopper, storage or SQL repair.
