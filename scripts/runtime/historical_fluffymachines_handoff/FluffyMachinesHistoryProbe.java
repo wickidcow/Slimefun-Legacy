@@ -277,11 +277,35 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         List<String> ids = Files.readAllLines(data().resolve("original-item-ids.txt"));
         check(ids.size() >= 24 && ids.size() <= MAX_ITEMS,
                 "Published old-version saved-world manifest unexpectedly changed");
-        assertOriginalChest(ids);
-        getLogger().info("SFL_TRUE_FLUFFYMACHINES_SAME_VERSION_BASELINE_VALIDATED");
+        int reordered = assertOriginalChest(ids);
+        getLogger().info("SFL_TRUE_FLUFFYMACHINES_SAME_VERSION_BASELINE_VALIDATED"
+                + " typed_equal_raw_reordered=" + reordered);
     }
 
-    private void assertOriginalChest(List<String> ids) throws Exception {
+    /**
+     * Read-only provenance: a different byte ordering is allowed only when
+     * the COMPLETE typed NBT value and full Bukkit ItemMeta are identical.
+     * Original historical bytes remain on disk without normalization; this
+     * predicate is not used by the production Doctor repair engine.
+     */
+    private static boolean sameTypedHistoricalValue(byte[] original, ItemStack observed) {
+        if (observed == null) return false;
+        byte[] observedBytes = observed.serializeAsBytes();
+        if (Arrays.equals(original, observedBytes)) return true;
+        if (!Boolean.TRUE.equals(NativeNbtStructuralEvidence.equivalent(original, observedBytes))) {
+            return false;
+        }
+        ItemStack recorded = ItemStack.deserializeBytes(original);
+        return recorded != null
+                && recorded.getType() == observed.getType()
+                && recorded.getAmount() == observed.getAmount()
+                && Objects.equals(itemId(recorded), itemId(observed))
+                && recorded.isSimilar(observed)
+                && Objects.equals(recorded.getItemMeta(), observed.getItemMeta());
+    }
+
+    private int assertOriginalChest(List<String> ids) throws Exception {
+        int rawReorderedOnly = 0;
         for (int slot = 0; slot < CHEST_SLOTS; slot++) {
             ItemStack live = sourceSlot(slot);
             if (slot < ids.size()) {
@@ -339,6 +363,14 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                     // Null = unsupported; neither result authorizes item repair.
                     Boolean nativeStructuralEquality = NativeNbtStructuralEvidence.equivalent(
                             original, live.serializeAsBytes());
+                    if (idEqual && amountSame && oldSimilarity && functionalBytesSame
+                            && completeMetaSame && Boolean.TRUE.equals(nativeStructuralEquality)
+                            && sameTypedHistoricalValue(original, live)) {
+                        // Physical slot has no typed-data loss. This is NOT an
+                        // exact-byte identity claim and not a repair authorization.
+                        rawReorderedOnly++;
+                        continue;
+                    }
                     // Only public ID plus boolean categories. Never print names, lore,
                     // serialized bytes, typed owner data or PDC values.
                     throw new SourceInvariantFailure(
@@ -368,6 +400,7 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                         "Unexpected physical chest stock inserted");
             }
         }
+        return rawReorderedOnly;
     }
 
     private void compare(boolean replay) throws Exception {
@@ -379,7 +412,7 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         var all = registered().stream().collect(Collectors.toMap(SlimefunItem::getId, item -> item));
         check(all.size() >= ids.size(), "New FluffyMachines version silently lost source registrations");
         for (String id : ids) check(all.containsKey(id), "Published addon removed saved item ID " + id);
-        assertOriginalChest(ids);
+        int rawReorderedOnly = assertOriginalChest(ids);
 
         Class<?> update = Class.forName(
                 "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
@@ -412,8 +445,8 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
             String id = ids.get(slot);
             ItemStack old = nativeItem(sourceSlot(slot));
             byte[] original = Files.readAllBytes(base.resolve("private-originals").resolve(slot + ".bin"));
-            check(Arrays.equals(original, old.serializeAsBytes()),
-                    "Old FluffyMachines item changed before comparison: " + id);
+            check(sameTypedHistoricalValue(original, old),
+                    "Old FluffyMachines item changed typed value before comparison: " + id);
             ItemStack template = all.get(id).getItem();
             byte[] unchangedTemplate = template.serializeAsBytes();
             ItemStack fresh = nativeItem(template);
@@ -497,6 +530,7 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         assertOriginalChest(ids);
         getLogger().info("SFL_TRUE_FLUFFYMACHINES_DIAGNOSTIC_" + (replay ? "RESTART" : "CANDIDATE")
                 + "_PASS source_items=" + ids.size() + " exact=" + exact + " strict_repairable="
-                + eligible + " refused=" + refused + " quantity=" + currentTotal);
+                + eligible + " refused=" + refused + " quantity=" + currentTotal
+                + " raw_order_only=" + rawReorderedOnly);
     }
 }
