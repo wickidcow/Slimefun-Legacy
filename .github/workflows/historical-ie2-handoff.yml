@@ -36,7 +36,7 @@ jobs:
             --pattern 'Slimefun-Legacy4.1.81.jar' --dir candidate
           printf '%s\n' \
             '7c307269b0e3afe9d32a0c0a5f7f742d8f50d4f55a31b0dfd3befdd55debb633  candidate/SF_InfinityExpansion2.0.21.jar' \
-            '1cfa3da859cea788af405c47bd3b1222ee975e8d27b368e2c5afe8c844afc033  candidate/SF_InfinityExpansion2.0.22.jar' \
+            '7f313cfb1ec61c3a500ee7baf517e0c5a94565726890368fa262b7704e82a736  candidate/SF_InfinityExpansion2.0.22.jar' \
             '9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1  candidate/Slimefun-Legacy4.1.81.jar' | sha256sum --check --strict
       - name: Download exactly pinned Paper 1.21.11
         run: |
@@ -77,7 +77,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: historical-ie2-2323-to-2324
+          name: historical-ie2-2021-to-2022
           retention-days: 14
           if-no-files-found: warn
           path: |
