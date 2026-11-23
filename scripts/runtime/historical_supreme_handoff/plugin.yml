@@ -1,0 +1,9 @@
+name: SFLSupremeHistoryProbe
+version: 1.0.0
+main: com.wickidcow.doctorfixture.SupremeHistoryProbe
+api-version: '1.21.11'
+depend: [Slimefun, Supreme]
+commands:
+  sflsupremehistory:
+    description: Disposable real-published Supreme item history verification
+    permission: op
