@@ -66,8 +66,9 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                 if (next == null || next == cause) break;
                 cause = next;
             }
-            String safe = cause.getClass().getSimpleName();
-            getLogger().severe("SFL_TRUE_FLUFFYMACHINES_FAIL " + args[0] + " type=" + safe);
+            String safe = cause instanceof SourceInvariantFailure
+                    ? cause.getMessage() : cause.getClass().getSimpleName();
+            getLogger().severe("SFL_TRUE_FLUFFYMACHINES_FAIL " + args[0] + " invariant=" + safe);
             try {
                 Files.writeString(data().resolve(args[0] + ".fail"), safe + "\n");
             } catch (Exception ignored) {
@@ -83,8 +84,16 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         return base;
     }
 
+    // Only our own fixed-source invariant messages are reportable.
+    // Runtime/addon exception messages may contain private item metadata.
+    private static final class SourceInvariantFailure extends IllegalStateException {
+        private SourceInvariantFailure(String description) {
+            super(description);
+        }
+    }
+
     private static void check(boolean success, String description) {
-        if (!success) throw new IllegalStateException(description);
+        if (!success) throw new SourceInvariantFailure(description);
     }
 
     private static Inventory physicalChest(int part, boolean create) {
