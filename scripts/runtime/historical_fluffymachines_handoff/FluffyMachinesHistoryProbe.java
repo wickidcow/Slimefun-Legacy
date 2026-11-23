@@ -511,9 +511,12 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                 check(!Files.exists(witness) && !Files.exists(proposedFile),
                         "Unapproved historical addon source gained a repair receipt");
             }
-            check(Arrays.equals(original, old.serializeAsBytes())
+            // The physical chest must remain unchanged under assertOriginalChest().
+            // A detached Bukkit copy can reorder NBT compound fields without
+            // changing the full typed value; never waive the template check.
+            check(sameTypedHistoricalValue(original, old)
                             && Arrays.equals(unchangedTemplate, template.serializeAsBytes()),
-                    "Candidate Doctor or addon test modified historical source or global template: " + id);
+                    "Candidate Doctor or addon test modified typed historical source or template: " + id);
             currentTotal += old.getAmount();
             report.append(id).append('\t').append(classification).append('\n');
         }
