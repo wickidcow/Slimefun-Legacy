@@ -850,3 +850,37 @@ real QuickShop/Cargo/storage transaction is safe. Expanding the native
 test installation to pinned addon jars and separately saved real
 old/current addon items remains necessary before claiming universal
 addon repair.
+
+## Actual pinned Networks and InfinityExpansion2 plugin registry audit
+
+The **native paired-storage test** now augments its existing two independent
+Purpur server boots with a registry-wide Doctor style audit for the
+actual published, checksum-pinned `Networks` and `InfinityExpansion2`
+plugin JARs installed into that disposable server alongside the exact
+candidate core. Unlike the core-only resource-pack fixture, both addons
+must be loaded, enabled, and must have registered at least one real item ID.
+
+For *every currently registered item belonging to those two plugins*,
+the test constructs a hypothetical legacy Bukkit name/lore setter variant
+from the exact modern template, invokes production Doctor's registered
+template resolver and strict presentation-repair / rollback checks,
+conserves the native amount, and checks for any changes to the source
+or canonical registered template. Items that have no static registered
+text/Slimefun PDC, cannot be resolved by production, or have meaningful
+or functional differences are recorded as **unsupported or refused**.
+A bounded sample of each addon's repairable registrations also proves
+that adding typed-owner PDC causes strict repair refusal.
+
+Per-addon counts are recorded in `startup.json` and `shutdown.json`
+and independently validated by the native two-JVM Python runner. The
+exact per-addon counts/classifications must remain identical across
+restarts, along with existing 192-item IE2 storage and topology/database
+conservation tests. The audit reports only category counters, not
+private PDC, item text, ownership, or serialized bytes.
+
+This tests **real currently installed addon registrations** with
+*reconstructed* old text setters, not an actual saved historical
+InfinityExpansion2/Networks item from a different released version.
+`genuine_old_saved_addon_items` therefore remains `UNTESTED`.
+Nor does a successful two-boot addon registration audit permit a live
+QuickShop, Cargo, hopper, storage or SQL repair.
