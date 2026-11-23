@@ -1,0 +1,9 @@
+name: SFLInfinityExpansion2HistoryProbe
+version: 1.0.0
+main: com.wickidcow.doctorfixture.InfinityExpansion2HistoryProbe
+api-version: '1.21.11'
+depend: [Slimefun, InfinityExpansion2]
+commands:
+  sflie2history:
+    description: Disposable real-published InfinityExpansion2 item history verification
+    permission: op
