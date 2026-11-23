@@ -507,9 +507,12 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
                 check(!Files.exists(witness) && !Files.exists(proposedFile),
                         "Unapproved historical addon source gained a repair receipt");
             }
-            check(Arrays.equals(original, old.serializeAsBytes())
+            // The original physical-world bytes have independently passed
+            // assertOriginalChest() on this JVM. The detached Bukkit copy may
+            // reorder native compound entries without altering any typed value.
+            check(sameTypedHistoricalValue(original, old)
                             && Arrays.equals(unchangedTemplate, template.serializeAsBytes()),
-                    "Candidate Doctor or addon test modified historical source or global template: " + id);
+                    "Candidate Doctor or addon test modified typed historical source or template: " + id);
             currentTotal += old.getAmount();
             report.append(id).append('\t').append(classification).append('\n');
         }
