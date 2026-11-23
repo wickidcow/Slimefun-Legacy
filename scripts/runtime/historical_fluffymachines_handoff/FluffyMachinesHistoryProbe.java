@@ -333,6 +333,11 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                     ItemStack secondWorldRoundTrip = nativeItem(worldRoundTrip);
                     boolean twoRoundTripsSourceMatchesWorld = Arrays.equals(
                             secondSourceRoundTrip.serializeAsBytes(), secondWorldRoundTrip.serializeAsBytes());
+                    // Diagnostic ONLY: exact typed NBT comparison after sorting
+                    // compound names, preserving every tag value and list order.
+                    // Null = unsupported; neither result authorizes item repair.
+                    Boolean nativeStructuralEquality = NativeNbtStructuralEvidence.equivalent(
+                            original, live.serializeAsBytes());
                     // Only public ID plus boolean categories. Never print names, lore,
                     // serialized bytes, typed owner data or PDC values.
                     throw new SourceInvariantFailure(
@@ -350,7 +355,9 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                                     + " repeatSourceBytesStable=" + repeatSourceBytesStable
                                     + " repeatWorldBytesStable=" + repeatWorldBytesStable
                                     + " oneRoundTripSourceMatchesWorld=" + oneRoundTripSourceMatchesWorld
-                                    + " twoRoundTripsSourceMatchesWorld=" + twoRoundTripsSourceMatchesWorld);
+                                    + " twoRoundTripsSourceMatchesWorld=" + twoRoundTripsSourceMatchesWorld
+                                    + " nativeNbtReadable=" + (nativeStructuralEquality != null)
+                                    + " nativeNbtStructurallyEqual=" + Boolean.TRUE.equals(nativeStructuralEquality));
                 }
             } else if (slot == STONE_SLOT) {
                 check(live != null && live.getType() == Material.STONE && live.getAmount() == 17,
