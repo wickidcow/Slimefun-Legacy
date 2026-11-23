@@ -68,8 +68,7 @@ final class DoctorIdentityCommand {
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
-        send(sender, "&7Typed native NBT (amount ignored, read-only): &e"
-                + DoctorNativeNbtEvidence.compare(main, off));
+        send(sender, "&7Typed native NBT (amount ignored, read-only): &e" + DoctorNativeNbtEvidence.compare(main, off));
         send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize() + " &8/ &e" + off.getMaxStackSize());
         int freeOffhand = availableCapacity(off);
         send(sender, "&7Offhand available capacity: &e" + freeOffhand);
@@ -121,8 +120,10 @@ final class DoctorIdentityCommand {
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
-        send(sender, "&7Typed native NBT (amount ignored, read-only): &e"
-                + DoctorNativeNbtEvidence.compare(actual, template));
+        send(
+                sender,
+                "&7Typed native NBT (amount ignored, read-only): &e"
+                        + DoctorNativeNbtEvidence.compare(actual, template));
     }
 
     /**
