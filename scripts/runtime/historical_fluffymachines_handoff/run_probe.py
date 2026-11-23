@@ -118,7 +118,8 @@ def main() -> None:
     subprocess.run(
         [str(javac), "--release", "21",
          "-cp", ":".join([str(args.baseline_core.resolve()), *map(str, libraries)]),
-         "-d", str(classes), str(sources / "FluffyMachinesHistoryProbe.java")],
+         "-d", str(classes), str(sources / "FluffyMachinesHistoryProbe.java"),
+         str(sources / "NativeNbtStructuralEvidence.java")],
         check=True, timeout=200)
     shutil.copyfile(sources / "plugin.yml", classes / "plugin.yml")
     plugins = root / "plugins"
