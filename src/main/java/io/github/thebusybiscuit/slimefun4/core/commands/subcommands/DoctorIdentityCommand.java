@@ -112,7 +112,8 @@ final class DoctorIdentityCommand {
             send(sender, "&7" + label + " vs registered template: &eUNAVAILABLE (unregistered item)");
             return;
         }
-        Comparison comparison = inspect(actual, item.getItem());
+        ItemStack template = item.getItem();
+        Comparison comparison = inspect(actual, template);
         send(sender, "&6" + label + " vs registered template:");
         send(sender, "&7Stack compatibility: " + flag(comparison.isSimilar()));
         send(sender, "&7Display name: " + flag(comparison.displayNameSame()));
@@ -121,7 +122,7 @@ final class DoctorIdentityCommand {
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
         send(sender, "&7Typed native NBT (amount ignored, read-only): &e"
-                + DoctorNativeNbtEvidence.compare(actual, item.getItem()));
+                + DoctorNativeNbtEvidence.compare(actual, template));
     }
 
     /**
