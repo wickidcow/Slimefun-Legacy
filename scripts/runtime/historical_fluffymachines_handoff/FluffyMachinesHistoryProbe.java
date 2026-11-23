@@ -41,6 +41,7 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        NativeNbtStructuralEvidence.selfTest();
         Objects.requireNonNull(getCommand("sflfluffymachineshistory")).setExecutor(this::command);
     }
 
