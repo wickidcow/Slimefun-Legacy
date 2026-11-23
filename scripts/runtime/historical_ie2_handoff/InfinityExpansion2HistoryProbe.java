@@ -41,6 +41,7 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        NativeNbtStructuralEvidence.selfTest();
         Objects.requireNonNull(getCommand("sflie2history")).setExecutor(this::command);
     }
 
@@ -419,12 +420,29 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         StringBuilder report = new StringBuilder("item_id\tclassification\n");
         long currentTotal = 0;
         int exact = 0, eligible = 0, refused = 0;
+        int detachedRoundtripOrdering = 0;
         for (int slot = 0; slot < ids.size(); slot++) {
             String id = ids.get(slot);
-            ItemStack old = nativeItem(sourceSlot(slot));
             byte[] original = Files.readAllBytes(base.resolve("private-originals").resolve(slot + ".bin"));
-            check(Arrays.equals(original, old.serializeAsBytes()),
-                    "Old InfinityExpansion2 item changed before comparison: " + id);
+            // The original physical chest remains byte-exact. Do not mistake
+            // detached Bukkit/Paper reserialization order for a world rewrite.
+            ItemStack stored = sourceSlot(slot);
+            check(stored != null && Arrays.equals(original, stored.serializeAsBytes()),
+                    "Old InfinityExpansion2 world chest changed before comparison: " + id);
+            ItemStack old = nativeItem(stored);
+            byte[] detached = old.serializeAsBytes();
+            if (!Arrays.equals(original, detached)) {
+                ItemStack saved = ItemStack.deserializeBytes(original);
+                check(Boolean.TRUE.equals(NativeNbtStructuralEvidence.equivalent(original, detached))
+                                && saved.getType() == old.getType()
+                                && saved.getAmount() == old.getAmount()
+                                && id.equals(itemId(saved))
+                                && id.equals(itemId(old))
+                                && saved.isSimilar(old)
+                                && Objects.equals(saved.getItemMeta(), old.getItemMeta()),
+                        "Detached IE2 serialization changed typed data or identity: " + id);
+                detachedRoundtripOrdering++;
+            }
             ItemStack template = all.get(id).getItem();
             byte[] unchangedTemplate = template.serializeAsBytes();
             ItemStack fresh = nativeItem(template);
@@ -508,6 +526,7 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         assertOriginalChest(ids);
         getLogger().info("SFL_TRUE_IE2_DIAGNOSTIC_" + (replay ? "RESTART" : "CANDIDATE")
                 + "_PASS source_items=" + ids.size() + " exact=" + exact + " strict_repairable="
-                + eligible + " refused=" + refused + " quantity=" + currentTotal);
+                + eligible + " refused=" + refused + " quantity=" + currentTotal
+                + " detached_order_only=" + detachedRoundtripOrdering);
     }
 }
