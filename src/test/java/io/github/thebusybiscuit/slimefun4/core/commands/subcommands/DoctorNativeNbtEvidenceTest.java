@@ -49,6 +49,17 @@ class DoctorNativeNbtEvidenceTest {
     }
 
     @Test
+    void refusesConflictingRootQuantityAliasesRatherThanHidingOwnerData() throws IOException {
+        byte[] unambiguous = synthetic(false, false, false, 1, 33);
+        byte[] ambiguous = synthetic(false, false, false, 1, 33, true);
+
+        assertEquals(DoctorNativeNbtEvidence.Verdict.UNAVAILABLE,
+                DoctorNativeNbtEvidence.compareNativeBytes(unambiguous, ambiguous));
+        assertEquals(DoctorNativeNbtEvidence.Verdict.UNAVAILABLE,
+                DoctorNativeNbtEvidence.compareNativeBytes(ambiguous, unambiguous));
+    }
+
+    @Test
     void refusesMalformedOrOverBudgetNativeInput() throws IOException {
         byte[] source = synthetic(false, false, false);
         assertEquals(DoctorNativeNbtEvidence.Verdict.UNAVAILABLE,
@@ -70,6 +81,16 @@ class DoctorNativeNbtEvidenceTest {
     private static byte[] synthetic(
             boolean reverseCompound, boolean useLong, boolean reverseList, int rootCount, int nestedCount)
             throws IOException {
+        return synthetic(reverseCompound, useLong, reverseList, rootCount, nestedCount, false);
+    }
+
+    private static byte[] synthetic(
+            boolean reverseCompound,
+            boolean useLong,
+            boolean reverseList,
+            int rootCount,
+            int nestedCount,
+            boolean conflictingCountAlias) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (GZIPOutputStream zipped = new GZIPOutputStream(bytes);
                 DataOutputStream out = new DataOutputStream(zipped)) {
@@ -91,6 +112,11 @@ class DoctorNativeNbtEvidenceTest {
             out.writeByte(3);
             out.writeUTF("count");
             out.writeInt(rootCount);
+            if (conflictingCountAlias) {
+                out.writeByte(3);
+                out.writeUTF("Count");
+                out.writeInt(rootCount + 1);
+            }
             out.writeByte(10);
             out.writeUTF("private-storage");
             out.writeByte(3);
