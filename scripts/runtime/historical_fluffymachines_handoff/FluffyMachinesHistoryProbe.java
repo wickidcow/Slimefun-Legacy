@@ -317,6 +317,22 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                             && Objects.equals(sourceMeta.displayName(), worldMeta.displayName());
                     boolean componentLoreSame = sourceMeta != null && worldMeta != null
                             && Objects.equals(sourceMeta.lore(), worldMeta.lore());
+                    boolean completeMetaSame = Objects.equals(sourceMeta, worldMeta);
+                    // A byte mismatch despite equal ItemMeta may reflect an
+                    // unstable serialization representation. Compare detached
+                    // native round trips only; never normalize physical stock.
+                    boolean repeatSourceBytesStable =
+                            Arrays.equals(reserializedOriginal, recorded.serializeAsBytes());
+                    boolean repeatWorldBytesStable =
+                            Arrays.equals(live.serializeAsBytes(), live.serializeAsBytes());
+                    ItemStack sourceRoundTrip = nativeItem(recorded);
+                    ItemStack worldRoundTrip = nativeItem(live);
+                    boolean oneRoundTripSourceMatchesWorld = Arrays.equals(
+                            sourceRoundTrip.serializeAsBytes(), worldRoundTrip.serializeAsBytes());
+                    ItemStack secondSourceRoundTrip = nativeItem(sourceRoundTrip);
+                    ItemStack secondWorldRoundTrip = nativeItem(worldRoundTrip);
+                    boolean twoRoundTripsSourceMatchesWorld = Arrays.equals(
+                            secondSourceRoundTrip.serializeAsBytes(), secondWorldRoundTrip.serializeAsBytes());
                     // Only public ID plus boolean categories. Never print names, lore,
                     // serialized bytes, typed owner data or PDC values.
                     throw new SourceInvariantFailure(
@@ -329,7 +345,12 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                                     + " sourceCanonicalizedOnRead=" + sourceCanonicalizedOnRead
                                     + " canonicalizedSourceMatchesWorld=" + canonicalizedSourceMatchesWorld
                                     + " componentNameSame=" + componentNameSame
-                                    + " componentLoreSame=" + componentLoreSame);
+                                    + " componentLoreSame=" + componentLoreSame
+                                    + " completeMetaSame=" + completeMetaSame
+                                    + " repeatSourceBytesStable=" + repeatSourceBytesStable
+                                    + " repeatWorldBytesStable=" + repeatWorldBytesStable
+                                    + " oneRoundTripSourceMatchesWorld=" + oneRoundTripSourceMatchesWorld
+                                    + " twoRoundTripsSourceMatchesWorld=" + twoRoundTripsSourceMatchesWorld);
                 }
             } else if (slot == STONE_SLOT) {
                 check(live != null && live.getType() == Material.STONE && live.getAmount() == 17,
