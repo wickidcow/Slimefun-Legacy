@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * TEST-ONLY structural evidence for native ItemStack snapshots. Canonicalizes
@@ -23,6 +24,50 @@ final class NativeNbtStructuralEvidence {
     private static final int MAX_ENTRIES = 8192;
 
     private NativeNbtStructuralEvidence() {}
+
+    /**
+     * Synthetic policy regression: compound field ordering is irrelevant,
+     * but typed value changes, including int versus long, MUST remain distinct.
+     */
+    static void selfTest() {
+        try {
+            byte[] first = synthetic(false, false);
+            byte[] reordered = synthetic(true, false);
+            byte[] changedType = synthetic(true, true);
+            if (!Boolean.TRUE.equals(equivalent(first, reordered))
+                    || !Boolean.FALSE.equals(equivalent(first, changedType))
+                    || equivalent(first, Arrays.copyOf(first, first.length - 2)) != null) {
+                throw new IllegalStateException("Typed NBT policy self-test mismatch");
+            }
+        } catch (IOException failure) {
+            throw new IllegalStateException("Synthetic typed NBT policy self-test failed", failure);
+        }
+    }
+
+    private static byte[] synthetic(boolean reverse, boolean useLong) throws IOException {
+        var compressed = new ByteArrayOutputStream();
+        try (var zipped = new GZIPOutputStream(compressed);
+                var out = new DataOutputStream(zipped)) {
+            out.writeByte(10);
+            out.writeUTF("");
+            if (reverse) {
+                out.writeByte(8);
+                out.writeUTF("label");
+                out.writeUTF("fixed-value");
+            }
+            out.writeByte(useLong ? 4 : 3);
+            out.writeUTF("typed-value");
+            if (useLong) out.writeLong(7L);
+            else out.writeInt(7);
+            if (!reverse) {
+                out.writeByte(8);
+                out.writeUTF("label");
+                out.writeUTF("fixed-value");
+            }
+            out.writeByte(0);
+        }
+        return compressed.toByteArray();
+    }
 
     /** Null means malformed, unsupported or over-budget native input. */
     static Boolean equivalent(byte[] left, byte[] right) {
