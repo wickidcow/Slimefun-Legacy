@@ -125,17 +125,19 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
                 .toList();
     }
 
-    /** Deterministic bounded old-version sample plus owner-reported GEO/storage IDs. */
+    /**
+     * Sample only the published IE2-owned registry plus its storage unit.
+     * SMALL_URANIUM is a GEO output but NOT an IE2-owned registered item
+     * in v2.0.21; producer parity needs a separate cross-addon fixture.
+     */
     private static List<SlimefunItem> registered() {
         List<SlimefunItem> all = allRegistered();
         check(all.size() >= 24, "Published IE2 registry has fewer than 24 items");
-        List<SlimefunItem> selected = new ArrayList<>(all.stream().limit(51).toList());
-        for (String mandatory : List.of("SMALL_URANIUM", "IE_STORAGE_UNIT_1")) {
-            SlimefunItem actual = all.stream().filter(item -> mandatory.equals(item.getId()))
-                    .findFirst().orElseThrow(() ->
-                            new SourceInvariantFailure("Expected old IE2 ID missing: " + mandatory));
-            if (!selected.contains(actual)) selected.add(actual);
-        }
+        List<SlimefunItem> selected = new ArrayList<>(all.stream().limit(52).toList());
+        SlimefunItem storage = all.stream().filter(item -> "IE_STORAGE_UNIT_1".equals(item.getId()))
+                .findFirst().orElseThrow(() ->
+                        new SourceInvariantFailure("Expected old IE2 storage ID missing"));
+        if (!selected.contains(storage)) selected.add(storage);
         selected.sort(Comparator.comparing(SlimefunItem::getId));
         check(selected.size() >= 24 && selected.size() <= MAX_ITEMS,
                 "Old IE2 historical sample exceeded two chests");
