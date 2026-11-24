@@ -222,6 +222,28 @@ class TestDoctorLiveInventoryRollback {
     }
 
     @Test
+    void lookupCallbackCannotMutateOriginalBackupIntoAnAcceptedRestore() throws Exception {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack reference = template();
+        inventory.setItem(0, old(reference, 17));
+        UUID owner = UUID.randomUUID();
+        UUID receipt = DoctorLiveItemUpdate.apply(
+                inventory, DoctorLiveItemUpdate.preview(inventory, item -> reference),
+                item -> reference, data, owner).getFirst().id();
+        byte[] updated = inventory.getItem(0).serializeAsBytes();
+        byte[] original = DoctorHistoricalStackRepair.readVerifiedBackup(data, owner, receipt)
+                .serializeAsBytes();
+        assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.preview(
+                inventory, data, owner, receipt, 0, item -> {
+                    item.setAmount(item.getAmount() - 1);
+                    return reference;
+                }, 1_000L));
+        assertArrayEquals(updated, inventory.getItem(0).serializeAsBytes());
+        assertArrayEquals(original,
+                DoctorHistoricalStackRepair.readVerifiedBackup(data, owner, receipt).serializeAsBytes());
+    }
+
+    @Test
     void expiryAndMissingOriginalDoNotDestroyUpdatedPlayerItems() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack reference = template();
