@@ -1,7 +1,6 @@
 package io.github.wickidcow.validation;
 
 import com.google.gson.GsonBuilder;
-import io.github.bakedlibs.dough.items.CustomItemStack;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.lang.reflect.Method;
@@ -412,7 +411,14 @@ final class ItemIdentityProbe {
             // GiveCommand -> new CustomItemStack(getItem(), amount).
             ItemStack cheat = template.clone();
             ItemStack second = cheat.clone();
-            ItemStack given = new CustomItemStack(template, 1);
+            // Native probe classpath includes the candidate Slimefun API but
+            // intentionally not Dough's compile-only jar. Resolve the exact
+            // production GiveCommand constructor through Slimefun's own classloader.
+            ItemStack given = (ItemStack) Class.forName(
+                            "io.github.bakedlibs.dough.items.CustomItemStack",
+                            true, Slimefun.class.getClassLoader())
+                    .getConstructor(ItemStack.class, int.class)
+                    .newInstance(template, 1);
 
             boolean unchanged = Arrays.equals(before, template.serializeAsBytes());
             boolean firstExact = Arrays.equals(before, cheat.serializeAsBytes());
