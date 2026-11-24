@@ -411,11 +411,13 @@ final class ItemIdentityProbe {
             // GiveCommand -> new CustomItemStack(getItem(), amount).
             ItemStack cheat = template.clone();
             ItemStack second = cheat.clone();
-            // Native probe classpath includes the candidate Slimefun API but
-            // intentionally not Dough's compile-only jar. Resolve the exact
-            // production GiveCommand constructor through Slimefun's own classloader.
+            // Dough's CustomItemStack is relocated inside the published
+            // Slimefun JAR. Resolve the actual shaded class that production
+            // GiveCommand invokes; the standalone probe classpath has no
+            // unshaded Dough artifact. This path was verified against the
+            // exact candidate JAR's declared bytecode constructor.
             ItemStack given = (ItemStack) Class.forName(
-                            "io.github.bakedlibs.dough.items.CustomItemStack",
+                            "io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack",
                             true, Slimefun.class.getClassLoader())
                     .getConstructor(ItemStack.class, int.class)
                     .newInstance(template, 1);
