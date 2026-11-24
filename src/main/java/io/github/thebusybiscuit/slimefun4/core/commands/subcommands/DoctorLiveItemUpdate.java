@@ -51,12 +51,39 @@ final class DoctorLiveItemUpdate {
     private static final long PLAN_TTL_MILLIS = 60_000L;
     private static final NamespacedKey SLIMEFUN_ID = new NamespacedKey("slimefun", "slimefun_item");
     private static final Map<UUID, SavedPlan> PLANS = new ConcurrentHashMap<>();
+    private static final Map<UUID, DoctorLiveInventoryRollback.Plan> ROLLBACK_PLANS =
+            new ConcurrentHashMap<>();
 
     private DoctorLiveItemUpdate() {}
 
     static void run(Slimefun plugin, CommandSender sender, String[] args) {
         if (!(sender instanceof Player player) || !player.isOp()) {
             send(sender, "&cLive item updates require a server operator in game.");
+            return;
+        }
+        if (args.length == 6 && args[3].equalsIgnoreCase("rollback-preview")) {
+            UUID operator = player.getUniqueId();
+            PLANS.remove(operator);
+            ROLLBACK_PLANS.remove(operator);
+            try {
+                UUID receipt = UUID.fromString(args[4]);
+                int slot = Integer.parseInt(args[5]);
+                var plan = DoctorLiveInventoryRollback.preview(
+                        player.getInventory(), plugin.getDataFolder().toPath(), operator, receipt, slot,
+                        DoctorLiveItemUpdate::registeredTemplate, System.currentTimeMillis());
+                if (ROLLBACK_PLANS.size() >= MAX_PLANS) {
+                    throw new IOException("Too many pending operator rollback previews");
+                }
+                ROLLBACK_PLANS.put(operator, plan);
+                send(player, "&6Postrestart live-batch recovery preview &8| &7Slot: &e" + slot
+                        + " &8| &7Original receipt: &e" + receipt);
+                send(player, "&7Only the backed-up historical styling can be restored; "
+                        + "the complete player storage, typed data, Slimefun ID and count are bound.");
+                send(player, "&cPreview expires in 60 seconds. Back up the server first.");
+                send(player, "&6/sf doctor identity live rollback-confirm");
+            } catch (IOException | RuntimeException exception) {
+                send(player, "&cOriginal receipt and current inventory slot do not match. Nothing changed.");
+            }
             return;
         }
         if (args.length == 6 && args[3].equalsIgnoreCase("verify-evidence")) {
@@ -128,8 +155,35 @@ final class DoctorLiveItemUpdate {
         UUID owner = player.getUniqueId();
         long now = System.currentTimeMillis();
         PLANS.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis() < now);
+        ROLLBACK_PLANS.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis() < now);
+        if (action.equals("rollback-confirm")) {
+            PLANS.remove(owner);
+            var plan = ROLLBACK_PLANS.remove(owner);
+            if (plan == null) {
+                send(player, "&cNo pending matching inventory rollback. Run rollback-preview first.");
+                return;
+            }
+            try {
+                var restored = DoctorLiveInventoryRollback.confirm(
+                        player.getInventory(), plugin.getDataFolder().toPath(), owner,
+                        plan, DoctorLiveItemUpdate::registeredTemplate, now);
+                send(player, "&aRestored old presentation in slot &e" + restored.slot()
+                        + " &awith the exact original amount and typed item data.");
+                send(player, "&7Historical original receipt: &e" + restored.originalReceipt());
+                send(player, "&7New backup of the previously updated stack: &e"
+                        + restored.updatedBackupReceipt());
+                send(player, "&cBoth native receipts are retained; no chest, shop or machine was changed.");
+            } catch (IOException | RuntimeException exception) {
+                send(player, "&cRollback refused or interrupted. Confirm inventory and private backups; "
+                        + "no unrelated slot is intentionally changed.");
+                plugin.getLogger().warning("Operator inventory receipt rollback interrupted: "
+                        + exception.getClass().getSimpleName());
+            }
+            return;
+        }
         if (action.equals("cancel")) {
             PLANS.remove(owner);
+            ROLLBACK_PLANS.remove(owner);
             send(player, "&aPending live item update preview canceled; no items changed.");
             return;
         }
@@ -144,6 +198,7 @@ final class DoctorLiveItemUpdate {
             return;
         }
         if (action.equals("scan")) {
+            ROLLBACK_PLANS.remove(owner);
             PLANS.remove(owner);
             if (PLANS.size() >= MAX_PLANS) {
                 send(player, "&cToo many pending update previews. Retry after they expire.");
@@ -217,6 +272,8 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live inspect-container-journal <journal> &8(read-only state)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
+        send(sender, "&e/sf doctor identity live rollback-preview <original-receipt> <slot> &8(OP-only)");
+        send(sender, "&e/sf doctor identity live rollback-confirm &8(60-second exact inventory plan)");
         send(sender, "&e/sf doctor identity live cancel");
         send(sender, "&cManual and opt-in. No automatic chest, shop, player-join or machine rewrites.");
     }
