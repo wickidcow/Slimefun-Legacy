@@ -23,6 +23,7 @@ import org.bukkit.persistence.PersistentDataType;
  */
 final class DoctorLiveInventoryRollback {
     private static final int MAX_SLOT = 36;
+    private static final int MAX_INVENTORY_SLOTS = 54;
     private static final int MAX_STACK_BYTES = 256 * 1024;
     private static final int MAX_TOTAL_NATIVE_BYTES = 2 * 1024 * 1024;
     private static final long PLAN_TTL_MILLIS = 60_000L;
@@ -150,10 +151,9 @@ final class DoctorLiveInventoryRollback {
     }
 
     private static byte[][] snapshotStorage(Inventory inventory) throws IOException {
-        // PlayerInventory#getSize() includes armor and offhand, whereas its
-        // storage slots are exactly the 36 ordinary inventory positions.
-        // The physical-container snapshot requires those lengths to match,
-        // so never use it as a player-inventory snapshot.
+        // PlayerInventory has 36 ordinary storage positions plus armor and
+        // offhand. Snapshot ALL slots, but only permit a write within the
+        // first 36. Never use physical-container capture here.
         byte[][] first = serializeStorage(inventory);
         byte[][] second = serializeStorage(inventory);
         if (!sameSlots(first, second)) {
@@ -167,14 +167,18 @@ final class DoctorLiveInventoryRollback {
             throw new IOException("Missing player inventory");
         }
         ItemStack[] storage = inventory.getStorageContents();
-        if (storage.length != MAX_SLOT) {
-            throw new IOException("Only the 36 standard player storage slots are eligible");
+        ItemStack[] allSlots = inventory.getContents();
+        if (storage.length != MAX_SLOT
+                || allSlots.length < MAX_SLOT
+                || allSlots.length > MAX_INVENTORY_SLOTS
+                || allSlots.length != inventory.getSize()) {
+            throw new IOException("Unsupported player inventory storage/equipment layout");
         }
-        byte[][] slots = new byte[storage.length][];
+        byte[][] slots = new byte[allSlots.length][];
         int total = 0;
         try {
-            for (int slot = 0; slot < storage.length; slot++) {
-                ItemStack item = storage[slot];
+            for (int slot = 0; slot < allSlots.length; slot++) {
+                ItemStack item = allSlots[slot];
                 if (item == null || item.getType().isAir()) {
                     continue;
                 }
