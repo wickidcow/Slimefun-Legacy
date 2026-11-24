@@ -10,6 +10,7 @@ on:
       - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/install_maven_3_10.sh'
       - 'scripts/test_compile_addon_paper_26_3.py'
       - 'scripts/test_retired_addon_exclusion.py'
       - 'scripts/paper_candidate_versions.py'
@@ -24,6 +25,7 @@ on:
       - 'compatibility/addon-compatibility-matrix.json'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/install_maven_3_10.sh'
       - 'scripts/test_compile_addon_paper_26_3.py'
       - 'scripts/test_retired_addon_exclusion.py'
       - 'scripts/paper_candidate_versions.py'
@@ -289,6 +291,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Install checksum-pinned Maven 3.10.2
+        run: bash preflight-tools/scripts/install_maven_3_10.sh
       - uses: actions/download-artifact@v8
         with:
           name: paper-candidate-slimefun-core

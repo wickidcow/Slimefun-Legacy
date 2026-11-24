@@ -22,6 +22,7 @@ on:
       - 'scripts/stage_r156_official_addons.py'
       - 'scripts/test_stage_r156_official_addons.py'
       - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/install_maven_3_10.sh'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'scripts/verify_addon_bytecode.py'
@@ -50,6 +51,7 @@ on:
       - 'scripts/stage_r156_official_addons.py'
       - 'scripts/test_stage_r156_official_addons.py'
       - 'scripts/compile_addon_paper_26_3.py'
+      - 'scripts/install_maven_3_10.sh'
       - 'scripts/paper_candidate_versions.py'
       - 'scripts/test_paper_candidate_versions.py'
       - 'scripts/verify_addon_bytecode.py'
@@ -242,10 +244,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Install checksum-pinned Maven 3.10.2
+        run: bash tools/scripts/install_maven_3_10.sh
       - uses: gradle/actions/setup-gradle@v4
         if: matrix.slug == 'dracfunreborn'
         with:
-          gradle-version: '9.4.1'
+          gradle-version: '9.9.2'
       - uses: actions/download-artifact@v8
         with:
           name: sfl-26.3-candidate-core
