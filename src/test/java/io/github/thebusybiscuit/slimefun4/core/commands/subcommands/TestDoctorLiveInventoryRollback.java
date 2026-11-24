@@ -7,10 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -143,6 +146,79 @@ class TestDoctorLiveInventoryRollback {
         assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.preview(
                 inventory, data, owner, oldReceipt, 0, item -> reference, 300L));
         assertArrayEquals(typed.serializeAsBytes(), inventory.getItem(0).serializeAsBytes());
+    }
+
+    @Test
+    void synchronousThirdPartySlotMutationAbortsRestoreAndPreservesForeignChange() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack reference = template();
+        backing.setItem(0, old(reference, 24));
+        UUID owner = UUID.randomUUID();
+        UUID receipt = DoctorLiveItemUpdate.apply(
+                backing, DoctorLiveItemUpdate.preview(backing, item -> reference),
+                item -> reference, data, owner).getFirst().id();
+        byte[] updated = backing.getItem(0).serializeAsBytes();
+        var writes = new AtomicInteger();
+        Inventory withHook = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem")
+                                && writes.incrementAndGet() == 1) {
+                            backing.setItem(17, new ItemStack(Material.EMERALD, 11));
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+        var plan = DoctorLiveInventoryRollback.preview(
+                withHook, data, owner, receipt, 0, item -> reference, 1_000L);
+        assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.confirm(
+                withHook, data, owner, plan, item -> reference, 1_100L));
+        assertEquals(2, writes.get(), "The targeted source write must be rolled back");
+        assertArrayEquals(updated, backing.getItem(0).serializeAsBytes());
+        assertEquals(11, backing.getItem(17).getAmount());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(2L, files.filter(Files::isRegularFile).count(),
+                    "Both old and repaired receipts survive the interrupted restore");
+        }
+    }
+
+    @Test
+    void foreignTargetInsertedDuringRestoreIsNeverOverwrittenByRollback() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack reference = template();
+        backing.setItem(0, old(reference, 12));
+        UUID owner = UUID.randomUUID();
+        UUID receipt = DoctorLiveItemUpdate.apply(
+                backing, DoctorLiveItemUpdate.preview(backing, item -> reference),
+                item -> reference, data, owner).getFirst().id();
+        ItemStack foreign = new ItemStack(Material.DIAMOND, 8);
+        var writes = new AtomicInteger();
+        Inventory withHook = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem")
+                                && writes.incrementAndGet() == 1) {
+                            backing.setItem(0, foreign);
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+        var plan = DoctorLiveInventoryRollback.preview(
+                withHook, data, owner, receipt, 0, item -> reference, 1_000L);
+        assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.confirm(
+                withHook, data, owner, plan, item -> reference, 1_100L));
+        assertEquals(1, writes.get(), "Never overwrite the foreign replacement in the target slot");
+        assertArrayEquals(foreign.serializeAsBytes(), backing.getItem(0).serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(2L, files.filter(Files::isRegularFile).count(),
+                    "Both private receipts remain available for manual recovery");
+        }
     }
 
     @Test
