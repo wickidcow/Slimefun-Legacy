@@ -16,7 +16,7 @@ workflow; it does not cover the batch player-inventory slots.
    its zero-based player storage slot, and independently back up the server.
 2. With that updated item still in the *same* player storage slot:
    /sf doctor identity live rollback-preview <original-receipt> <slot>
-3. With no changes to any of the 36 storage slots, within 60 seconds:
+3. With no changes to any ordinary storage, armor or offhand slot, within 60 seconds:
    /sf doctor identity live rollback-confirm
 4. The completed restore reports a **second independently verified private
    receipt containing the *updated* stack**, which must also be kept. The
@@ -34,9 +34,9 @@ synchronous and never run when opening inventories or loading chunks.
   metadata. Doctor's existing strict style-only predecessor check must pass;
   meaningful lore, amount, custom names, unknown IDs and changed functional
   PDC fields are refused.
-- Bind the preview to *every one* of the 36 present ordinary player storage
-  slots by a complete exact native-byte snapshot and checksum. An unrelated
-  player storage slot change invalidates the preview rather than being repaired.
+- Bind the preview to the entire player inventory, including armor and
+  offhand, by a complete exact native-byte snapshot and checksum. An unrelated
+  storage or equipment slot change invalidates the preview rather than being repaired.
 - Before the slot write, reopen the original receipt and store a *second* durable,
   readback-verified native backup of the current updated stack. Repeat the
   full-storage checksum check after disk I/O.
@@ -45,9 +45,10 @@ synchronous and never run when opening inventories or loading chunks.
   **only** if the observed slot still exactly contains the old bytes written
   by this operation. Never overwrite a foreign item inserted concurrently;
   both receipts are left on disk for manual recovery.
-- Explicitly refuse any inventory whose storage area is not exactly 36 slots.
-  PlayerInventory also has armor/offhand slots that do not count toward this
-  operation; no physical-container snapshot APIs are used.
+- Explicitly refuse any inventory whose ordinary storage area is not exactly
+  36 slots. Snapshot the complete player inventory (up to 54 slots, including
+  equipment), but allow writes only to ordinary positions 0-35. No physical-
+  container snapshot APIs are used.
 
 ## Non-goals and release gate
 
