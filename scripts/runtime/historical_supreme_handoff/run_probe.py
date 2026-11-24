@@ -159,14 +159,23 @@ def main() -> None:
     statuses = (proof / "classification.tsv").read_text().splitlines()
     require(24 <= len(ids) <= 53 and len(statuses) == len(ids) + 1,
             "Published Supreme comparison omitted old registered items")
+    similarity_types = ("SIMILAR_TYPED_EQUAL_RAW_DRIFT",
+                        "SIMILAR_TYPED_DIFFERENCE", "SIMILAR_TYPED_UNREADABLE")
     allowed = {"EXACT_NATIVE_MATCH", "STRICT_STYLE_REPAIRABLE",
-               "REFUSED_NON_PRESENTATION", "SIMILAR_NATIVE_DRIFT", "UNRESOLVED"}
-    classifications = [line.split("\t", 1)[1] for line in statuses[1:]]
-    require(all(v in allowed for v in classifications),
-            "Unexpected true-addon old-vs-new classification")
+               "REFUSED_NON_PRESENTATION", "UNRESOLVED", *similarity_types}
+    parsed = [line.split("\t") for line in statuses[1:]]
+    require(statuses[0] == "item_id\tclassification"
+            and all(len(parts) == 2 for parts in parsed)
+            and [parts[0] for parts in parsed] == ids
+            and all(parts[1] in allowed for parts in parsed),
+            "Unexpected or mismatched true-addon old-vs-new typed classification")
+    classifications = [parts[1] for parts in parsed]
     exact = classifications.count("EXACT_NATIVE_MATCH")
     eligible = classifications.count("STRICT_STYLE_REPAIRABLE")
+    similar = sum(classifications.count(category) for category in similarity_types)
     refused = len(ids) - exact - eligible
+    require(similar <= refused and exact + eligible + refused == len(ids),
+            "Typed drift subtype report does not conserve all old sources")
     require(all((proof / f"{stage}.pass").is_file()
                 for stage in ("seed", "stabilize", "baseline", "candidate", "replay")),
             "Five independent Supreme JVM boots not proven")
@@ -180,7 +189,10 @@ def main() -> None:
         "five independent JVM boots and the SAME two physical world chests\n"
         + normalization + "\n"
         f"source_ids={len(ids)} exact_native={exact} "
-        f"strict_presentation_eligible={eligible} refused={refused}\n"
+        f"strict_presentation_eligible={eligible} refused={refused} "
+        f"similar_typed_equal={classifications.count(similarity_types[0])} "
+        f"similar_typed_different={classifications.count(similarity_types[1])} "
+        f"similar_typed_unreadable={classifications.count(similarity_types[2])}\n"
         "world_chest_written_only_in_seed=true; baseline_current_and_replay_read_only=true\n"
         "native_originals_and_owner_receipts_remain_private=true\n"
         "This does not authorize any production chest, machine, QuickShop, Cargo or SQL repair.\n")
