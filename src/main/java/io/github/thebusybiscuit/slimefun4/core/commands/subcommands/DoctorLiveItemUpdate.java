@@ -248,6 +248,8 @@ final class DoctorLiveItemUpdate {
                     send(player, "&7Slot &e" + receipt.slot() + " &8| &7Private backup receipt: &e" + receipt.id());
                 }
                 send(player, "&cKeep these backups. Chests, machines and QuickShop templates were not changed.");
+                send(player, "&ePostrestart player-slot recovery: "
+                        + "/sf doctor identity live rollback-preview <receipt> <slot>");
             } catch (IOException | RuntimeException exception) {
                 send(player, "&cLive item update was refused or interrupted. Check inventory and private backups.");
                 plugin.getLogger().warning("Operator live-item batch refused; verify original item receipts: "
