@@ -441,6 +441,7 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         StringBuilder report = new StringBuilder("item_id\tclassification\n");
         long currentTotal = 0;
         int exact = 0, eligible = 0, refused = 0;
+        int similarTypedEqual = 0, similarTypedDifferent = 0, similarTypedUnreadable = 0;
         int detachedRoundtripOrdering = 0;
         for (int slot = 0; slot < ids.size(); slot++) {
             String id = ids.get(slot);
@@ -479,8 +480,26 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
                 check(prepare.invoke(null, old, fresh, resolved) == null,
                         "Doctor tried to rewrite an identical InfinityExpansion2 item " + id);
             } else if (old.isSimilar(fresh)) {
-                // Bukkit isSimilar can ignore future opaque components.
-                classification = "SIMILAR_NATIVE_DRIFT";
+                // These historical items already pass Bukkit stack similarity,
+                // yet raw native bytes differ. Distinguish unordered compound
+                // serialization from truly different typed payloads without
+                // changing any source, registered template or saved chest.
+                ItemStack normalizedOld = nativeItem(old);
+                ItemStack normalizedFresh = nativeItem(fresh);
+                normalizedOld.setAmount(1);
+                normalizedFresh.setAmount(1);
+                Boolean sameTyped = NativeNbtStructuralEvidence.equivalent(
+                        normalizedOld.serializeAsBytes(), normalizedFresh.serializeAsBytes());
+                if (Boolean.TRUE.equals(sameTyped)) {
+                    classification = "SIMILAR_TYPED_EQUAL_RAW_DRIFT";
+                    similarTypedEqual++;
+                } else if (Boolean.FALSE.equals(sameTyped)) {
+                    classification = "SIMILAR_TYPED_DIFFERENCE";
+                    similarTypedDifferent++;
+                } else {
+                    classification = "SIMILAR_TYPED_UNREADABLE";
+                    similarTypedUnreadable++;
+                }
                 refused++;
             } else {
                 proposed = (ItemStack) prepare.invoke(null, old, fresh, resolved);
@@ -540,6 +559,8 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         check(currentTotal == Long.parseLong(Files.readString(base.resolve("original-count.txt")).trim()),
                 "InfinityExpansion2 original saved quantities changed across runtime boot");
         check(exact + eligible + refused == ids.size(), "Historical InfinityExpansion2 count partition failed");
+        check(similarTypedEqual + similarTypedDifferent + similarTypedUnreadable <= refused,
+                "Typed NBT observations must not inflate the refused item count");
         Path reportFile = base.resolve("classification.tsv");
         if (replay) {
             check(Files.readString(reportFile).equals(report.toString()),
@@ -551,6 +572,9 @@ public final class InfinityExpansion2HistoryProbe extends JavaPlugin {
         getLogger().info("SFL_TRUE_IE2_DIAGNOSTIC_" + (replay ? "RESTART" : "CANDIDATE")
                 + "_PASS source_items=" + ids.size() + " exact=" + exact + " strict_repairable="
                 + eligible + " refused=" + refused + " quantity=" + currentTotal
-                + " detached_order_only=" + detachedRoundtripOrdering);
+                + " detached_order_only=" + detachedRoundtripOrdering
+                + " similar_typed_equal=" + similarTypedEqual
+                + " similar_typed_different=" + similarTypedDifferent
+                + " similar_typed_unreadable=" + similarTypedUnreadable);
     }
 }
