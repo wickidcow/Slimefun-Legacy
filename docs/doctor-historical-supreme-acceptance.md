@@ -1,0 +1,9 @@
+# Published Supreme v1.0.20 → v1.0.21 historical-item handoff
+
+This **test-only draft** pins verified published Supreme v1.0.20 (SHA-256 `e03299368a57ace781737fc34bf3835c9590abf4c59a107544e66b2fbfbeb735`) and v1.0.21 (SHA-256 `3ca82e92f99db81599907bf4e4cb70ecfb769fa96704af9a87ae266be4eb9af5`), published Slimefun Legacy v4.1.81 (SHA-256 `9d0e436658cb426ecf3468ab55f698fb7e41e23c46e26f9153ffe19a7fa901d1`) and checksum-pinned Paper 1.21.11. It independently builds the unpublished Doctor candidate.
+
+Five separate JVM boots use two **disposable physical 27-slot world chests** plus a fixed vanilla stone control: published old seed, same-old-version stabilization, unchanged-old-version baseline, candidate new-addon comparison, new-version restart. Only seed ever writes chest slots. The sample is bounded to at most 53 actual old-registered Supreme IDs: first 50 sorted IDs, one generator, one capacitor, and one real material-armor item where not already included. This does **not** test every Supreme item or released version.
+
+Private byte-exact original receipts, amounts, IDs, full ItemMeta and typed NBT are preserved. The read-only canonical NBT comparator can identify pure compound-key ordering differences, but a different native typed tag, owner, charge, amount or other functional component fails the test. No sample item, global registered template, real world, player inventory, machine, generator or soulbound armor is repaired. The existing production Doctor's strict copy/backup/typed-owner negative checks run on **detached items only** and do not grant permission for automatic migration.
+
+A real AlbionMC clone with backed-up quantities, original shop sales, machine storage, restart and rollback remains required before live deployment. **Draft only**, not approval to publish v4.1.82.
