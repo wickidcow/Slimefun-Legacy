@@ -682,7 +682,7 @@ def build_project(
                 prepare_shell_wrapper(wrapper)
                 if prepare_ephemeral_gradle_wrapper_timeout(project):
                     log.write("Ephemeral Gradle wrapper networkTimeout raised to 120000ms; "
-                              "distribution URL and published source commit unchanged.\\n")
+                              "distribution URL and published source commit unchanged.\n")
                 command = [
                     str(wrapper),
                     "clean",
