@@ -76,6 +76,9 @@ class TestDoctorQuickShopReadOnly {
         assertTrue(report.saleMatchesStock());
         assertFalse(report.matcherAcceptsFresh());
         assertTrue(report.matcherAcceptsStock());
+        assertEquals(DoctorNativeNbtEvidence.compare(oldShop, current), report.saleTypedCurrent());
+        assertEquals(DoctorNativeNbtEvidence.compare(oldStock, current), report.stockTypedCurrent());
+        assertEquals(DoctorNativeNbtEvidence.compare(oldShop, oldStock), report.saleTypedStock());
         assertArrayEquals(oldShopBytes, oldShop.serializeAsBytes());
         assertArrayEquals(oldStockBytes, oldStock.serializeAsBytes());
         assertArrayEquals(currentBytes, current.serializeAsBytes());
@@ -108,6 +111,9 @@ class TestDoctorQuickShopReadOnly {
         assertFalse(report.stockPresent());
         assertTrue(report.matcherAcceptsFresh());
         assertFalse(report.matcherAcceptsStock());
+        assertEquals(DoctorNativeNbtEvidence.Verdict.EXACT_NATIVE_BYTES, report.saleTypedCurrent());
+        assertNull(report.stockTypedCurrent());
+        assertNull(report.saleTypedStock());
     }
 
     @Test
@@ -139,6 +145,11 @@ class TestDoctorQuickShopReadOnly {
         assertTrue(result.matcherAcceptsFresh());
         assertTrue(result.matcherAcceptsStock());
         assertFalse(result.saleMatchesStock());
+        assertEquals(DoctorNativeNbtEvidence.compare(typed, current), result.saleTypedCurrent());
+        assertEquals(DoctorNativeNbtEvidence.compare(named, current), result.stockTypedCurrent());
+        assertEquals(DoctorNativeNbtEvidence.compare(typed, named), result.saleTypedStock());
+        assertFalse(result.saleTypedCurrent() == DoctorNativeNbtEvidence.Verdict.EXACT_NATIVE_BYTES
+                || result.saleTypedCurrent() == DoctorNativeNbtEvidence.Verdict.SAME_TYPED_NBT);
         assertArrayEquals(ownerBytes, typed.serializeAsBytes());
         assertArrayEquals(nameBytes, named.serializeAsBytes());
     }
@@ -200,6 +211,9 @@ class TestDoctorQuickShopReadOnly {
                 result.cachedDifference());
         assertFalse(result.cachedMatchesView());
         assertFalse(result.cachedMatchesStock());
+        assertEquals(DoctorNativeNbtEvidence.compare(result.item(), current), result.cachedTypedCurrent());
+        assertEquals(DoctorNativeNbtEvidence.compare(result.item(), oldView), result.cachedTypedRuntime());
+        assertEquals(DoctorNativeNbtEvidence.compare(result.item(), stock), result.cachedTypedStock());
         assertArrayEquals(savedStock, stock.serializeAsBytes());
         assertEquals(42, stock.getAmount());
     }
