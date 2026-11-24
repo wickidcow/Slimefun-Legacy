@@ -384,42 +384,120 @@ final class ItemIdentityProbe {
                 + " addons=" + perAddon.size());
     }
 
+    /**
+     * Read-only across EVERY currently registered Slimefun item: reproduce
+     * /sf cheat's direct clone and /sf give's Dough CustomItemStack copy,
+     * then test native metadata, Bukkit similarity, and an actual two-item
+     * inventory merge where the material permits stacking. This never gives
+     * anything to a player and does not claim crafting/machine or historical
+     * persisted-world evidence.
+     */
     private static void verifyRegisteredCloneIdentity(Path folder) throws Exception {
         var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
                 .sorted(java.util.Comparator.comparing(SlimefunItem::getId)).toList();
-        require(!items.isEmpty(), "registered clone identity probe has no items");
+        require(!items.isEmpty(), "registered copy-path identity probe has no items");
         var results = new java.util.ArrayList<Map<String, Object>>();
         var failures = new java.util.ArrayList<String>();
+        int byteExactCopies = 0;
+        int compatibleCopies = 0;
+        int physicalMerges = 0;
+        int intentionallyUnstackable = 0;
         for (var item : items) {
             ItemStack template = item.getItem();
             byte[] before = template.serializeAsBytes();
-            // Intentionally exercise the public production clone implementation.
-            // SlimefunItemStack.clone reapplies item data/textures in its constructor.
-            ItemStack first = template.clone();
-            ItemStack second = first.clone();
+
+            // Exercise production paths, not a substitute synthetic copy:
+            // IndexedSurvivalSlimefunGuide -> getItem().clone()
+            // GiveCommand -> new CustomItemStack(getItem(), amount).
+            ItemStack cheat = template.clone();
+            ItemStack second = cheat.clone();
+            // Dough's CustomItemStack is relocated inside the published
+            // Slimefun JAR. Resolve the actual shaded class that production
+            // GiveCommand invokes; the standalone probe classpath has no
+            // unshaded Dough artifact. This path was verified against the
+            // exact candidate JAR's declared bytecode constructor.
+            ItemStack given = (ItemStack) Class.forName(
+                            "io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack",
+                            true, Slimefun.class.getClassLoader())
+                    .getConstructor(ItemStack.class, int.class)
+                    .newInstance(template, 1);
+
             boolean unchanged = Arrays.equals(before, template.serializeAsBytes());
-            boolean firstExact = Arrays.equals(before, first.serializeAsBytes());
+            boolean firstExact = Arrays.equals(before, cheat.serializeAsBytes());
             boolean secondExact = Arrays.equals(before, second.serializeAsBytes());
-            boolean amounts = template.getAmount() == first.getAmount()
-                    && template.getAmount() == second.getAmount();
-            boolean passed = unchanged && firstExact && secondExact && amounts;
-            results.add(Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
-                    "template_unchanged", unchanged, "first_clone_exact", firstExact,
-                    "second_clone_exact", secondExact, "quantity_preserved", amounts,
+            boolean amounts = template.getAmount() == cheat.getAmount()
+                    && template.getAmount() == second.getAmount() && given.getAmount() == 1;
+            ItemStack normalizedCheat = ItemStack.deserializeBytes(cheat.serializeAsBytes());
+            ItemStack normalizedGiven = ItemStack.deserializeBytes(given.serializeAsBytes());
+            normalizedCheat.setAmount(1);
+            normalizedGiven.setAmount(1);
+            byte[] cheatBytes = normalizedCheat.serializeAsBytes();
+            byte[] givenBytes = normalizedGiven.serializeAsBytes();
+            boolean copyByteExact = Arrays.equals(cheatBytes, givenBytes);
+            boolean copyStackable = normalizedCheat.isSimilar(normalizedGiven)
+                    && normalizedGiven.isSimilar(normalizedCheat);
+            boolean mergeValid = false;
+            int maxStackSize = Math.min(normalizedCheat.getMaxStackSize(), normalizedGiven.getMaxStackSize());
+            if (copyStackable && maxStackSize == 1) {
+                // Armor/equipment and other legitimate 1-item max stacks
+                // cannot physically merge, even when metadata is identical.
+                mergeValid = true;
+                intentionallyUnstackable++;
+            } else if (copyStackable && maxStackSize > 1) {
+                var inventory = Bukkit.createInventory(null, 9);
+                boolean noOverflow = inventory.addItem(normalizedCheat, normalizedGiven).isEmpty();
+                var stacks = Arrays.stream(inventory.getContents())
+                        .filter(stack -> stack != null && !stack.getType().isAir()).toList();
+                mergeValid = noOverflow && stacks.size() == 1 && stacks.getFirst().getAmount() == 2;
+                if (mergeValid) {
+                    physicalMerges++;
+                }
+            }
+            boolean passed = unchanged && firstExact && secondExact && amounts
+                    && copyStackable && mergeValid;
+            if (copyByteExact) {
+                byteExactCopies++;
+            }
+            if (copyStackable) {
+                compatibleCopies++;
+            }
+
+            results.add(Map.of(
+                    "item_id", item.getId(),
+                    "plugin", item.getAddon().getName(),
+                    "template_unchanged", unchanged,
+                    "first_clone_exact", firstExact,
+                    "second_clone_exact", secondExact,
+                    "quantity_preserved", amounts,
+                    "give_cheat_native_exact", copyByteExact,
+                    "give_cheat_is_similar", copyStackable,
+                    "give_cheat_merge_valid", mergeValid,
                     "status", passed ? "PASS" : "FAIL"));
             if (!passed) {
                 failures.add(item.getId());
             }
         }
-        // IDs and booleans only; never publish item payloads or private typed PDC.
-        var report = Map.of("schema", 1, "scope", "current_registered_template_clone_only",
-                "software", Bukkit.getName(), "server_version", Bukkit.getVersion(),
-                "historical_world_acceptance", "UNTESTED", "producer_coverage", "UNTESTED",
-                "items", results);
+
+        // Public IDs and categorical boolean outcomes only. Deliberately no
+        // serialized bytes, text content, typed PDC data or player identities.
+        var report = Map.ofEntries(
+                Map.entry("schema", 2),
+                Map.entry("scope", "current_registered_template_cheat_clone_and_give_factory_copy"),
+                Map.entry("software", Bukkit.getName()),
+                Map.entry("server_version", Bukkit.getVersion()),
+                Map.entry("historical_world_acceptance", "UNTESTED"),
+                Map.entry("crafting_machine_cargo_acceptance", "UNTESTED"),
+                Map.entry("give_cheat_byte_exact", byteExactCopies),
+                Map.entry("give_cheat_bukkit_similar", compatibleCopies),
+                Map.entry("give_cheat_physical_merges", physicalMerges),
+                Map.entry("intentionally_unstackable", intentionallyUnstackable),
+                Map.entry("items", results));
         Files.writeString(folder.resolve("identity-registry-clone.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(report));
-        require(failures.isEmpty(), "registered clone identity drift: " + failures);
-        Bukkit.getLogger().info("SFL_REGISTERED_CLONE_IDENTITY_PASS items=" + results.size());
+        require(failures.isEmpty(), "registered /sf cheat vs /sf give copy-path drift: " + failures);
+        Bukkit.getLogger().info("SFL_REGISTERED_CLONE_IDENTITY_PASS items=" + items.size()
+                + " give_similar=" + compatibleCopies + " exact=" + byteExactCopies
+                + " merged=" + physicalMerges + " max_one=" + intentionallyUnstackable);
     }
 
     private static void verifyRegisteredCarbonHistory(Path folder, String id, boolean restart)
