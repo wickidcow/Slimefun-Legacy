@@ -244,6 +244,36 @@ class TestDoctorLiveInventoryRollback {
     }
 
     @Test
+    void armorAndOffhandChangesInvalidateFullPlayerInventoryRollback() throws Exception {
+        var player = MockBukkit.getMock().addPlayer();
+        var inventory = player.getInventory();
+        ItemStack reference = template();
+        inventory.setItem(0, old(reference, 9));
+        UUID owner = player.getUniqueId();
+        UUID receipt = DoctorLiveItemUpdate.apply(
+                inventory, DoctorLiveItemUpdate.preview(inventory, item -> reference),
+                item -> reference, data, owner).getFirst().id();
+        byte[] repaired = inventory.getItem(0).serializeAsBytes();
+
+        var armorPlan = DoctorLiveInventoryRollback.preview(
+                inventory, data, owner, receipt, 0, item -> reference, 1_000L);
+        inventory.setHelmet(new ItemStack(Material.IRON_HELMET, 1));
+        assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.confirm(
+                inventory, data, owner, armorPlan, item -> reference, 1_100L));
+        assertArrayEquals(repaired, inventory.getItem(0).serializeAsBytes());
+        assertEquals(Material.IRON_HELMET, inventory.getHelmet().getType());
+
+        inventory.setHelmet(null);
+        var offhandPlan = DoctorLiveInventoryRollback.preview(
+                inventory, data, owner, receipt, 0, item -> reference, 2_000L);
+        inventory.setItemInOffHand(new ItemStack(Material.DIAMOND, 5));
+        assertThrows(IOException.class, () -> DoctorLiveInventoryRollback.confirm(
+                inventory, data, owner, offhandPlan, item -> reference, 2_100L));
+        assertArrayEquals(repaired, inventory.getItem(0).serializeAsBytes());
+        assertEquals(5, inventory.getItemInOffHand().getAmount());
+    }
+
+    @Test
     void expiryAndMissingOriginalDoNotDestroyUpdatedPlayerItems() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack reference = template();
