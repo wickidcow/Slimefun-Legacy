@@ -499,10 +499,22 @@ final class DoctorQuickShopReadOnly {
                 throw new IOException("Source item exceeds safe native byte budget");
             }
             ItemStack copy = ItemStack.deserializeBytes(bytes);
+            // The same physical historical item can serialize an unordered
+            // native compound with a different key order after an independent
+            // read. Refuse true typed drift, but don't mislabel harmless
+            // compound ordering as a modified QuickShop source. This is only
+            // an operator-initiated READ, never permission to save that copy.
+            byte[] detachedBytes = copy.serializeAsBytes();
+            boolean exact = Arrays.equals(bytes, detachedBytes);
+            boolean sameTyped = !exact
+                    && DoctorNativeNbtEvidence.compareNativeBytes(bytes, detachedBytes)
+                            == DoctorNativeNbtEvidence.Verdict.SAME_TYPED_NBT;
             if (copy.getType() != item.getType()
                     || copy.getAmount() != item.getAmount()
-                    || !Arrays.equals(bytes, copy.serializeAsBytes())) {
-                throw new IOException("Item native serialization is not stable");
+                    || !item.isSimilar(copy)
+                    || !Objects.equals(item.getItemMeta(), copy.getItemMeta())
+                    || !(exact || sameTyped)) {
+                throw new IOException("QuickShop native source changed typed identity on read");
             }
             return bytes;
         } catch (RuntimeException exception) {
