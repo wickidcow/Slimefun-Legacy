@@ -228,6 +228,13 @@ final class DoctorQuickShopReadOnly {
                 + yesNo(cache.cachedMatchesView()) + " &8| &7Cached vs stock (ignore count): &e"
                 + (comparison.stockPresent() ? yesNo(cache.cachedMatchesStock()) : "NO_STOCK") + " &8| &7Chest stock vs current: &e"
                 + (comparison.stockPresent() ? comparison.stockDifference() : "EMPTY")
+                + " &8| &7Typed sale/current: &e" + comparison.saleTypedCurrent()
+                + " &8| &7Typed cached/current: &e" + cache.cachedTypedCurrent()
+                + " &8| &7Typed cached/runtime: &e" + cache.cachedTypedRuntime()
+                + " &8| &7Typed stock/current: &e"
+                + (comparison.stockPresent() ? comparison.stockTypedCurrent() : "NO_STOCK")
+                + " &8| &7Typed sale/stock: &e"
+                + (comparison.stockPresent() ? comparison.saleTypedStock() : "NO_STOCK")
                 + " &8| &7Sale item vs stock (native): &e"
                 + (comparison.stockPresent() ? yesNo(comparison.saleMatchesStock()) : "NO_STOCK")
                 + " &8| &7QuickShop matches fresh: &e" + yesNo(comparison.matcherAcceptsFresh())
@@ -377,14 +384,23 @@ final class DoctorQuickShopReadOnly {
                 || stockBytes != null && !Arrays.equals(stockBytes, stock.serializeAsBytes())) {
             throw new IOException("QuickShop cache source comparison raced an item change");
         }
-        return new CachedComparison(cached, difference, matchesView, matchesStock);
+        // Detached read-only typed evidence; only enum categories leave this method.
+        // There is still no authenticated SQL read or shop update.
+        return new CachedComparison(
+                cached, difference, matchesView, matchesStock,
+                DoctorNativeNbtEvidence.compare(cached, current),
+                DoctorNativeNbtEvidence.compare(cached, view),
+                stocked == null ? null : DoctorNativeNbtEvidence.compare(cached, stocked));
     }
 
     record CachedComparison(
             ItemStack item,
             DoctorHistoricalStackEvidenceAudit.Difference cachedDifference,
             boolean cachedMatchesView,
-            boolean cachedMatchesStock) {}
+            boolean cachedMatchesStock,
+            DoctorNativeNbtEvidence.Verdict cachedTypedCurrent,
+            DoctorNativeNbtEvidence.Verdict cachedTypedRuntime,
+            DoctorNativeNbtEvidence.Verdict cachedTypedStock) {}
 
     /**
      * Tests three independently captured native items, with a provided matcher
@@ -423,7 +439,11 @@ final class DoctorQuickShopReadOnly {
                     || stockBytes != null && !Arrays.equals(stockBytes, stock.serializeAsBytes())) {
                 throw new IOException("Item source changed during QuickShop read-only classification");
             }
-            return new Result(saved, stored, stockNative != null, sameSaleStock, matchCurrent, matchStock);
+            return new Result(
+                    saved, stored, stockNative != null, sameSaleStock, matchCurrent, matchStock,
+                    DoctorNativeNbtEvidence.compare(saleNative, referenceNative),
+                    stockNative == null ? null : DoctorNativeNbtEvidence.compare(stockNative, referenceNative),
+                    stockNative == null ? null : DoctorNativeNbtEvidence.compare(saleNative, stockNative));
         } catch (RuntimeException exception) {
             throw new IOException("QuickShop comparison could not complete safely", exception);
         }
@@ -479,10 +499,23 @@ final class DoctorQuickShopReadOnly {
                 throw new IOException("Source item exceeds safe native byte budget");
             }
             ItemStack copy = ItemStack.deserializeBytes(bytes);
+            // The same physical historical item can serialize an unordered
+            // native compound with a different key order after an independent
+            // read. Refuse true typed drift, but don't mislabel harmless
+            // compound ordering as a modified QuickShop source. This is only
+            // an operator-initiated READ, never permission to save that copy.
+            byte[] detachedBytes = copy.serializeAsBytes();
+            boolean exact = Arrays.equals(bytes, detachedBytes);
+            boolean sameTyped = !exact
+                    && DoctorNativeNbtEvidence.compareNativeBytes(bytes, detachedBytes)
+                            == DoctorNativeNbtEvidence.Verdict.SAME_TYPED_NBT;
             if (copy.getType() != item.getType()
                     || copy.getAmount() != item.getAmount()
-                    || !Arrays.equals(bytes, copy.serializeAsBytes())) {
-                throw new IOException("Item native serialization is not stable");
+                    || (!exact
+                            && (!sameTyped
+                                    || !item.isSimilar(copy)
+                                    || !Objects.equals(item.getItemMeta(), copy.getItemMeta())))) {
+                throw new IOException("QuickShop native source changed typed identity on read");
             }
             return bytes;
         } catch (RuntimeException exception) {
@@ -504,5 +537,8 @@ final class DoctorQuickShopReadOnly {
             boolean stockPresent,
             boolean saleMatchesStock,
             boolean matcherAcceptsFresh,
-            boolean matcherAcceptsStock) {}
+            boolean matcherAcceptsStock,
+            DoctorNativeNbtEvidence.Verdict saleTypedCurrent,
+            DoctorNativeNbtEvidence.Verdict stockTypedCurrent,
+            DoctorNativeNbtEvidence.Verdict saleTypedStock) {}
 }
