@@ -67,7 +67,7 @@ permissions:
 
 concurrency:
   group: sf-addons-1.21.11-26.3-bundle-v2-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   BUNDLE_NAME: SF_Addons_1.21.11-26.3.zip
@@ -245,7 +245,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: matrix.slug == 'dracfunreborn'
         with:
-          gradle-version: '9.4.1'
+          gradle-version: '9.9.2'
       - uses: actions/download-artifact@v8
         with:
           name: sfl-26.3-candidate-core
