@@ -441,6 +441,7 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         StringBuilder report = new StringBuilder("item_id\tclassification\n");
         long currentTotal = 0;
         int exact = 0, eligible = 0, refused = 0;
+        int similarTypedEqual = 0, similarTypedDifferent = 0, similarTypedUnreadable = 0;
         for (int slot = 0; slot < ids.size(); slot++) {
             String id = ids.get(slot);
             ItemStack old = nativeItem(sourceSlot(slot));
@@ -462,8 +463,25 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
                 check(prepare.invoke(null, old, fresh, resolved) == null,
                         "Doctor tried to rewrite an identical FluffyMachines item " + id);
             } else if (old.isSimilar(fresh)) {
-                // Bukkit isSimilar can ignore future opaque components.
-                classification = "SIMILAR_NATIVE_DRIFT";
+                // Bukkit sees the same stack, but native serialized bytes can
+                // differ by compound-key order. Compare every typed tag value
+                // on detached amount-normalized copies. Never rewrite stock.
+                ItemStack normalizedOld = nativeItem(old);
+                ItemStack normalizedFresh = nativeItem(fresh);
+                normalizedOld.setAmount(1);
+                normalizedFresh.setAmount(1);
+                Boolean typedEqual = NativeNbtStructuralEvidence.equivalent(
+                        normalizedOld.serializeAsBytes(), normalizedFresh.serializeAsBytes());
+                if (Boolean.TRUE.equals(typedEqual)) {
+                    classification = "SIMILAR_TYPED_EQUAL_RAW_DRIFT";
+                    similarTypedEqual++;
+                } else if (Boolean.FALSE.equals(typedEqual)) {
+                    classification = "SIMILAR_TYPED_DIFFERENCE";
+                    similarTypedDifferent++;
+                } else {
+                    classification = "SIMILAR_TYPED_UNREADABLE";
+                    similarTypedUnreadable++;
+                }
                 refused++;
             } else {
                 proposed = (ItemStack) prepare.invoke(null, old, fresh, resolved);
@@ -523,6 +541,8 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         check(currentTotal == Long.parseLong(Files.readString(base.resolve("original-count.txt")).trim()),
                 "FluffyMachines original saved quantities changed across runtime boot");
         check(exact + eligible + refused == ids.size(), "Historical FluffyMachines count partition failed");
+        check(similarTypedEqual + similarTypedDifferent + similarTypedUnreadable <= refused,
+                "Typed NBT drift observations inflated the refused count");
         Path reportFile = base.resolve("classification.tsv");
         if (replay) {
             check(Files.readString(reportFile).equals(report.toString()),
@@ -534,6 +554,9 @@ public final class FluffyMachinesHistoryProbe extends JavaPlugin {
         getLogger().info("SFL_TRUE_FLUFFYMACHINES_DIAGNOSTIC_" + (replay ? "RESTART" : "CANDIDATE")
                 + "_PASS source_items=" + ids.size() + " exact=" + exact + " strict_repairable="
                 + eligible + " refused=" + refused + " quantity=" + currentTotal
-                + " raw_order_only=" + rawReorderedOnly);
+                + " raw_order_only=" + rawReorderedOnly
+                + " similar_typed_equal=" + similarTypedEqual
+                + " similar_typed_different=" + similarTypedDifferent
+                + " similar_typed_unreadable=" + similarTypedUnreadable);
     }
 }
