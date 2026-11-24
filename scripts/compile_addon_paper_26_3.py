@@ -127,6 +127,42 @@ def prepare_shell_wrapper(path: Path) -> None:
     make_executable(path)
 
 
+def prepare_ephemeral_gradle_wrapper_timeout(project: Path) -> bool:
+    """Prevent fixed 10s Gradle distribution download failures in disposable CI clones.
+
+    Published addon source pins, distribution URLs/checksums, dependencies,
+    bytecode targets and released JAR digests remain unchanged. The only
+    permitted working-copy edit is increasing the networkTimeout property.
+    All real compile and native validation gates still run.
+    """
+    properties = project / "gradle" / "wrapper" / "gradle-wrapper.properties"
+    if not properties.is_file():
+        return False
+    lines = properties.read_text(encoding="utf-8").splitlines(keepends=True)
+    positions = [i for i, line in enumerate(lines)
+                 if line.lstrip().startswith("networkTimeout")
+                 and not line.lstrip().startswith("#")]
+    if len(positions) > 1:
+        raise RuntimeError("Ambiguous Gradle wrapper networkTimeout definitions")
+    target = 120_000
+    if positions:
+        position = positions[0]
+        value_line = lines[position].strip()
+        key, separator, value = value_line.partition("=")
+        if separator != "=" or key.strip() != "networkTimeout" or not value.strip().isdigit():
+            raise RuntimeError("Invalid Gradle wrapper networkTimeout property")
+        if int(value.strip()) >= target:
+            return False
+        line_end = "\r\n" if lines[position].endswith("\r\n") else "\n"
+        lines[position] = f"networkTimeout={target}{line_end}"
+    else:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"networkTimeout={target}\n")
+    properties.write_text("".join(lines), encoding="utf-8")
+    return True
+
+
 def stream_command(command: list[str], *, cwd: Path, env: dict[str, str], log: TextIO) -> int:
     header = f"$ {' '.join(command)}\nWorking directory: {cwd}\n\n"
     print(header, end="")
@@ -644,6 +680,9 @@ def build_project(
             wrapper = project / "gradlew"
             if wrapper.is_file():
                 prepare_shell_wrapper(wrapper)
+                if prepare_ephemeral_gradle_wrapper_timeout(project):
+                    log.write("Ephemeral Gradle wrapper networkTimeout raised to 120000ms; "
+                              "distribution URL and published source commit unchanged.\\n")
                 command = [
                     str(wrapper),
                     "clean",
