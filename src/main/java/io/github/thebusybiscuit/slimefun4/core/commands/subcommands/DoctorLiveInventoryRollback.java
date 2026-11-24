@@ -24,6 +24,7 @@ import org.bukkit.persistence.PersistentDataType;
 final class DoctorLiveInventoryRollback {
     private static final int MAX_SLOT = 36;
     private static final int MAX_STACK_BYTES = 256 * 1024;
+    private static final int MAX_TOTAL_NATIVE_BYTES = 2 * 1024 * 1024;
     private static final long PLAN_TTL_MILLIS = 60_000L;
     private static final NamespacedKey SLIMEFUN_ID = new NamespacedKey("slimefun", "slimefun_item");
 
@@ -44,7 +45,8 @@ final class DoctorLiveInventoryRollback {
             throw new IOException("Invalid operator-owned player storage slot recovery");
         }
 
-        var before = DoctorLiveItemUpdate.captureContainerPreimage(inventory);
+        byte[][] beforeSlots = snapshotStorage(inventory);
+        String beforeHash = DoctorContainerMigrationPreflight.hashSlots(beforeSlots);
         ItemStack original = DoctorHistoricalStackRepair.readVerifiedBackup(pluginFolder, operator, receipt);
         ItemStack updated = inventory.getItem(slot);
         ItemStack template;
@@ -58,14 +60,14 @@ final class DoctorLiveInventoryRollback {
                 || !DoctorHistoricalStackRepair.matchesSavedBackup(original, updated, template, template)) {
             throw new IOException("Saved original is not the strict style-only predecessor of this exact slot");
         }
-        if (!DoctorLiveItemUpdate.containerUnchanged(inventory, before)) {
+        if (!sameSlots(beforeSlots, snapshotStorage(inventory))) {
             throw new IOException("Player inventory changed during rollback preview");
         }
         return new Plan(
                 receipt, slot, DoctorHistoricalStackRepair.fingerprint(original),
                 DoctorHistoricalStackRepair.fingerprint(updated),
                 DoctorHistoricalStackRepair.fingerprint(template),
-                before.sha256(), now + PLAN_TTL_MILLIS);
+                beforeHash, now + PLAN_TTL_MILLIS);
     }
 
     /**
@@ -89,7 +91,7 @@ final class DoctorLiveInventoryRollback {
             throw new IOException("Backup, current item, registered template or another inventory slot changed");
         }
 
-        byte[][] beforeSlots = DoctorLiveItemUpdate.exactContainerSlots(inventory);
+        byte[][] beforeSlots = snapshotStorage(inventory);
         if (!plan.inventorySha256().equals(DoctorContainerMigrationPreflight.hashSlots(beforeSlots))) {
             throw new IOException("Full player storage changed before restore");
         }
@@ -107,7 +109,7 @@ final class DoctorLiveInventoryRollback {
                 pluginFolder, operator, updatedReceipt);
         if (!Arrays.equals(updatedBytes, verifiedUpdated.serializeAsBytes())
                 || !plan.inventorySha256().equals(
-                        DoctorLiveItemUpdate.captureContainerPreimage(inventory).sha256())) {
+                        DoctorContainerMigrationPreflight.hashSlots(snapshotStorage(inventory)))) {
             throw new IOException("Player inventory changed while persisting rollback safety backup");
         }
         // No disk I/O or external plugin callback occurs between this final
@@ -119,7 +121,7 @@ final class DoctorLiveInventoryRollback {
             }
             attempted = true;
             inventory.setItem(plan.slot(), ItemStack.deserializeBytes(originalBytes));
-            byte[][] observed = DoctorLiveItemUpdate.exactContainerSlots(inventory);
+            byte[][] observed = snapshotStorage(inventory);
             if (!Arrays.equals(originalBytes, observed[plan.slot()])) {
                 throw new IOException("Restored player slot failed native-byte readback");
             }
@@ -145,6 +147,67 @@ final class DoctorLiveInventoryRollback {
             throw new IOException("Player item restore interrupted; both native receipts retained", exception);
         }
         return new Result(plan.slot(), plan.originalReceipt(), updatedReceipt);
+    }
+
+    private static byte[][] snapshotStorage(Inventory inventory) throws IOException {
+        // PlayerInventory#getSize() includes armor and offhand, whereas its
+        // storage slots are exactly the 36 ordinary inventory positions.
+        // The physical-container snapshot requires those lengths to match,
+        // so never use it as a player-inventory snapshot.
+        byte[][] first = serializeStorage(inventory);
+        byte[][] second = serializeStorage(inventory);
+        if (!sameSlots(first, second)) {
+            throw new IOException("Player storage changed during original-byte snapshot");
+        }
+        return first;
+    }
+
+    private static byte[][] serializeStorage(Inventory inventory) throws IOException {
+        if (inventory == null) {
+            throw new IOException("Missing player inventory");
+        }
+        ItemStack[] storage = inventory.getStorageContents();
+        if (storage.length != MAX_SLOT) {
+            throw new IOException("Only the 36 standard player storage slots are eligible");
+        }
+        byte[][] slots = new byte[storage.length][];
+        int total = 0;
+        try {
+            for (int slot = 0; slot < storage.length; slot++) {
+                ItemStack item = storage[slot];
+                if (item == null || item.getType().isAir()) {
+                    continue;
+                }
+                if (!bounded(item)) {
+                    throw new IOException("Oversized or invalid player storage item");
+                }
+                byte[] bytes = item.serializeAsBytes();
+                ItemStack detached = ItemStack.deserializeBytes(bytes);
+                if (detached.getType() != item.getType()
+                        || detached.getAmount() != item.getAmount()
+                        || !Arrays.equals(bytes, detached.serializeAsBytes())
+                        || total > MAX_TOTAL_NATIVE_BYTES - bytes.length) {
+                    throw new IOException("Player storage native bytes are unstable or oversized");
+                }
+                slots[slot] = bytes;
+                total += bytes.length;
+            }
+        } catch (RuntimeException exception) {
+            throw new IOException("Player inventory could not be safely snapshotted", exception);
+        }
+        return slots;
+    }
+
+    private static boolean sameSlots(byte[][] left, byte[][] right) {
+        if (left.length != right.length) {
+            return false;
+        }
+        for (int slot = 0; slot < left.length; slot++) {
+            if (!Arrays.equals(left[slot], right[slot])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean bounded(ItemStack item) {
