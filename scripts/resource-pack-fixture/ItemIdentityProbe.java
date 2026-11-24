@@ -472,18 +472,18 @@ final class ItemIdentityProbe {
 
         // Public IDs and categorical boolean outcomes only. Deliberately no
         // serialized bytes, text content, typed PDC data or player identities.
-        var report = Map.of(
-                "schema", 2,
-                "scope", "current_registered_template_cheat_clone_and_give_factory_copy",
-                "software", Bukkit.getName(),
-                "server_version", Bukkit.getVersion(),
-                "historical_world_acceptance", "UNTESTED",
-                "crafting_machine_cargo_acceptance", "UNTESTED",
-                "give_cheat_byte_exact", byteExactCopies,
-                "give_cheat_bukkit_similar", compatibleCopies,
-                "give_cheat_physical_merges", physicalMerges,
-                "intentionally_unstackable", intentionallyUnstackable,
-                "items", results);
+        var report = Map.ofEntries(
+                Map.entry("schema", 2),
+                Map.entry("scope", "current_registered_template_cheat_clone_and_give_factory_copy"),
+                Map.entry("software", Bukkit.getName()),
+                Map.entry("server_version", Bukkit.getVersion()),
+                Map.entry("historical_world_acceptance", "UNTESTED"),
+                Map.entry("crafting_machine_cargo_acceptance", "UNTESTED"),
+                Map.entry("give_cheat_byte_exact", byteExactCopies),
+                Map.entry("give_cheat_bukkit_similar", compatibleCopies),
+                Map.entry("give_cheat_physical_merges", physicalMerges),
+                Map.entry("intentionally_unstackable", intentionallyUnstackable),
+                Map.entry("items", results));
         Files.writeString(folder.resolve("identity-registry-clone.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(report));
         require(failures.isEmpty(), "registered /sf cheat vs /sf give copy-path drift: " + failures);
