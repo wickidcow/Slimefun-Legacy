@@ -511,10 +511,10 @@ final class DoctorQuickShopReadOnly {
                             == DoctorNativeNbtEvidence.Verdict.SAME_TYPED_NBT;
             if (copy.getType() != item.getType()
                     || copy.getAmount() != item.getAmount()
-                    || !exact
+                    || (!exact
                             && (!sameTyped
                                     || !item.isSimilar(copy)
-                                    || !Objects.equals(item.getItemMeta(), copy.getItemMeta()))) {
+                                    || !Objects.equals(item.getItemMeta(), copy.getItemMeta())))) {
                 throw new IOException("QuickShop native source changed typed identity on read");
             }
             return bytes;
