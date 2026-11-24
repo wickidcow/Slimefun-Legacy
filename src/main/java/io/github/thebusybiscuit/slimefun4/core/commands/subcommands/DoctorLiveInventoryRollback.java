@@ -49,6 +49,7 @@ final class DoctorLiveInventoryRollback {
         byte[][] beforeSlots = snapshotStorage(inventory);
         String beforeHash = DoctorContainerMigrationPreflight.hashSlots(beforeSlots);
         ItemStack original = DoctorHistoricalStackRepair.readVerifiedBackup(pluginFolder, operator, receipt);
+        byte[] originalBytes = original.serializeAsBytes();
         ItemStack updated = inventory.getItem(slot);
         ItemStack template;
         try {
@@ -56,7 +57,8 @@ final class DoctorLiveInventoryRollback {
         } catch (RuntimeException exception) {
             throw new IOException("Registered template lookup refused", exception);
         }
-        if (!exactIdentity(original, updated, template)
+        if (!Arrays.equals(originalBytes, original.serializeAsBytes())
+                || !exactIdentity(original, updated, template)
                 || !bounded(original) || !bounded(updated) || !bounded(template)
                 || !DoctorHistoricalStackRepair.matchesSavedBackup(original, updated, template, template)) {
             throw new IOException("Saved original is not the strict style-only predecessor of this exact slot");
