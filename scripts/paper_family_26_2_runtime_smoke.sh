@@ -168,16 +168,16 @@ elif [[ "$SOFTWARE" == "leaf" ]]; then
     fi
     LEAF_BUILD="$(jq -c 'max_by(.id)' <<<"$LEAF_BUILDS")"
     SERVER_BUILD="$(jq -r '.id // empty' <<<"$LEAF_BUILD")"
-    SERVER_CHANNEL="$(jq -r '.channel // "unknown"' <<<"$LEAF_BUILD")"
+    SERVER_CHANNEL="$(jq -r '.channel // empty' <<<"$LEAF_BUILD")"
     LEAF_BINARY="$(jq -c '.downloads["server:default"] // empty' <<<"$LEAF_BUILD")"
-    if [[ ! "$SERVER_BUILD" =~ ^[0-9]+$ || -z "$LEAF_BINARY" ]]; then
+    if [[ ! "$SERVER_BUILD" =~ ^[0-9]+$ || ! "$SERVER_CHANNEL" =~ ^(ALPHA|BETA|STABLE|RECOMMENDED)$ || -z "$LEAF_BINARY" ]]; then
         echo "Leaf v3 omitted the verified default server JAR for Minecraft ${MC_VERSION}." >&2
         exit 1
     fi
     SERVER_URL="$(jq -r '.url // empty' <<<"$LEAF_BINARY")"
     LEAF_FILENAME="$(jq -r '.name // empty' <<<"$LEAF_BINARY")"
     LEAF_SHA256="$(jq -r '.checksums.sha256 // empty' <<<"$LEAF_BINARY")"
-    if [[ ! "$LEAF_FILENAME" =~ ^[a-zA-Z0-9._-]+[.]jar$ \
+    if [[ "$LEAF_FILENAME" != "leaf-${MC_VERSION}-${SERVER_BUILD}.jar" \
           || ! "$LEAF_SHA256" =~ ^[0-9a-fA-F]{64}$ \
           || "$SERVER_URL" != "https://dl-data.leafmc.one/leaf/${MC_VERSION}/${SERVER_BUILD}/${LEAF_FILENAME}" ]]; then
         echo "Leaf v3 returned an untrusted server URL, file name, or invalid SHA256." >&2
@@ -210,7 +210,10 @@ test -s "$WORK_DIR/server.jar"
 if [[ "$SOFTWARE" == "leaf" ]]; then
     # Verify the exact provider-returned archive digest before booting any
     # untrusted remote bytes. Never replace failed downloads with old builds.
-    printf '%s  %s\n' "$LEAF_SHA256" "$WORK_DIR/server.jar" | sha256sum --check --strict
+    printf '%s  %s\n' "$LEAF_SHA256" "$WORK_DIR/server.jar" | sha256sum --check --strict || {
+        echo "Leaf server JAR SHA-256 mismatch for Minecraft ${MC_VERSION} build ${SERVER_BUILD}." >&2
+        exit 1
+    }
 fi
 
 verify_installed_plugins() {
