@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "bundle_revision": 157,
+  "repository": "wickidcow/SF_FluffyMachines",
+  "tag": "v26.2.24",
+  "source_commit": "7d6f363d55b96e5a043ea20627f68b208a48e448",
+  "asset": "SF_FluffyMachines26.2.24.jar",
+  "bytes": 392325,
+  "sha256": "1cfa3da859cea788af405c47bd3b1222ee975e8d27b368e2c5afe8c844afc033",
+  "plugin_name": "FluffyMachines",
+  "plugin_version": "26.2.24",
+  "api_version": "1.21.11",
+  "java_class_major": 65
+}
