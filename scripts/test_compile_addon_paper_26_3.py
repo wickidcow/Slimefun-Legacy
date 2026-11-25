@@ -220,6 +220,43 @@ def test_shell_wrapper_normalization() -> None:
         assert wrapper.stat().st_mode & stat.S_IXUSR
 
 
+def test_ephemeral_wrapper_timeout_keeps_source_distribution_pin() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        properties = root / "gradle" / "wrapper" / "gradle-wrapper.properties"
+        properties.parent.mkdir(parents=True)
+        distribution = ("distributionUrl=https\\\\://services.gradle.org/distributions/"
+                        "gradle-9.8.2-bin.zip\n"
+                        "distributionSha256Sum=old-version-pinned-sha\n")
+        properties.write_text(distribution + "networkTimeout=10000\n", encoding="utf-8")
+        assert probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+        fixed = properties.read_text(encoding="utf-8")
+        assert fixed == distribution + "networkTimeout=120000\n"
+        assert not probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+        assert properties.read_text(encoding="utf-8") == fixed
+
+        properties.write_text(distribution + "networkTimeout=240000\n", encoding="utf-8")
+        assert not probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+        assert properties.read_text(encoding="utf-8") == distribution + "networkTimeout=240000\n"
+
+        properties.write_text(distribution, encoding="utf-8")
+        assert probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+        assert properties.read_text(encoding="utf-8") == distribution + "networkTimeout=120000\n"
+
+        for bad in ("networkTimeout=10000\nnetworkTimeout=5000\n",
+                    "networkTimeout=ten-seconds\n"):
+            properties.write_text(distribution + bad, encoding="utf-8")
+            try:
+                probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Ambiguous or invalid wrapper timeout must fail closed")
+            assert properties.read_text(encoding="utf-8") == distribution + bad
+        properties.unlink()
+        assert not probe.prepare_ephemeral_gradle_wrapper_timeout(root)
+
+
 def test_gradle_init_script_guards_both_stacks() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
@@ -390,6 +427,7 @@ def main() -> int:
     test_maven_rewrites_legacy_fork_coordinate()
     test_maven_injects_missing_direct_dependencies()
     test_shell_wrapper_normalization()
+    test_ephemeral_wrapper_timeout_keeps_source_distribution_pin()
     test_gradle_init_script_guards_both_stacks()
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(GradleMinebenchRoutingTest))

@@ -28,6 +28,14 @@ final class DoctorIdentityCommand {
             DoctorHistoricalStackRepair.run(plugin, sender, args);
             return;
         }
+        if (args.length > 2 && args[2].equalsIgnoreCase("export")) {
+            DoctorIdentityEvidenceExport.run(plugin, sender, args);
+            return;
+        }
+        if (args.length > 2 && args[2].equalsIgnoreCase("live")) {
+            DoctorLiveItemUpdate.run(plugin, sender, args);
+            return;
+        }
         if (!(sender instanceof Player player)) {
             send(sender, "&cIdentity comparison requires a player with two held items.");
             return;
@@ -60,6 +68,7 @@ final class DoctorIdentityCommand {
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
+        send(sender, "&7Typed native NBT (amount ignored, read-only): &e" + DoctorNativeNbtEvidence.compare(main, off));
         send(sender, "&7Effective max stack size: &e" + main.getMaxStackSize() + " &8/ &e" + off.getMaxStackSize());
         int freeOffhand = availableCapacity(off);
         send(sender, "&7Offhand available capacity: &e" + freeOffhand);
@@ -70,7 +79,20 @@ final class DoctorIdentityCommand {
         reportTemplate(sender, "Offhand", off, offItem);
         if (!comparison.isSimilar()) {
             HistoricalPresentation historical = inspectHistoricalPresentation(main, off);
+            PlainPresentation plainParts = inspectPlainPresentation(main, off);
             send(sender, "&7Same plain text (ignores styling): " + flag(historical.plainTextSame()));
+            send(
+                    sender,
+                    "&7Lore differs ONLY by blank lines: "
+                            + flag(!plainParts.loreSame() && sameNonblankPlainLore(main, off)));
+            send(
+                    sender,
+                    "&7Plain display name: " + flag(plainParts.nameSame()) + " &8| &7Plain lore: "
+                            + flag(plainParts.loreSame()));
+            send(
+                    sender,
+                    "&7Lore lines (main/offhand): &e" + plainParts.mainLoreLines() + " &8/ &e"
+                            + plainParts.offhandLoreLines());
             send(
                     sender,
                     "&7Non-presentation native metadata (count ignored): " + flag(historical.nonPresentationSame()));
@@ -89,7 +111,8 @@ final class DoctorIdentityCommand {
             send(sender, "&7" + label + " vs registered template: &eUNAVAILABLE (unregistered item)");
             return;
         }
-        Comparison comparison = inspect(actual, item.getItem());
+        ItemStack template = item.getItem();
+        Comparison comparison = inspect(actual, template);
         send(sender, "&6" + label + " vs registered template:");
         send(sender, "&7Stack compatibility: " + flag(comparison.isSimilar()));
         send(sender, "&7Display name: " + flag(comparison.displayNameSame()));
@@ -97,6 +120,10 @@ final class DoctorIdentityCommand {
         send(sender, "&7Full Bukkit item metadata: " + flag(comparison.itemMetaSame()));
         send(sender, "&7PDC key set: " + flag(comparison.pdcKeysSame()));
         send(sender, "&7Custom model data: " + flag(comparison.customModelDataSame()));
+        send(
+                sender,
+                "&7Typed native NBT (amount ignored, read-only): &e"
+                        + DoctorNativeNbtEvidence.compare(actual, template));
     }
 
     /**
@@ -135,8 +162,8 @@ final class DoctorIdentityCommand {
             return new HistoricalPresentation(false, false, false);
         }
 
-        boolean plainTextSame = Objects.equals(plain(oldMeta.displayName()), plain(freshMeta.displayName()))
-                && Objects.equals(plainLore(oldMeta.lore()), plainLore(freshMeta.lore()));
+        PlainPresentation plainParts = inspectPlainPresentation(old, fresh);
+        boolean plainTextSame = plainParts.nameSame() && plainParts.loreSame();
         // ItemStack(ItemStack) delegates to the source clone() on some Bukkit
         // implementations. Avoid producer-specific clone hooks and reject any
         // detached representation which cannot first round-trip strict identity.
@@ -164,6 +191,52 @@ final class DoctorIdentityCommand {
         boolean nonPresentationSame = java.util.Arrays.equals(oldCopy.serializeAsBytes(), freshCopy.serializeAsBytes());
         return new HistoricalPresentation(
                 plainTextSame, nonPresentationSame, !originallySimilar && plainTextSame && nonPresentationSame);
+    }
+
+    /** Only equality and line counts, never the item's actual plain text. */
+    static PlainPresentation inspectPlainPresentation(ItemStack first, ItemStack second) {
+        ItemMeta firstMeta = first.getItemMeta();
+        ItemMeta secondMeta = second.getItemMeta();
+        if (firstMeta == null || secondMeta == null) {
+            return new PlainPresentation(false, false, 0, 0);
+        }
+        java.util.List<Component> firstLore = firstMeta.lore();
+        java.util.List<Component> secondLore = secondMeta.lore();
+        return new PlainPresentation(
+                Objects.equals(plain(firstMeta.displayName()), plain(secondMeta.displayName())),
+                Objects.equals(plainLore(firstLore), plainLore(secondLore)),
+                firstLore == null ? 0 : firstLore.size(),
+                secondLore == null ? 0 : secondLore.size());
+    }
+
+    record PlainPresentation(boolean nameSame, boolean loreSame, int mainLoreLines, int offhandLoreLines) {}
+
+    /**
+     * Strict older-format hint: ignore only entirely blank lore lines. The
+     * original nonblank text and its order must be identical on both stacks;
+     * stripping or replacing any meaningful historical text is never approved.
+     */
+    static boolean sameNonblankPlainLore(ItemStack historical, ItemStack reference) {
+        if (historical == null || reference == null) {
+            return false;
+        }
+        ItemMeta historicalMeta = historical.getItemMeta();
+        ItemMeta referenceMeta = reference.getItemMeta();
+        if (historicalMeta == null || referenceMeta == null) {
+            return false;
+        }
+        java.util.List<String> oldLines = plainLore(historicalMeta.lore());
+        java.util.List<String> freshLines = plainLore(referenceMeta.lore());
+        if (oldLines == null || freshLines == null) {
+            return false;
+        }
+        java.util.List<String> oldMeaningful = oldLines.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        java.util.List<String> newMeaningful = freshLines.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .toList();
+        return !oldMeaningful.isEmpty() && oldMeaningful.equals(newMeaningful);
     }
 
     private static ItemStack detachedCopy(ItemStack source) {

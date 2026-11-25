@@ -66,11 +66,19 @@ def main() -> None:
     parser.add_argument("--protocol-module", type=Path,
                         help="Pinned Minecraft 26.2 client module; enables real connected-player checks")
     parser.add_argument("--verify-paxel-player", action="store_true")
+    parser.add_argument("--quickshop-jar", type=Path,
+                        help="Verified official QuickShop-Hikari binary in disposable server")
+    parser.add_argument("--quickshop-api-only", action="store_true",
+                        help="Two-boot read-only real QuickShop-Hikari public API activation check")
     args = parser.parse_args()
     if args.verify_paxel_player and not args.protocol_module:
         parser.error("--verify-paxel-player requires --protocol-module")
     if args.server_cache and not args.server_jar:
         parser.error("--server-cache requires --server-jar")
+    if args.quickshop_api_only and not args.quickshop_jar:
+        parser.error("--quickshop-api-only requires --quickshop-jar")
+    if args.quickshop_api_only and (args.protocol_module or args.verify_paxel_player):
+        parser.error("--quickshop-api-only cannot run with player producer fixtures")
     runtime_java = (args.runtime_java_home or args.java_home).resolve() / "bin/java"
     root = args.work_dir.resolve()
     root.mkdir(parents=True, exist_ok=False)  # Never replace an existing world.
@@ -103,6 +111,8 @@ def main() -> None:
         (root / "plugins/Slimefun/configSFLAddons.yml").write_text("enabled: true\n", encoding="utf-8")
     core = root / "plugins/Slimefun.jar"
     shutil.copy2(args.core.resolve(), core)
+    if args.quickshop_jar:
+        shutil.copy2(args.quickshop_jar.resolve(), root / "plugins/QuickShop-Hikari.jar")
     port = 0
     if args.protocol_module:
         with socket.socket() as reservation:
@@ -206,8 +216,131 @@ def main() -> None:
                 raise RuntimeError("Native probe reported a task/ownership failure; inspect " + log.name)
 
     try:
+        if args.quickshop_api_only:
+            # This entire server and its QuickShop SQLite DB were created in
+            # a new disposable work directory. Native in-memory projection
+            # is read-only; a separate synthetic persisted row test writes
+            # ONLY to this throwaway database, never a production server.
+            matcher_receipts = []
+            projection_receipts = []
+            for boot_number in (1, 2):
+                (proof / "quickshop-api.pass").unlink(missing_ok=True)
+                (proof / "quickshop-matcher-observed.txt").unlink(missing_ok=True)
+                (proof / "quickshop-prospective-observed.txt").unlink(missing_ok=True)
+                process, log = boot(boot_number)
+                probe(process, boot_number, "quickshop-api")
+                receipt = proof / "quickshop-matcher-observed.txt"
+                if not receipt.is_file():
+                    raise RuntimeError("Real QuickShop matcher did not emit a native observation")
+                observed = receipt.read_text(encoding="utf-8")
+                if not re.fullmatch(
+                        r"work-type=-?[0-9]+;same=true;old-current=(true|false);"
+                        r"different-slimefun-id=(true|false);"
+                        r"different-owner-pdc-type=(true|false)\\n", observed):
+                    raise RuntimeError("Real QuickShop matcher observation is malformed")
+                matcher_receipts.append(observed)
+                projection = proof / "quickshop-prospective-observed.txt"
+                if not projection.is_file():
+                    raise RuntimeError("Real QuickShop in-memory projection not recorded")
+                projected = projection.read_text(encoding="utf-8")
+                if projected != (
+                        "in-memory-only=true;unregistered=true;encoding-stable=true;"
+                        "owner-price-stable=true;style-distinct=true;slimefun-id-distinct=true;"
+                        "typed-pdc-distinct=true;source-unchanged=true;"
+                        "saved-native-bytes-identical=true\\n"):
+                    raise RuntimeError("QuickShop projected-save result malformed")
+                projection_receipts.append(projected)
+                # First boot persists a synthetic shop in this disposable
+                # database; second boot must reopen it and conserve the
+                # exact legacy item, stock, owner and price from actual SQL.
+                stage = "quickshop-db-prepare" if boot_number == 1 else "quickshop-db-restart"
+                (proof / "quickshop-db-observed.txt").unlink(missing_ok=True)
+                probe(process, boot_number, stage)
+                sql_observation = proof / "quickshop-db-observed.txt"
+                if sql_observation.read_text(encoding="utf-8") != (
+                        "synthetic-only=true;isolated-sql-row=true;shop-loaded=true;"
+                        "native-sale-bytes-identical=true;stock-count-preserved=true;"
+                        "stock-metadata-identical=true;real-owner-uuid-stable=true;price-stable=true\\n"):
+                    raise RuntimeError("Disposable persisted QuickShop SQL observation is malformed")
+                stop(process, log)
+            if projection_receipts[0] != projection_receipts[1]:
+                raise RuntimeError("QuickShop in-memory save projection changed across JVM boots")
+            if matcher_receipts[0] != matcher_receipts[1]:
+                raise RuntimeError("Real QuickShop matcher outcome changed across native JVM boots")
+            result = ("Native QuickShop-Hikari public API and matcher activation PASS\\n"
+                      "synthetic matcher observation (NOT repair authorization): "
+                      + matcher_receipts[0]
+                      + "quickshop SHA-256: "
+                      "quickshop SHA-256: "
+                      + hashlib.sha256((root / "plugins/QuickShop-Hikari.jar").read_bytes()).hexdigest()
+                      + "\\ncore SHA-256: " + hashlib.sha256(core.read_bytes()).hexdigest()
+                      + "\\nserver SHA-256: " + hashlib.sha256((root / "server.jar").read_bytes()).hexdigest()
+                      + "\\n")
+            (root / "PASS.txt").write_text(result, encoding="utf-8")
+            print(result, flush=True)
+            return
         process, log = boot(1)
         probe(process, 1, "identity")
+        # This registry-wide reconstructed historical setter contract is
+        # separate from the genuine published v55 world-chest handoff.
+        def require_registry_style_audit(number, boot):
+            name = "identity-registry-style-audit-" + boot + ".json"
+            artifact = proof / name
+            if not artifact.is_file():
+                raise RuntimeError("Missing native all-registered style audit: " + name)
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+            count = data.get("registered_count")
+            counters = (
+                data.get("already_matching"),
+                data.get("strict_style_repairable"),
+                data.get("refused"),
+                data.get("unsupported"),
+            )
+            if (data.get("schema") != 1
+                    or data.get("boot") != boot
+                    or data.get("scope") != "reconstructed_legacy_text_from_current_registered_templates"
+                    or data.get("real_historical_addon_acceptance") != "UNTESTED"
+                    or type(count) is not int or not (26 <= count <= 8192)
+                    or any(type(n) is not int or n < 0 for n in counters)
+                    or sum(counters) != count
+                    or not isinstance(data.get("items"), list)
+                    or len(data["items"]) != count
+                    or not isinstance(data.get("addons"), list)
+                    or not data["addons"]):
+                raise RuntimeError("Native all-registered style counts invalid: " + name)
+            marker = "SFL_REGISTERED_STYLE_AUDIT_" + boot.upper() + "_PASS"
+            output = (root / f"console-{number}.log").read_text(
+                encoding="utf-8", errors="replace")
+            if output.count(marker) != 1:
+                raise RuntimeError("Missing native all-registered Doctor pass marker " + marker)
+            # Per-addon partition must cover the exact public ID list. No
+            # private owner/item bytes are retained or printed in this report.
+            if sum(group["registered"] for group in data["addons"]) != count:
+                raise RuntimeError("Registered audit per-addon partition lost items")
+            return data
+        audit_seed = require_registry_style_audit(1, "seed")
+        # An overall native identity PASS is not enough: explicitly require
+        # this physical-chest preservation fixture on each runtime and boot.
+        # Keep these redacted PASS markers independent of private item receipts.
+        def require_chest_migration_marker(number, suffix):
+            marker = "SFL_PHYSICAL_CHEST_STYLE_MIGRATION_" + suffix + "_PASS"
+            log = (root / f"console-{number}.log").read_text(encoding="utf-8", errors="replace")
+            if log.count(marker) != 1:
+                raise RuntimeError(
+                    f"Missing or duplicate native physical chest migration {suffix} PASS marker "
+                    f"in console-{number}.log"
+                )
+
+        require_chest_migration_marker(1, "SEED")
+        if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS") != 1:
+            raise RuntimeError("Native private all-slot world chest envelope did not pass on seed boot")
+        if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS") != 1:
+            raise RuntimeError("Native disposable proposed-world-chest journal did not pass seed boot")
+        if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_SEED_PASS") != 1:
+            raise RuntimeError("Native disposable interrupted two-stack chest did not pass seed boot")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -235,6 +368,21 @@ def main() -> None:
         stop(process, log)
         process, log = boot(2)
         probe(process, 2, "identity-restart")
+        audit_restart = require_registry_style_audit(2, "restart")
+        if (audit_seed["registered_count"] != audit_restart["registered_count"]
+                or [(row["item_id"], row["addon"]) for row in audit_seed["items"]]
+                != [(row["item_id"], row["addon"]) for row in audit_restart["items"]]):
+            raise RuntimeError("Registered IDs/addon provenance changed across identical runtime restarts")
+        require_chest_migration_marker(2, "RESTART")
+        if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS") != 1:
+            raise RuntimeError("Native private all-slot world chest envelope did not pass after JVM restart")
+        if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS") != 1:
+            raise RuntimeError("Native disposable proposed-world-chest journal did not pass after JVM restart")
+        if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
+                "SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_RESTART_PASS") != 1:
+            raise RuntimeError("Native disposable interrupted two-stack chest did not pass after JVM restart")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
         time.sleep(4)

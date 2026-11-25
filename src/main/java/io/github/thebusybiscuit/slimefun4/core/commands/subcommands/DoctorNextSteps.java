@@ -62,6 +62,17 @@ final class DoctorNextSteps {
             any = true;
         }
 
+        if (!report.isRepairMode() && report.getIdentityBlankLoreVariants() > 0) {
+            send(
+                    sender,
+                    "&eOld Slimefun items with only blank lore-line layout differences: &f"
+                            + report.getIdentityBlankLoreVariants());
+            send(sender, "&6  /sf doctor identity compare");
+            send(sender, "&8  These are read-only diagnostics, not permission for an automatic chest repair.");
+            send(sender, "&8  Test a genuine old/new pair on a backed-up staging clone before any conversion.");
+            any = true;
+        }
+
         if (report.getSchemaMigrationCandidates() > 0) {
             send(sender, "&eAddon-owned same-ID schema candidates: &f" + report.getSchemaMigrationCandidates());
             send(sender, "&6  /sf doctor migrations schemas scan");

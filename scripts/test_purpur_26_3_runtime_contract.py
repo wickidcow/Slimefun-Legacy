@@ -232,10 +232,12 @@ done
         (self.bin / "jq").unlink()
         builds = [
             {"id": 136, "channel": "ALPHA", "downloads": {"server:default": {
+                "name": "leaf-26.2-136.jar",
                 "url": "https://dl-data.leafmc.one/leaf/26.2/136/leaf-26.2-136.jar",
                 "checksums": {"sha256": checksum}
             }}},
             {"id": 135, "channel": "ALPHA", "downloads": {"server:default": {
+                "name": "leaf-26.2-135.jar",
                 "url": "https://dl-data.leafmc.one/leaf/26.2/135/leaf-26.2-135.jar",
                 "checksums": {"sha256": "0" * 64}
             }}},

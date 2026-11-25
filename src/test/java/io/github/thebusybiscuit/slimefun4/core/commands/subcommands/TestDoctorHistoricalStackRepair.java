@@ -69,6 +69,81 @@ class TestDoctorHistoricalStackRepair {
         return old;
     }
 
+    /**
+     * Old Carbonado sold by a saved QuickShop template can retain different plain
+     * blank lore-line layout than a fresh Slimefun cheat stack. Default
+     * Doctor refuses it; explicit OP recovery is possible only if every
+     * nonblank text line is identical and full original bytes are backed up.
+     */
+    @Test
+    void historicalCarbonadoPlainLoreRequiresExplicitOptInAndPreservesEveryOtherByte() {
+        ItemStack fresh = current();
+        fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO"));
+        fresh.editMeta(
+                meta -> meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
+        ItemStack old = new ItemStack(fresh);
+        old.setAmount(63);
+        old.editMeta(meta -> meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));
+
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        var observed = DoctorIdentityCommand.inspectHistoricalPresentation(old, fresh);
+        assertFalse(observed.plainTextSame());
+        assertTrue(observed.nonPresentationSame());
+        assertFalse(observed.candidate());
+        assertTrue(DoctorIdentityCommand.sameNonblankPlainLore(old, fresh));
+        assertNull(DoctorHistoricalStackRepair.prepare(old, fresh, fresh));
+
+        ItemStack candidate = DoctorHistoricalStackRepair.prepareStaticLore(old, fresh, fresh);
+        assertNotNull(candidate);
+        assertTrue(candidate.isSimilar(fresh));
+        assertEquals(63, candidate.getAmount());
+        assertTrue(DoctorHistoricalStackRepair.sameNativeBytesIgnoringAmount(candidate, fresh));
+        assertTrue(DoctorHistoricalStackRepair.preservesNonPresentationBytes(old, candidate));
+        assertTrue(DoctorHistoricalStackRepair.matchesSavedBackup(old, candidate, fresh, fresh));
+        assertArrayEquals(oldBytes, old.serializeAsBytes());
+        assertArrayEquals(freshBytes, fresh.serializeAsBytes());
+    }
+
+    @Test
+    void staticLoreRecoveryRefusesOtherItemsChangedNamesAndTypedPdc() {
+        for (String itemId : List.of("RAW_CARBONADO", "CARBON_CHUNK", "SMALL_URANIUM", "OTHER_ITEM")) {
+            ItemStack fresh = current();
+            fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                    .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, itemId));
+            ItemStack old = new ItemStack(fresh);
+            fresh.editMeta(meta ->
+                    meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
+            old.editMeta(meta -> meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW))));
+            assertNull(DoctorHistoricalStackRepair.prepareStaticLore(old, fresh, fresh), itemId);
+        }
+
+        ItemStack fresh = current();
+        fresh.editMeta(meta -> meta.getPersistentDataContainer()
+                .set(new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING, "CARBONADO"));
+        fresh.editMeta(
+                meta -> meta.lore(List.of(Component.text(" "), Component.text("Radioactive", NamedTextColor.YELLOW))));
+        ItemStack nameChanged = new ItemStack(fresh);
+        nameChanged.editMeta(meta -> {
+            meta.displayName(Component.text("Private player-renamed item"));
+            meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW)));
+        });
+        assertNull(DoctorHistoricalStackRepair.prepareStaticLore(nameChanged, fresh, fresh));
+
+        ItemStack differentOwner = new ItemStack(fresh);
+        differentOwner.editMeta(meta -> {
+            meta.lore(List.of(Component.text("Radioactive", NamedTextColor.YELLOW)));
+            meta.getPersistentDataContainer().set(new NamespacedKey("addon", "owner"), PersistentDataType.LONG, 99999L);
+        });
+        assertNull(DoctorHistoricalStackRepair.prepareStaticLore(differentOwner, fresh, fresh));
+
+        ItemStack modifiedMeaningfulLore = new ItemStack(fresh);
+        modifiedMeaningfulLore.editMeta(meta -> meta.lore(List.of(Component.text("Private shop owner note"))));
+        assertFalse(DoctorIdentityCommand.sameNonblankPlainLore(modifiedMeaningfulLore, fresh));
+        assertNull(DoctorHistoricalStackRepair.prepareStaticLore(modifiedMeaningfulLore, fresh, fresh));
+    }
+
     @Test
     void rawCarbonadoAndCarbonChunkMockHistoryPreservesSixtyThreePlusOneAndBackupIdentity() throws Exception {
         for (String id : List.of("RAW_CARBONADO", "CARBON_CHUNK")) {

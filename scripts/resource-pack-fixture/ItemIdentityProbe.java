@@ -11,8 +11,10 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -93,6 +95,7 @@ final class ItemIdentityProbe {
     }
 
     static void verify(Path folder, boolean restart) throws Exception {
+        verifyRegisteredPresentationAudit(folder, restart);
         ItemStack reference = fixture();
         if (restart) {
             ItemStack persisted = ItemStack.deserializeBytes(Files.readAllBytes(folder.resolve("identity-item.bin")));
@@ -191,6 +194,7 @@ final class ItemIdentityProbe {
         require(Arrays.equals(templateBefore, template.serializeAsBytes()), "registered template mutated");
         require(Arrays.equals(untouched, reference.serializeAsBytes()), "reference mutated by control cases");
         verifyHistoricalPresentation(folder, false);
+        verifyRegisteredCloneIdentity(folder);
         Files.write(folder.resolve("identity-item.bin"), untouched);
         var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
                 .map(item -> Map.of("item_id", item.getId(), "plugin", item.getAddon().getName(),
@@ -201,6 +205,299 @@ final class ItemIdentityProbe {
                 "minecraft", Bukkit.getMinecraftVersion(), "server_version", Bukkit.getVersion(), "items", items);
         Files.writeString(folder.resolve("identity-registry.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(registry));
+    }
+
+
+    /**
+     * System-wide registered-item STYLE audit: derive only a hypothetical
+     * pre-Adventure Bukkit presentation from today's immutable template.
+     *
+     * Every currently loaded registered Slimefun item is visited, including
+     * addons WHEN installed in the disposable native server. This is not an
+     * actual saved 2025/2026 addon item and cannot certify a historic shop.
+     *
+     * A candidate must pass Doctor's PRODUCTION source lookup, strict repair,
+     * native count/PDC preservation and original backup/rollback checker.
+     * Meaningful name/lore and functional metadata edits must fail closed.
+     *
+     * Emit public registered IDs, plugin names and categorical counters only;
+     * never print privately serialized stacks, PDC contents or owners.
+     */
+    @SuppressWarnings("deprecation")
+    private static void verifyRegisteredPresentationAudit(Path folder, boolean restart) throws Exception {
+        Class<?> updateType = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method lookup = updateType.getDeclaredMethod("registeredTemplate", ItemStack.class);
+        lookup.setAccessible(true);
+        var all = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                .sorted(java.util.Comparator.comparing(SlimefunItem::getId)).toList();
+        require(all.size() >= 26 && all.size() <= 8192,
+                "Registered-wide presentation gate has no valid bounded inventory of item templates");
+        var serializer = LegacyComponentSerializer.legacySection();
+        var rows = new java.util.ArrayList<Map<String, Object>>();
+        var perAddon = new java.util.TreeMap<String, int[]>();
+        int matched = 0;
+        int eligible = 0;
+        int refused = 0;
+        int unsupported = 0;
+        int typedGuards = 0;
+        int meaningfulGuards = 0;
+
+        for (SlimefunItem item : all) {
+            String id = item.getId();
+            String plugin = item.getAddon().getName();
+            int[] group = perAddon.computeIfAbsent(plugin, ignored -> new int[4]);
+            group[0]++;
+            ItemStack sourceTemplate = item.getItem();
+            if (sourceTemplate == null || sourceTemplate.getType().isAir()) {
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "NO_TEMPLATE"));
+                unsupported++;
+                group[3]++;
+                continue;
+            }
+            byte[] templateBytes = sourceTemplate.serializeAsBytes();
+            ItemStack current = ItemStack.deserializeBytes(templateBytes);
+            var meta = current.getItemMeta();
+            if (meta == null || meta.displayName() == null
+                    || meta.getPersistentDataContainer().get(
+                            new NamespacedKey("slimefun", "slimefun_item"), PersistentDataType.STRING) == null) {
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "NO_STATIC_NAME_OR_ID"));
+                require(Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                        "Registered template changed while inspecting untestable ID: " + id);
+                unsupported++;
+                group[3]++;
+                continue;
+            }
+            ItemStack hypotheticalOld = ItemStack.deserializeBytes(templateBytes);
+            int amount = Math.max(1, Math.min(31, hypotheticalOld.getMaxStackSize()));
+            hypotheticalOld.setAmount(amount);
+            String originalName = serializer.serialize(meta.displayName());
+            var currentLore = meta.lore();
+            List<String> oldLore = currentLore == null ? null
+                    : currentLore.stream().map(serializer::serialize).toList();
+            hypotheticalOld.editMeta(oldMeta -> {
+                oldMeta.setDisplayName(originalName);
+                oldMeta.setLore(oldLore);
+            });
+            byte[] hypotheticalBytes = hypotheticalOld.serializeAsBytes();
+            ItemStack registeredTemplate = (ItemStack) lookup.invoke(null, hypotheticalOld);
+            if (registeredTemplate == null) {
+                // Some addons deliberately use their own dynamic registration
+                // semantics. Such IDs are counted, never auto-approved.
+                // The raw style helper accepts shape-compatible items, but the
+                // OP batch updater will never select this candidate without
+                // the independent production registeredTemplate resolver.
+                rows.add(Map.of("item_id", id, "addon", plugin, "classification", "UNKNOWN_PRODUCTION_ID"));
+                refused++;
+                group[2]++;
+                require(Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                        "Registered template changed after lookup refusal: " + id);
+                continue;
+            }
+            require(sameNativeItemIgnoringCount(registeredTemplate, sourceTemplate),
+                    "Production resolver found a noncanonical registered template for " + id);
+            ItemStack proposed = repairCandidate(hypotheticalOld, current, registeredTemplate);
+            String status;
+            if (hypotheticalOld.isSimilar(current)) {
+                require(proposed == null,
+                        "Doctor proposed rewriting an already compatible registered item: " + id);
+                matched++;
+                group[1]++;
+                status = "MATCH";
+            } else {
+                Object assessment = historical(hypotheticalOld, current);
+                boolean strictCandidate = flag(assessment, "candidate");
+                if (strictCandidate) {
+                    require(proposed != null
+                                    && proposed.getAmount() == amount
+                                    && proposed.isSimilar(current)
+                                    && sameNativeItemIgnoringCount(proposed, current)
+                                    && matchesDoctorBackup(hypotheticalOld, proposed, current, registeredTemplate),
+                            "Doctor refused or damaged presentation-only registered item: " + id);
+                    eligible++;
+                    group[1]++;
+                    status = "STYLE_ONLY_REPAIRABLE";
+                    if (typedGuards < 48) {
+                        ItemStack owned = ItemStack.deserializeBytes(hypotheticalBytes);
+                        owned.editMeta(ownedMeta -> ownedMeta.getPersistentDataContainer().set(
+                                OWNER, PersistentDataType.LONG, 919001L));
+                        require(repairCandidate(owned, current, registeredTemplate) == null,
+                                "Doctor accepted typed-owner PDC on registered item " + id);
+                        typedGuards++;
+                    }
+                    if (meaningfulGuards < 48) {
+                        ItemStack altered = ItemStack.deserializeBytes(hypotheticalBytes);
+                        altered.editMeta(alteredMeta -> alteredMeta.displayName(Component.text("Custom item rename")));
+                        require(repairCandidate(altered, current, registeredTemplate) == null,
+                                "Doctor accepted changed meaningful registered item name " + id);
+                        meaningfulGuards++;
+                    }
+                } else {
+                    require(proposed == null,
+                            "Doctor bypassed its own strict historical presentation refusal: " + id);
+                    refused++;
+                    group[2]++;
+                    status = flag(assessment, "nonPresentationSame")
+                            ? "MEANINGFUL_OR_UNSUPPORTED_TEXT" : "FUNCTIONAL_METADATA_REFUSED";
+                }
+            }
+            // Every source and template is immutable, even for refused cases.
+            require(Arrays.equals(hypotheticalBytes, hypotheticalOld.serializeAsBytes())
+                            && Arrays.equals(templateBytes, sourceTemplate.serializeAsBytes()),
+                    "Registered-item audit mutated its source or template: " + id);
+            rows.add(Map.of("item_id", id, "addon", plugin, "classification", status));
+        }
+
+        var addonSummary = new java.util.ArrayList<Map<String, Object>>();
+        for (var entry : perAddon.entrySet()) {
+            int[] counts = entry.getValue();
+            addonSummary.add(Map.of(
+                    "addon", entry.getKey(), "registered", counts[0],
+                    "presentation_verified", counts[1], "refused", counts[2],
+                    "unsupported", counts[3]));
+        }
+        require(rows.size() == all.size() && matched + eligible + refused + unsupported == all.size(),
+                "Registered-item audit lost an item or double counted a source");
+        // This is a broad registry gate, not a blanket claim that saved old
+        // inventory items are safe. Both seed and restart must run the audit.
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("schema", 1);
+        report.put("scope", "reconstructed_legacy_text_from_current_registered_templates");
+        report.put("real_historical_addon_acceptance", "UNTESTED");
+        report.put("boot", restart ? "restart" : "seed");
+        report.put("registered_count", all.size());
+        report.put("already_matching", matched);
+        report.put("strict_style_repairable", eligible);
+        report.put("refused", refused);
+        report.put("unsupported", unsupported);
+        report.put("typed_pdc_guard_count", typedGuards);
+        report.put("meaningful_text_guard_count", meaningfulGuards);
+        report.put("addons", addonSummary);
+        report.put("items", rows);
+        String suffix = restart ? "restart" : "seed";
+        Files.writeString(folder.resolve("identity-registry-style-audit-" + suffix + ".json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(report));
+        Bukkit.getLogger().info("SFL_REGISTERED_STYLE_AUDIT_" + suffix.toUpperCase(java.util.Locale.ROOT)
+                + "_PASS items=" + all.size() + " style=" + eligible + " match=" + matched
+                + " refused=" + refused + " unsupported=" + unsupported
+                + " guarded=" + typedGuards + "/" + meaningfulGuards
+                + " addons=" + perAddon.size());
+    }
+
+    /**
+     * Read-only across EVERY currently registered Slimefun item: reproduce
+     * /sf cheat's direct clone and /sf give's Dough CustomItemStack copy,
+     * then test native metadata, Bukkit similarity, and an actual two-item
+     * inventory merge where the material permits stacking. This never gives
+     * anything to a player and does not claim crafting/machine or historical
+     * persisted-world evidence.
+     */
+    private static void verifyRegisteredCloneIdentity(Path folder) throws Exception {
+        var items = Slimefun.getRegistry().getAllSlimefunItems().stream()
+                .sorted(java.util.Comparator.comparing(SlimefunItem::getId)).toList();
+        require(!items.isEmpty(), "registered copy-path identity probe has no items");
+        var results = new java.util.ArrayList<Map<String, Object>>();
+        var failures = new java.util.ArrayList<String>();
+        int byteExactCopies = 0;
+        int compatibleCopies = 0;
+        int physicalMerges = 0;
+        int intentionallyUnstackable = 0;
+        for (var item : items) {
+            ItemStack template = item.getItem();
+            byte[] before = template.serializeAsBytes();
+
+            // Exercise production paths, not a substitute synthetic copy:
+            // IndexedSurvivalSlimefunGuide -> getItem().clone()
+            // GiveCommand -> new CustomItemStack(getItem(), amount).
+            ItemStack cheat = template.clone();
+            ItemStack second = cheat.clone();
+            // Dough's CustomItemStack is relocated inside the published
+            // Slimefun JAR. Resolve the actual shaded class that production
+            // GiveCommand invokes; the standalone probe classpath has no
+            // unshaded Dough artifact. This path was verified against the
+            // exact candidate JAR's declared bytecode constructor.
+            ItemStack given = (ItemStack) Class.forName(
+                            "io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack",
+                            true, Slimefun.class.getClassLoader())
+                    .getConstructor(ItemStack.class, int.class)
+                    .newInstance(template, 1);
+
+            boolean unchanged = Arrays.equals(before, template.serializeAsBytes());
+            boolean firstExact = Arrays.equals(before, cheat.serializeAsBytes());
+            boolean secondExact = Arrays.equals(before, second.serializeAsBytes());
+            boolean amounts = template.getAmount() == cheat.getAmount()
+                    && template.getAmount() == second.getAmount() && given.getAmount() == 1;
+            ItemStack normalizedCheat = ItemStack.deserializeBytes(cheat.serializeAsBytes());
+            ItemStack normalizedGiven = ItemStack.deserializeBytes(given.serializeAsBytes());
+            normalizedCheat.setAmount(1);
+            normalizedGiven.setAmount(1);
+            byte[] cheatBytes = normalizedCheat.serializeAsBytes();
+            byte[] givenBytes = normalizedGiven.serializeAsBytes();
+            boolean copyByteExact = Arrays.equals(cheatBytes, givenBytes);
+            boolean copyStackable = normalizedCheat.isSimilar(normalizedGiven)
+                    && normalizedGiven.isSimilar(normalizedCheat);
+            boolean mergeValid = false;
+            int maxStackSize = Math.min(normalizedCheat.getMaxStackSize(), normalizedGiven.getMaxStackSize());
+            if (copyStackable && maxStackSize == 1) {
+                // Armor/equipment and other legitimate 1-item max stacks
+                // cannot physically merge, even when metadata is identical.
+                mergeValid = true;
+                intentionallyUnstackable++;
+            } else if (copyStackable && maxStackSize > 1) {
+                var inventory = Bukkit.createInventory(null, 9);
+                boolean noOverflow = inventory.addItem(normalizedCheat, normalizedGiven).isEmpty();
+                var stacks = Arrays.stream(inventory.getContents())
+                        .filter(stack -> stack != null && !stack.getType().isAir()).toList();
+                mergeValid = noOverflow && stacks.size() == 1 && stacks.getFirst().getAmount() == 2;
+                if (mergeValid) {
+                    physicalMerges++;
+                }
+            }
+            boolean passed = unchanged && firstExact && secondExact && amounts
+                    && copyStackable && mergeValid;
+            if (copyByteExact) {
+                byteExactCopies++;
+            }
+            if (copyStackable) {
+                compatibleCopies++;
+            }
+
+            results.add(Map.of(
+                    "item_id", item.getId(),
+                    "plugin", item.getAddon().getName(),
+                    "template_unchanged", unchanged,
+                    "first_clone_exact", firstExact,
+                    "second_clone_exact", secondExact,
+                    "quantity_preserved", amounts,
+                    "give_cheat_native_exact", copyByteExact,
+                    "give_cheat_is_similar", copyStackable,
+                    "give_cheat_merge_valid", mergeValid,
+                    "status", passed ? "PASS" : "FAIL"));
+            if (!passed) {
+                failures.add(item.getId());
+            }
+        }
+
+        // Public IDs and categorical boolean outcomes only. Deliberately no
+        // serialized bytes, text content, typed PDC data or player identities.
+        var report = Map.ofEntries(
+                Map.entry("schema", 2),
+                Map.entry("scope", "current_registered_template_cheat_clone_and_give_factory_copy"),
+                Map.entry("software", Bukkit.getName()),
+                Map.entry("server_version", Bukkit.getVersion()),
+                Map.entry("historical_world_acceptance", "UNTESTED"),
+                Map.entry("crafting_machine_cargo_acceptance", "UNTESTED"),
+                Map.entry("give_cheat_byte_exact", byteExactCopies),
+                Map.entry("give_cheat_bukkit_similar", compatibleCopies),
+                Map.entry("give_cheat_physical_merges", physicalMerges),
+                Map.entry("intentionally_unstackable", intentionallyUnstackable),
+                Map.entry("items", results));
+        Files.writeString(folder.resolve("identity-registry-clone.json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(report));
+        require(failures.isEmpty(), "registered /sf cheat vs /sf give copy-path drift: " + failures);
+        Bukkit.getLogger().info("SFL_REGISTERED_CLONE_IDENTITY_PASS items=" + items.size()
+                + " give_similar=" + compatibleCopies + " exact=" + byteExactCopies
+                + " merged=" + physicalMerges + " max_one=" + intentionallyUnstackable);
     }
 
     private static void verifyRegisteredCarbonHistory(Path folder, String id, boolean restart)
@@ -282,7 +579,1669 @@ final class ItemIdentityProbe {
                 "native " + id + " altered registered/current/old input item");
     }
 
+    /**
+     * Disposable native Paper reproduction of a saved shop item with a different
+     * plain-text lore. The real AlbionMC item bytes are NOT available here; do
+     * not claim this synthetic variant certifies all old shops.
+     */
+    private static void verifyStaticCarbonadoLore(Path folder, boolean restart) throws Exception {
+        var registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "missing real registered CARBONADO template");
+        Path caseFolder = folder.resolve("identity-history-carbonado-static-lore");
+        Path oldFile = caseFolder.resolve("old.bin");
+        Path freshFile = caseFolder.resolve("fresh.bin");
+        Path repairedFile = caseFolder.resolve("repaired.bin");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            ItemStack original = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            ItemStack repaired = ItemStack.deserializeBytes(Files.readAllBytes(repairedFile));
+            require(original.getAmount() == 63 && fresh.getAmount() == 1 && repaired.getAmount() == 63,
+                    "native historical CARBONADO lore repair amount changed after restart");
+            require(!original.isSimilar(fresh) && repaired.isSimilar(fresh),
+                    "native historical CARBONADO old/new identity lost after restart");
+            var storage = Bukkit.createInventory(null, 9);
+            require(storage.addItem(repaired, fresh).isEmpty()
+                            && storage.getItem(0).getAmount() == 64 && storage.getItem(1) == null,
+                    "native historical CARBONADO repaired 63+1 would not stack after restart");
+            try (var files = Files.list(caseFolder.resolve("recovery/identity"))) {
+                var backups = files.filter(Files::isRegularFile).toList();
+                require(backups.size() == 1 && Arrays.equals(oldBytes, Files.readAllBytes(backups.getFirst())),
+                        "native historical CARBONADO original backup altered across restart");
+                String filename = backups.getFirst().getFileName().toString();
+                java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
+                java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
+                ItemStack verified = readDoctorBackup(caseFolder, owner, receipt);
+                require(Arrays.equals(oldBytes, verified.serializeAsBytes())
+                                && matchesDoctorBackup(verified, repaired, fresh, fresh),
+                        "native CARBONADO static-lore backup/rollback verification failed after restart");
+                ItemStack changed = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+                changed.setAmount(62);
+                require(!matchesDoctorBackup(verified, changed, fresh, fresh),
+                        "native CARBONADO static-lore rollback accepted changed quantity");
+            }
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(freshBytes, Files.readAllBytes(freshFile)),
+                    "native CARBONADO static-lore verification modified immutable snapshots");
+            return;
+        }
+
+        Files.createDirectories(caseFolder);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack fresh = ItemStack.deserializeBytes(registeredBytes);
+        fresh.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        java.util.List<Component> canonicalLore = fresh.getItemMeta().lore();
+        require(canonicalLore != null, "registered CARBONADO lore missing");
+        java.util.List<Component> oldLore = canonicalLore.stream()
+                .filter(component -> !net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                        .serialize(component)
+                        .isBlank())
+                .toList();
+        require(!oldLore.isEmpty() && oldLore.size() < canonicalLore.size(),
+                "registered CARBONADO has no blank-line legacy variant to test");
+        old.editMeta(meta -> meta.lore(oldLore));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        Object before = historical(old, fresh);
+        require(!flag(before, "plainTextSame") && flag(before, "nonPresentationSame")
+                        && !flag(before, "candidate") && !old.isSimilar(fresh),
+                "native historical CARBONADO plain lore mismatch classified as safe by default");
+        require(repairCandidate(old, fresh, fresh) == null,
+                "native standard Doctor repair bypassed CARBONADO plain-text guard");
+        ItemStack fixed = repairStaticLoreCandidate(old, fresh, fresh);
+        require(fixed != null && fixed.getAmount() == 63 && fixed.isSimilar(fresh),
+                "native explicit CARBONADO lore recovery failed strict current template equivalence");
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 777L));
+        require(repairStaticLoreCandidate(typed, fresh, fresh) == null,
+                "native CARBONADO static-lore recovery would overwrite typed ownership metadata");
+        ItemStack named = ItemStack.deserializeBytes(oldBytes);
+        named.editMeta(meta -> meta.displayName(Component.text("Private renamed Carbonado")));
+        require(repairStaticLoreCandidate(named, fresh, fresh) == null,
+                "native CARBONADO static-lore recovery would erase a player-custom name");
+        Path backup = backupHistorical(caseFolder, oldBytes);
+        require(Arrays.equals(oldBytes, Files.readAllBytes(backup)),
+                "native CARBONADO static-lore original bytes not durably backed up");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+        Files.write(repairedFile, fixed.serializeAsBytes());
+        require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes())
+                        && Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes()),
+                "native CARBONADO static-lore fixture mutated original or registered templates");
+    }
+
+    /** Synthetic export durability controls; never substitutes for original AlbionMC evidence. */
+    private static void verifyEvidenceExport(Path folder, boolean restart) throws Exception {
+        Path root = folder.resolve("identity-export-fixture");
+        Path receipts = root.resolve("receipts.txt");
+        Path mainFile = root.resolve("expected-main.bin");
+        Path offFile = root.resolve("expected-offhand.bin");
+        if (!restart) {
+            Files.createDirectory(root);
+            SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+            require(registered != null, "export fixture CARBONADO registration missing");
+            byte[] templateBytes = registered.getItem().serializeAsBytes();
+            ItemStack main = ItemStack.deserializeBytes(templateBytes);
+            main.setAmount(1);
+            ItemStack off = ItemStack.deserializeBytes(templateBytes);
+            off.setAmount(63);
+            off.editMeta(meta -> {
+                meta.lore(List.of(Component.text("Synthetic private custom lore, never repairable")));
+                meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L);
+            });
+            byte[] mainBytes = main.serializeAsBytes();
+            byte[] offBytes = off.serializeAsBytes();
+            java.util.UUID owner = java.util.UUID.randomUUID();
+            Class<?> exporter = Class.forName(
+                    "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityEvidenceExport");
+            Method capture = exporter.getDeclaredMethod(
+                    "capture", Path.class, java.util.UUID.class, ItemStack.class, ItemStack.class);
+            capture.setAccessible(true);
+            Object evidence = capture.invoke(null, root, owner, main, off);
+            Method mainReceipt = evidence.getClass().getDeclaredMethod("mainReceipt");
+            Method offReceipt = evidence.getClass().getDeclaredMethod("offhandReceipt");
+            mainReceipt.setAccessible(true);
+            offReceipt.setAccessible(true);
+            String first = mainReceipt.invoke(evidence).toString();
+            String second = offReceipt.invoke(evidence).toString();
+            require(!first.equals(second), "export receipts must be independent");
+            require(Arrays.equals(mainBytes, main.serializeAsBytes())
+                            && Arrays.equals(offBytes, off.serializeAsBytes())
+                            && Arrays.equals(templateBytes, registered.getItem().serializeAsBytes()),
+                    "export mutated inputs or registered template");
+            Files.write(mainFile, mainBytes);
+            Files.write(offFile, offBytes);
+            Files.write(receipts, List.of(owner.toString(), first, second));
+        }
+        // Restart must consume the original receipts and originals, with no fallback or recapture.
+        byte[] receiptBytes = Files.readAllBytes(receipts);
+        List<String> ids = Files.readAllLines(receipts);
+        require(ids.size() == 3 && !ids.get(1).equals(ids.get(2)), "export receipt index invalid");
+        java.util.UUID owner = java.util.UUID.fromString(ids.get(0));
+        Path directory = root.resolve("recovery/identity");
+        try (var files = Files.list(directory)) {
+            require(files.count() == 2, "export must retain exactly two independent original backups");
+        }
+        for (int index = 0; index < 2; index++) {
+            java.util.UUID receipt = java.util.UUID.fromString(ids.get(index + 1));
+            byte[] expected = Files.readAllBytes(index == 0 ? mainFile : offFile);
+            Path backup = directory.resolve(owner + "-" + receipt + ".bin");
+            require(Arrays.equals(expected, Files.readAllBytes(backup)), "export backup original bytes changed");
+            ItemStack restored = readDoctorBackup(root, owner, receipt);
+            require(Arrays.equals(expected, restored.serializeAsBytes())
+                            && restored.getAmount() == (index == 0 ? 1 : 63),
+                    "export native reload changed metadata or quantity");
+            if (index == 1) {
+                require(Long.valueOf(75123L).equals(restored.getItemMeta().getPersistentDataContainer()
+                                .get(OWNER, PersistentDataType.LONG)),
+                        "export lost typed owner data");
+            }
+            require(Arrays.equals(expected, Files.readAllBytes(backup)), "export readback rewrote backup");
+        }
+        verifyPrivateEvidenceReplay(root, owner, java.util.UUID.fromString(ids.get(2)),
+                java.util.UUID.fromString(ids.get(1)), "FUNCTIONAL_METADATA", restart);
+        require(Arrays.equals(receiptBytes, Files.readAllBytes(receipts)), "export receipt index changed");
+        Bukkit.getLogger().info("IDENTITY_EXPORT_SYNTHETIC_" + (restart ? "RESTART" : "SEED") + "_PASS");
+    }
+
+    /**
+     * Emulates the pre-Adventure SlimefunItemStack text setters from v4.1.55
+     * against representative ACTUAL registered modern templates on native Paper.
+     * This is an API-path diagnostic, not a captured old AlbionMC item.
+     * The result can be MATCH, text/presentation drift, or other metadata;
+     * do not invent a mismatch when current Bukkit setters serialize equally.
+     */
+    @SuppressWarnings("deprecation")
+    private static void verifyOldBukkitTextApiMatrix(Path folder, boolean restart) throws Exception {
+        // Raw names/lore reviewed against v4.1.55 commit
+        // 0b2d862a111f87b94288c51297cd3d5795eeef51, implementation/SlimefunItems.java.
+        // Only the historical TEXT setter path is emulated; other metadata comes
+        // from today's registered template. These are not full old-world items.
+        verifyOldBukkitTextApi(folder, restart, "CARBONADO", "&b&lCarbonado", List.of("", "&7&o\"Black Diamond\""));
+        verifyOldBukkitTextApi(folder, restart, "COPPER_DUST", "&6Copper Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "COPPER_INGOT", "&bCopper Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "TIN_INGOT", "&bTin Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "SILVER_INGOT", "&bSilver Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "CARBON", "&eCarbon", List.of());
+        verifyOldBukkitTextApi(folder, restart, "COMPRESSED_CARBON", "&cCompressed Carbon", List.of());
+        // Reviewed unchanged static item definitions across v4.1.55 and v4.1.81.
+        // Widen the identity contract to resources, intermediate components,
+        // alloys, gold grades, and dusts (not just the reported CARBONADO).
+        verifyOldBukkitTextApi(folder, restart, "CARBON_CHUNK", "&4Carbon Chunk", List.of());
+        verifyOldBukkitTextApi(folder, restart, "RAW_CARBONADO", "&bRaw Carbonado", List.of());
+        verifyOldBukkitTextApi(folder, restart, "BASIC_CIRCUIT_BOARD", "&bBasic Circuit Board", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ADVANCED_CIRCUIT_BOARD", "&bAdvanced Circuit Board", List.of());
+        verifyOldBukkitTextApi(folder, restart, "REINFORCED_ALLOY_INGOT", "&b&lReinforced Alloy Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ALUMINUM_INGOT", "&bAluminum Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "LEAD_INGOT", "&bLead Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "STEEL_INGOT", "&bSteel Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "NICKEL_INGOT", "&bNickel Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "COBALT_INGOT", "&9Cobalt Ingot", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_18K", "&fGold Ingot &7(18-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_22K", "&fGold Ingot &7(22-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_24K", "&fGold Ingot &7(24-Carat)", List.of());
+        verifyOldBukkitTextApi(folder, restart, "GOLD_DUST", "&6Gold Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "SILVER_DUST", "&6Silver Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ALUMINUM_DUST", "&6Aluminum Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "LEAD_DUST", "&6Lead Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "ZINC_DUST", "&6Zinc Dust", List.of());
+        verifyOldBukkitTextApi(folder, restart, "MAGNESIUM_DUST", "&6Magnesium", List.of());
+        ItemStack tin = SlimefunItem.getById("TIN_INGOT").getItem();
+        ItemStack silver = SlimefunItem.getById("SILVER_INGOT").getItem();
+        require(tin.getType() == silver.getType() && !tin.isSimilar(silver) && !silver.isSimilar(tin),
+                "distinct registered ingot IDs sharing a vanilla material became stack-compatible");
+        ItemStack gold18 = SlimefunItem.getById("GOLD_18K").getItem();
+        ItemStack gold24 = SlimefunItem.getById("GOLD_24K").getItem();
+        require(gold18.getType() == gold24.getType()
+                        && !gold18.isSimilar(gold24) && !gold24.isSimilar(gold18),
+                "distinct registered gold grades sharing a vanilla material became stack-compatible");
+        ItemStack silverDust = SlimefunItem.getById("SILVER_DUST").getItem();
+        ItemStack aluminumDust = SlimefunItem.getById("ALUMINUM_DUST").getItem();
+        require(silverDust.getType() == aluminumDust.getType()
+                        && !silverDust.isSimilar(aluminumDust) && !aluminumDust.isSimilar(silverDust),
+                "distinct registered dust IDs sharing a vanilla material became stack-compatible");
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void verifyOldBukkitTextApi(
+            Path folder, boolean restart, String id, String name, List<String> lore) throws Exception {
+        var registered = SlimefunItem.getById(id);
+        require(registered != null, "historical Bukkit text API probe missing registration: " + id);
+        Path caseFolder = folder.resolve("identity-old-bukkit-text-api-" + id.toLowerCase(java.util.Locale.ROOT));
+        Path legacyFile = caseFolder.resolve("legacy-api.bin");
+        Path currentFile = caseFolder.resolve("current.bin");
+        Path classificationFile = caseFolder.resolve("classification.txt");
+        Path alternativesFile = caseFolder.resolve("constructor-alternatives.txt");
+        if (restart) {
+            byte[] legacyBytes = Files.readAllBytes(legacyFile);
+            byte[] currentBytes = Files.readAllBytes(currentFile);
+            ItemStack oldApi = ItemStack.deserializeBytes(legacyBytes);
+            ItemStack modern = ItemStack.deserializeBytes(currentBytes);
+            require(oldApi.getAmount() == 31 && modern.getAmount() == 1,
+                    "old Bukkit text API fixture quantities changed on separate Paper boot");
+            String expected = Files.readString(classificationFile);
+            String observed = classifyOldBukkitTextApi(oldApi, modern);
+            Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_RESTART=" + observed);
+            requireLegacyTextCompatibility(id, observed);
+            ItemStack registeredAfterRestart = registered.getItem();
+            if ("STEEL_INGOT".equals(id)) {
+                // This same Doctor integration deliberately clears STEEL_INGOT's
+                // resource-pack model mapping between boot 1 and boot 2.
+                // Preserve the seed-era reference for validating a previously
+                // saved repair; the NEW template must refuse the OLD model.
+                require(Slimefun.getItemTextureService().getModelData(id) == 0,
+                        "Doctor checkpoint did not retire the historical steel model");
+                require(!sameNativeItemIgnoringCount(modern, registeredAfterRestart),
+                        "Doctor checkpoint did not change the model-dependent STEEL_INGOT template");
+                require(repairCandidate(oldApi, registeredAfterRestart, registeredAfterRestart) == null,
+                        "Historical styling migration improperly bypassed Steel Ingot model transition");
+                Bukkit.getLogger().info("SFL_LEGACY_STEEL_MODEL_TRANSITION_EXPECTED_RESTART_PASS");
+            } else {
+                require(sameNativeItemIgnoringCount(modern, registeredAfterRestart),
+                        "Unexplained current registered item drift across restart: " + id);
+            }
+            // The rollback receipt is bound to the EXACT source reference
+            // captured in boot 1, not the deliberately changed template in
+            // boot 2. Do not authorize conversion to an unverified new model.
+            verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, modern, true);
+            require(expected.equals(observed),
+                    "old Bukkit text API fixture provenance classification drifted after restart");
+            String alternatives = compareConstructorAlternatives(oldApi, modern, name, lore);
+            require(Files.readString(alternativesFile).equals(alternatives),
+                    "legacy Bukkit/Adventure constructor alternatives changed after restart: " + id);
+            require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
+                            && Arrays.equals(currentBytes, modern.serializeAsBytes()),
+                    "old Bukkit text API fixture bytes changed during separate Paper restart");
+            return;
+        }
+        Files.createDirectories(caseFolder);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack modern = ItemStack.deserializeBytes(registeredBytes);
+        modern.setAmount(1);
+        ItemStack oldApi = ItemStack.deserializeBytes(registeredBytes);
+        oldApi.setAmount(31);
+        oldApi.editMeta(meta -> {
+            // The reviewed old definitions start without lore. Do not inherit
+            // current lore here: that would conceal future added text on IDs
+            // whose historical constructor received no lore arguments.
+            meta.lore(null);
+            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+            if (!lore.isEmpty()) {
+                meta.setLore(lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).toList());
+            }
+        });
+        byte[] legacyBytes = oldApi.serializeAsBytes();
+        byte[] currentBytes = modern.serializeAsBytes();
+        String classification = classifyOldBukkitTextApi(oldApi, modern);
+        String alternatives = compareConstructorAlternatives(oldApi, modern, name, lore);
+        Bukkit.getLogger().info("SFL_LEGACY_BUKKIT_TEXT_" + id + "_SEED=" + classification);
+        Bukkit.getLogger().info("SFL_LEGACY_CONSTRUCTOR_ALTERNATIVES_" + id + "=" + alternatives);
+        requireLegacyTextCompatibility(id, classification);
+        verifyLegacyStyleRecovery(caseFolder, id, oldApi, modern, registered.getItem(), false);
+        // Negative controls make this a semantic regression gate, not merely a
+        // record of whatever the current constructor happens to produce.
+        ItemStack changedText = ItemStack.deserializeBytes(currentBytes);
+        changedText.editMeta(meta -> meta.displayName(Component.text("Changed meaningful name")));
+        require("MEANINGFUL_TEXT".equals(classifyOldBukkitTextApi(changedText, modern)),
+                "legacy API classification ignored changed meaningful name: " + id);
+        ItemStack changedLore = ItemStack.deserializeBytes(currentBytes);
+        changedLore.editMeta(meta -> meta.lore(List.of(Component.text("Custom player lore"))));
+        require("MEANINGFUL_TEXT".equals(classifyOldBukkitTextApi(changedLore, modern)),
+                "legacy API classification ignored changed meaningful lore: " + id);
+        ItemStack changedOwner = ItemStack.deserializeBytes(legacyBytes);
+        changedOwner.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 913L));
+        require("OTHER_METADATA".equals(classifyOldBukkitTextApi(changedOwner, modern)),
+                "legacy API classification ignored typed owner difference: " + id);
+        ItemStack integerOwner = ItemStack.deserializeBytes(legacyBytes);
+        integerOwner.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.INTEGER, 913));
+        require("OTHER_METADATA".equals(classifyOldBukkitTextApi(integerOwner, changedOwner)),
+                "legacy API classification conflated INTEGER and LONG owner values: " + id);
+        require(Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "old Bukkit text API probe mutated registered template");
+        Files.write(legacyFile, legacyBytes);
+        Files.write(currentFile, currentBytes);
+        Files.writeString(classificationFile, classification);
+        Files.writeString(alternativesFile, alternatives);
+        require(Arrays.equals(legacyBytes, oldApi.serializeAsBytes())
+                        && Arrays.equals(currentBytes, modern.serializeAsBytes()),
+                "old Bukkit text API probe modified its detached inputs");
+    }
+
+    /**
+     * Diagnoses whether historical Bukkit String setter metadata can be built
+     * identically with the modern Adventure setter, either with default
+     * decoration state or with the current explicit italic=false override.
+     * This does NOT change registration or approve a real-world migration.
+     */
+    @SuppressWarnings("deprecation")
+    private static String compareConstructorAlternatives(
+            ItemStack oldApi, ItemStack modern, String rawName, List<String> rawLore) {
+        byte[] oldBytes = oldApi.serializeAsBytes();
+        byte[] modernBytes = modern.serializeAsBytes();
+        ItemStack adventureDefault = ItemStack.deserializeBytes(modernBytes);
+        adventureDefault.setAmount(oldApi.getAmount());
+        ItemStack adventureNoItalic = ItemStack.deserializeBytes(modernBytes);
+        adventureNoItalic.setAmount(oldApi.getAmount());
+        var parser = LegacyComponentSerializer.legacySection();
+        String name = ChatColor.translateAlternateColorCodes('&', rawName);
+        List<Component> plainLore = rawLore.stream()
+                .<Component>map(line -> parser.deserialize(ChatColor.translateAlternateColorCodes('&', line)))
+                .toList();
+        adventureDefault.editMeta(meta -> {
+            meta.displayName(parser.deserialize(name));
+            meta.lore(rawLore.isEmpty() ? null : plainLore);
+        });
+        adventureNoItalic.editMeta(meta -> {
+            meta.displayName(parser.deserialize(name).decoration(TextDecoration.ITALIC, false));
+            meta.lore(rawLore.isEmpty()
+                    ? null
+                    : plainLore.stream()
+                            .map(line -> line.decoration(TextDecoration.ITALIC, false))
+                            .toList());
+        });
+        boolean defaultMatches = oldApi.isSimilar(adventureDefault);
+        boolean forcedNoItalicMatches = oldApi.isSimilar(adventureNoItalic);
+        require(Arrays.equals(oldBytes, oldApi.serializeAsBytes())
+                        && Arrays.equals(modernBytes, modern.serializeAsBytes()),
+                "legacy setter alternative comparison mutated a source item");
+        return "DEFAULT_" + (defaultMatches ? "MATCH" : "DIFFERENT")
+                + "_ITALIC_OFF_" + (forcedNoItalicMatches ? "MATCH" : "DIFFERENT");
+    }
+
+    /** Count-normalized, exact native identity comparison; never ignores typed data. */
+    private static boolean sameNativeItemIgnoringCount(ItemStack first, ItemStack second) {
+        ItemStack one = ItemStack.deserializeBytes(first.serializeAsBytes());
+        ItemStack two = ItemStack.deserializeBytes(second.serializeAsBytes());
+        one.setAmount(1);
+        two.setAmount(1);
+        return Arrays.equals(one.serializeAsBytes(), two.serializeAsBytes());
+    }
+
+    private static void verifyLegacyStyleRecovery(
+            Path folder, String id, ItemStack old, ItemStack fresh, ItemStack template, boolean restart)
+            throws Exception {
+        // Exercise the existing opt-in candidate/backup code only on disposable
+        // source-derived fixtures. Never grant migration eligibility to real items.
+        if (old.isSimilar(fresh)) {
+            return;
+        }
+        byte[] originalBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        byte[] templateBytes = template.serializeAsBytes();
+        Path repairedFile = folder.resolve("style-repaired.bin");
+        Path receiptFile = folder.resolve("style-backup-name.txt");
+        ItemStack repaired;
+        if (restart) {
+            repaired = ItemStack.deserializeBytes(Files.readAllBytes(repairedFile));
+        } else {
+            repaired = repairCandidate(old, fresh, template);
+            require(repaired != null, "legacy style candidate refused: " + id);
+            Path backup = backupHistorical(folder, originalBytes);
+            Files.writeString(receiptFile, backup.getFileName().toString());
+            Files.write(repairedFile, repaired.serializeAsBytes());
+        }
+        String filename = Files.readString(receiptFile);
+        java.util.UUID owner = java.util.UUID.fromString(filename.substring(0, 36));
+        java.util.UUID receipt = java.util.UUID.fromString(filename.substring(37, 73));
+        ItemStack verified = readDoctorBackup(folder, owner, receipt);
+        boolean backupExact = Arrays.equals(originalBytes, verified.serializeAsBytes());
+        boolean quantitiesPreserved = repaired.getAmount() == 31 && verified.getAmount() == 31;
+        boolean stackingCompatible = repaired.isSimilar(fresh) && fresh.isSimilar(repaired);
+        boolean templateStable = sameNativeItemIgnoringCount(fresh, template);
+        boolean rollbackCompatible = matchesDoctorBackup(verified, repaired, fresh, template);
+        if (!backupExact || !quantitiesPreserved || !stackingCompatible || !templateStable || !rollbackCompatible) {
+            // Metadata may be owner/private: emit classification flags only,
+            // not item names, lore, PDC values, or native serialized bytes.
+            Bukkit.getLogger().warning("SFL_LEGACY_STYLE_RECOVERY_REFUSED_" + id
+                    + " backup=" + backupExact + " count=" + quantitiesPreserved
+                    + " stacks=" + stackingCompatible + " registeredTemplateStable=" + templateStable
+                    + " rollback=" + rollbackCompatible);
+        }
+        require(backupExact && quantitiesPreserved && stackingCompatible && templateStable && rollbackCompatible,
+                "legacy style backup/restart/rollback identity mismatch: " + id);
+        ItemStack changedAmount = ItemStack.deserializeBytes(repaired.serializeAsBytes());
+        changedAmount.setAmount(30);
+        require(!matchesDoctorBackup(verified, changedAmount, fresh, template),
+                "legacy style rollback accepted changed quantity: " + id);
+        var inventory = Bukkit.createInventory(null, 9);
+        require(inventory.addItem(ItemStack.deserializeBytes(repaired.serializeAsBytes()),
+                        ItemStack.deserializeBytes(freshBytes)).isEmpty()
+                        && inventory.getItem(0).getAmount() == 32 && inventory.getItem(1) == null,
+                "legacy style repair failed exact 31+1 merge: " + id);
+        require(Arrays.equals(originalBytes, old.serializeAsBytes())
+                        && Arrays.equals(freshBytes, fresh.serializeAsBytes())
+                        && Arrays.equals(templateBytes, template.serializeAsBytes()),
+                "legacy style recovery changed input/template bytes: " + id);
+        Bukkit.getLogger().info("SFL_LEGACY_STYLE_RECOVERY_" + id + (restart ? "_RESTART_PASS" : "_SEED_PASS"));
+    }
+
+    private static void requireLegacyTextCompatibility(String id, String classification) {
+        // Reviewed initial seven-fixture/six-runtime baseline at 25a7d561.
+        // Additional source-derived fixtures must meet the same strict rule on
+        // the current native server; do not grandfather a new text regression.
+        // A future exact native match is welcome;
+        // new blank-line, meaningful-text or functional-data drift must fail CI.
+        // This does not certify genuine old-world bytes or approve any repair.
+        require("MATCH".equals(classification) || "STYLE_OR_COMPONENT".equals(classification),
+                "legacy text constructor compatibility regressed for " + id + ": " + classification);
+    }
+
+    private static String classifyOldBukkitTextApi(ItemStack oldApi, ItemStack modern) throws Exception {
+        if (oldApi.isSimilar(modern)) {
+            return "MATCH";
+        }
+        Object evidence = historical(oldApi, modern);
+        if (!flag(evidence, "nonPresentationSame")) {
+            return "OTHER_METADATA";
+        }
+        if (flag(evidence, "plainTextSame")) {
+            return "STYLE_OR_COMPONENT";
+        }
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorIdentityCommand");
+        Method plain = doctor.getDeclaredMethod("inspectPlainPresentation", ItemStack.class, ItemStack.class);
+        Method blank = doctor.getDeclaredMethod("sameNonblankPlainLore", ItemStack.class, ItemStack.class);
+        plain.setAccessible(true);
+        blank.setAccessible(true);
+        boolean sameName = flag(plain.invoke(null, oldApi, modern), "nameSame");
+        return sameName && (Boolean) blank.invoke(null, oldApi, modern)
+                ? "BLANK_LORE_LAYOUT" : "MEANINGFUL_TEXT";
+    }
+
     /** Native Paper demonstration for #578: classification only, never a historical repair. */
+    /**
+     * Native 2-boot acceptance of the *actual live-batch engine* using the
+     * registered CARBONADO source on disposable Paper. The old style is
+     * synthetic; a real owner's saved shop/chest byte capture is still needed.
+     */
+    private static void verifyLivePlayerInventoryBatch(Path folder, boolean restart) throws Exception {
+        var registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "missing CARBONADO for native live-batch acceptance");
+        Path directory = folder.resolve("identity-live-player-batch");
+        Path oldFile = directory.resolve("original.bin");
+        Path freshFile = directory.resolve("fresh.bin");
+        Path updatedFile = directory.resolve("updated.bin");
+        Path receiptFile = directory.resolve("owner-receipt.txt");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(oldFile);
+            byte[] freshBytes = Files.readAllBytes(freshFile);
+            byte[] updatedBytes = Files.readAllBytes(updatedFile);
+            ItemStack original = ItemStack.deserializeBytes(oldBytes);
+            ItemStack fresh = ItemStack.deserializeBytes(freshBytes);
+            ItemStack updated = ItemStack.deserializeBytes(updatedBytes);
+            require(original.getAmount() == 63 && fresh.getAmount() == 1 && updated.getAmount() == 63,
+                    "native live-batch CARBONADO amounts changed after restart");
+            require(!original.isSimilar(fresh) && updated.isSimilar(fresh),
+                    "native live-batch did not preserve original mismatch/repaired identity across restart");
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "native live-batch private receipt malformed");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID receipt = java.util.UUID.fromString(tokens[1]);
+            ItemStack saved = readDoctorBackup(directory, owner, receipt);
+            require(Arrays.equals(oldBytes, saved.serializeAsBytes())
+                            && matchesDoctorBackup(saved, updated, fresh, fresh),
+                    "native live-batch original receipt or exact rollback eligibility lost across restart");
+            var inventory = Bukkit.createInventory(null, 9);
+            require(inventory.addItem(updated, fresh).isEmpty()
+                            && inventory.getItem(0).getAmount() == 64 && inventory.getItem(1) == null,
+                    "native live-batch repaired CARBONADO 63+1 merge failed after restart");
+            require(Arrays.equals(oldBytes, Files.readAllBytes(oldFile))
+                            && Arrays.equals(updatedBytes, Files.readAllBytes(updatedFile)),
+                    "native live-batch old/new evidence changed during restart");
+            Bukkit.getLogger().info("SFL_LIVE_BATCH_CARBONADO_RESTART_PASS");
+            return;
+        }
+
+        Files.createDirectories(directory);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack fresh = ItemStack.deserializeBytes(registeredBytes);
+        fresh.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        var display = old.getItemMeta().displayName();
+        require(display != null, "native live-batch registered CARBONADO name unavailable");
+        boolean wasBold = display.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE;
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, !wasBold)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = fresh.serializeAsBytes();
+        require(!old.isSimilar(fresh), "native live-batch synthetic legacy style must differ");
+
+        var inventory = Bukkit.createInventory(null, 36);
+        inventory.setItem(0, old);
+        inventory.setItem(1, fresh);
+        java.util.function.Function<ItemStack, ItemStack> resolver = observed -> registered.getItem();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method previewMethod = engine.getDeclaredMethod(
+                "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        previewMethod.setAccessible(true);
+        Object plan = previewMethod.invoke(null, inventory, resolver);
+        Method eligibleMethod = plan.getClass().getDeclaredMethod("eligible");
+        eligibleMethod.setAccessible(true);
+        require((int) eligibleMethod.invoke(plan) == 1, "native live-batch expected one safe style candidate");
+
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        Method apply = engine.getDeclaredMethod(
+                "apply", org.bukkit.inventory.Inventory.class, plan.getClass(),
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        apply.setAccessible(true);
+        var receipts = (java.util.List<?>) apply.invoke(null, inventory, plan, resolver, directory, owner);
+        require(receipts.size() == 1, "native live-batch expected one exact-original private backup");
+        Object firstReceipt = receipts.getFirst();
+        Method receiptId = firstReceipt.getClass().getDeclaredMethod("id");
+        receiptId.setAccessible(true);
+        java.util.UUID receipt = (java.util.UUID) receiptId.invoke(firstReceipt);
+        ItemStack updated = inventory.getItem(0);
+        require(updated != null && updated.getAmount() == 63 && updated.isSimilar(fresh),
+                "native live-batch verified player slot did not become current registered CARBONADO");
+        require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, receipt).serializeAsBytes()),
+                "native live-batch original receipt was not exact");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "native live-batch altered old source or global registered template");
+        Files.write(oldFile, oldBytes);
+        Files.write(freshFile, freshBytes);
+        Files.write(updatedFile, updated.serializeAsBytes());
+        Files.writeString(receiptFile, owner + ":" + receipt);
+        Bukkit.getLogger().info("SFL_LIVE_BATCH_CARBONADO_SEED_PASS");
+    }
+
+    /**
+     * Native two-boot acceptance of the private container export engine, using
+     * a synthetic 54-slot inventory and an actual registered CARBONADO template.
+     * Restart reopens saved receipts; this does not test physical world-chest
+     * persistence or any QuickShop record. No production inventory is used.
+     */
+    private static void verifyNativeChestEvidence(Path folder, boolean restart) throws Exception {
+        SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "native chest export registered CARBONADO unavailable");
+        Path directory = folder.resolve("identity-chest-private-evidence");
+        Path originalFile = directory.resolve("old-chest.bin");
+        Path currentFile = directory.resolve("current-template.bin");
+        Path receiptFile = directory.resolve("receipts.txt");
+
+        if (restart) {
+            byte[] oldBytes = Files.readAllBytes(originalFile);
+            byte[] currentBytes = Files.readAllBytes(currentFile);
+            ItemStack old = ItemStack.deserializeBytes(oldBytes);
+            ItemStack current = ItemStack.deserializeBytes(currentBytes);
+            ItemStack registeredNative = ItemStack.deserializeBytes(registered.getItem().serializeAsBytes());
+            require(old.getAmount() == 63 && current.getAmount() == 1
+                            && !old.isSimilar(current) && current.isSimilar(registeredNative),
+                    "native chest evidence original/current identity changed after restart");
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 3, "native chest evidence receipt is malformed");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID oldReceipt = java.util.UUID.fromString(tokens[1]);
+            java.util.UUID templateReceipt = java.util.UUID.fromString(tokens[2]);
+            require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, oldReceipt).serializeAsBytes())
+                            && Arrays.equals(
+                                    currentBytes,
+                                    readDoctorBackup(directory, owner, templateReceipt).serializeAsBytes()),
+                    "native chest evidence private original/template bytes changed after restart");
+            verifyPrivateEvidenceReplay(directory, owner, oldReceipt, templateReceipt,
+                    "STYLE_ONLY_CANDIDATE", true);
+            verifyPhysicalChestPersistence(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestStyleMigration(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestFullEnvelope(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestProposedJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            verifyPhysicalChestPartialJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
+                    "native chest evidence source files were rewritten after restart");
+            Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_RESTART_PASS");
+            return;
+        }
+
+        Files.createDirectories(directory);
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        ItemStack current = ItemStack.deserializeBytes(registeredBytes);
+        current.setAmount(1);
+        ItemStack old = ItemStack.deserializeBytes(registeredBytes);
+        old.setAmount(63);
+        var name = old.getItemMeta().displayName();
+        require(name != null, "native chest evidence CARBONADO display name missing");
+        boolean bold = name.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE;
+        old.editMeta(meta -> meta.displayName(meta.displayName().decoration(TextDecoration.BOLD, !bold)));
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] currentBytes = current.serializeAsBytes();
+        var chest = Bukkit.createInventory(null, 54);
+        chest.setItem(53, old);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method export = engine.getDeclaredMethod(
+                "captureContainer",
+                org.bukkit.inventory.Inventory.class,
+                int.class,
+                java.util.function.Function.class,
+                Path.class,
+                java.util.UUID.class);
+        export.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver = observed -> registered.getItem();
+        Object receipts = export.invoke(null, chest, 53, resolver, directory, owner);
+        Method oldId = receipts.getClass().getDeclaredMethod("mainReceipt");
+        Method templateId = receipts.getClass().getDeclaredMethod("offhandReceipt");
+        oldId.setAccessible(true);
+        templateId.setAccessible(true);
+        java.util.UUID originalReceipt = (java.util.UUID) oldId.invoke(receipts);
+        java.util.UUID currentReceipt = (java.util.UUID) templateId.invoke(receipts);
+        require(Arrays.equals(oldBytes, readDoctorBackup(directory, owner, originalReceipt).serializeAsBytes())
+                        && Arrays.equals(
+                                currentBytes,
+                                readDoctorBackup(directory, owner, currentReceipt).serializeAsBytes()),
+                "native chest evidence private receipts failed exact-byte seed readback");
+        verifyPrivateEvidenceReplay(directory, owner, originalReceipt, currentReceipt,
+                "STYLE_ONLY_CANDIDATE", false);
+        verifyPhysicalChestPersistence(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestStyleMigration(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestFullEnvelope(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestProposedJournal(directory, false, oldBytes, currentBytes, registeredBytes);
+        verifyPhysicalChestPartialJournal(directory, false, oldBytes, currentBytes, registeredBytes);
+        require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
+                        && chest.getItem(52) == null
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
+                "native chest evidence export modified old stock, adjacent slots or registered template");
+        Files.write(originalFile, oldBytes);
+        Files.write(currentFile, currentBytes);
+        Files.writeString(receiptFile, owner + ":" + originalReceipt + ":" + currentReceipt);
+        Bukkit.getLogger().info("SFL_CHEST_ITEM_EVIDENCE_SEED_PASS");
+    }
+
+
+    /**
+     * Disposable native WORLD chest, not Bukkit.createInventory. The first boot
+     * seeds source-derived old/current CARBONADO plus one typed-owner negative
+     * control. The second boot reopens the same physical chunk and proves exact
+     * stock/quantity/PDC persistence. Calls run on the owning 0,0 Folia region.
+     * This is NOT a genuine historical AlbionMC chest or QuickShop transaction.
+     */
+    /**
+     * Fresh disposable PHYSICAL world chest and private, full-slot Doctor
+     * evidence envelope. An independent second JVM must reopen both the world
+     * chunk and original owner-scoped receipt without touching real AlbionMC.
+     * This is a source-byte verification fixture, never a chest repair.
+     */
+    private static void verifyPhysicalChestFullEnvelope(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(10, 180, 3);
+        Path fixture = directory.resolve("physical-chest-full-envelope");
+        Path receiptFile = fixture.resolve("owner-receipt.txt");
+        Path originalFile = fixture.resolve("old.bin");
+        Path freshFile = fixture.resolve("fresh.bin");
+        Path typedFile = fixture.resolve("typed.bin");
+        Path journalFile = fixture.resolve("journal-id.txt");
+
+        if (restart) {
+            require(block.getType() == Material.CHEST, "full-envelope physical chest block did not persist");
+        } else {
+            require(block.getType().isAir(), "full-envelope disposable block was already occupied");
+            block.setType(Material.CHEST);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "full-envelope fixture must have an actual world chest state");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "full-envelope fixture must use one 27-slot chest");
+        ItemStack owned = ItemStack.deserializeBytes(oldBytes);
+        owned.setAmount(9);
+        owned.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = owned.serializeAsBytes();
+
+        if (!restart) {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(2, owned);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Files.createDirectories(fixture);
+            Files.write(originalFile, oldBytes);
+            Files.write(freshFile, currentBytes);
+            Files.write(typedFile, typedBytes);
+        } else {
+            require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(freshFile))
+                            && Arrays.equals(typedBytes, Files.readAllBytes(typedFile)),
+                    "full-envelope original source files changed across restart");
+        }
+        require(contents.getItem(0) != null && contents.getItem(1) != null && contents.getItem(2) != null
+                        && contents.getItem(26) != null && contents.getItem(3) == null
+                        && Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                        && Arrays.equals(currentBytes, contents.getItem(1).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(26).getType() == Material.STONE
+                        && contents.getItem(26).getAmount() == 17,
+                "physical full-container original stock, typed PDC or slot indices changed");
+
+        Class<?> evidence = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method from = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        from.setAccessible(true);
+        Object binding = from.invoke(null, block.getLocation(), block.getState(), contents);
+        Method verify = evidence.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verify.setAccessible(true);
+
+        java.util.UUID owner;
+        java.util.UUID receiptId;
+        if (restart) {
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "physical full-container recovery owner/receipt malformed");
+            owner = java.util.UUID.fromString(tokens[0]);
+            receiptId = java.util.UUID.fromString(tokens[1]);
+        } else {
+            owner = java.util.UUID.randomUUID();
+            Method capture = evidence.getDeclaredMethod(
+                    "capture", Path.class, java.util.UUID.class, bindingClass,
+                    org.bukkit.inventory.Inventory.class);
+            capture.setAccessible(true);
+            Object receipt = capture.invoke(null, fixture, owner, binding, contents);
+            Method receiptIdMethod = receipt.getClass().getDeclaredMethod("id");
+            receiptIdMethod.setAccessible(true);
+            receiptId = (java.util.UUID) receiptIdMethod.invoke(receipt);
+            Files.writeString(receiptFile, owner + ":" + receiptId);
+        }
+
+        Object verified = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+        Method unchanged = verified.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require((boolean) unchanged.invoke(verified),
+                "physical full-container original evidence does not match world chest");
+
+        Method assess = evidence.getDeclaredMethod(
+                "assess", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        assess.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> templateResolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Object assessment = assess.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+        Method eligible = assessment.getClass().getDeclaredMethod("eligible");
+        Method refused = assessment.getClass().getDeclaredMethod("refused");
+        eligible.setAccessible(true);
+        refused.setAccessible(true);
+        require((int) eligible.invoke(assessment) == 1 && (int) refused.invoke(assessment) >= 1,
+                "physical receipt-bound assessment did not isolate style-only stock from typed-PDC refusal");
+
+
+        Class<?> preflight = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerMigrationPreflight");
+        Method preparePlan = preflight.getDeclaredMethod(
+                "prepare", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        preparePlan.setAccessible(true);
+        Object plan = preparePlan.invoke(
+                null, fixture, owner, receiptId, binding, contents, templateResolver);
+        Method changeCount = plan.getClass().getDeclaredMethod("changedStacks");
+        Method beforeCount = plan.getClass().getDeclaredMethod("originalItems");
+        Method afterCount = plan.getClass().getDeclaredMethod("proposedItems");
+        changeCount.setAccessible(true);
+        beforeCount.setAccessible(true);
+        afterCount.setAccessible(true);
+        require((int) changeCount.invoke(plan) == 1
+                        && (long) beforeCount.invoke(plan) == 90L
+                        && (long) afterCount.invoke(plan) == 90L,
+                "native physical full-envelope preflight failed item/typed-owner conservation");
+
+        Method matchesAfter = preflight.getDeclaredMethod(
+                "matchesProposedAfter", plan.getClass(), bindingClass, org.bukkit.inventory.Inventory.class);
+        matchesAfter.setAccessible(true);
+        require(!(boolean) matchesAfter.invoke(null, plan, binding, contents),
+                "native read-only draft treated unmodified source chest as a committed after-image");
+
+
+        // A durable, diagnostic-only transaction journal persists the exact
+        // hypothetical before/after fingerprints on first boot. On the second
+        // JVM, it must reopen with the persisted full-container source receipt.
+        Class<?> journalClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method createJournal = journalClass.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        createJournal.setAccessible(true);
+        Method inspectJournal = journalClass.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspectJournal.setAccessible(true);
+        java.util.UUID journalId;
+        if (restart) {
+            journalId = java.util.UUID.fromString(Files.readString(journalFile).trim());
+        } else {
+            Object draftJournal = createJournal.invoke(
+                    null, fixture, owner, receiptId, binding, contents, templateResolver);
+            Method journalIdAccessor = draftJournal.getClass().getDeclaredMethod("id");
+            journalIdAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalIdAccessor.invoke(draftJournal);
+            Files.writeString(journalFile, journalId.toString());
+        }
+        Object status = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+        Method state = status.getClass().getDeclaredMethod("state");
+        state.setAccessible(true);
+        require("ORIGINAL".equals(state.invoke(status).toString()),
+                "physical chest crash-replay journal must identify untouched original world chest");
+
+        if (restart) {
+            // Read-only verification MUST refuse an unrelated changed stock
+            // count while preserving the original owner receipt, then accept
+            // the unchanged chest again after the test restores its own value.
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object changed = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+            require(!(boolean) unchanged.invoke(changed),
+                    "physical full-envelope ignored unrelated inventory drift");
+            Object diverged = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+            require("DIVERGED".equals(state.invoke(diverged).toString()),
+                    "physical chest journal must flag unrelated stock drift as DIVERGED");
+            try {
+                preparePlan.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+                throw new IllegalStateException("Stale physical chest original unexpectedly yielded transaction draft");
+            } catch (java.lang.reflect.InvocationTargetException refusedDraft) {
+                require(refusedDraft.getCause() instanceof java.io.IOException,
+                        "physical chest preflight must refuse changed unrelated stock with IOException");
+            }
+            try {
+                assess.invoke(null, fixture, owner, receiptId, binding, contents, templateResolver);
+                throw new IllegalStateException("Stale physical receipt unexpectedly produced migration candidates");
+            } catch (java.lang.reflect.InvocationTargetException refusedPreview) {
+                require(refusedPreview.getCause() instanceof java.io.IOException,
+                        "stale physical receipt must refuse preview with a checked IO error");
+            }
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Object restored = verify.invoke(null, fixture, owner, receiptId, binding, contents);
+            require((boolean) unchanged.invoke(restored),
+                    "physical full-envelope did not revalidate original stock after idempotent restore");
+            Object replayed = inspectJournal.invoke(null, fixture, owner, journalId, binding, contents);
+            require("ORIGINAL".equals(state.invoke(replayed).toString()),
+                    "physical chest original recovery journal should remain valid across restart");
+            require(contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                            && contents.getItem(3) == null,
+                    "physical full-envelope regression changed typed PDC or neighboring stock");
+            require(Arrays.equals(registeredBytes,
+                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "physical full-envelope replay changed registered Slimefun item");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_FULL_ENVELOPE_RESTART_PASS");
+        } else {
+            require(Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes()),
+                    "physical full-envelope evidence capture changed chest stock");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_FULL_ENVELOPE_SEED_PASS");
+        }
+    }
+
+    /**
+     * Independent physical chest initialized in a disposable test-only world.
+     * First boot records the original source and exact proposed journal,
+     * then deliberately writes the eligible synthetic style into THIS
+     * fixture only. Second JVM boot must recognize the fully persisted
+     * proposed native stock while refusing unrelated stone/PDC drift.
+     *
+     * This does not exercise or enable any production chest writer.
+     */
+    private static void verifyPhysicalChestProposedJournal(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 6);
+        Path fixture = directory.resolve("physical-chest-proposed-journal");
+        Path idsFile = fixture.resolve("owner-origin-journal.txt");
+        Path proposedFile = fixture.resolve("proposed-native.bin");
+        if (restart) {
+            require(block.getType() == Material.CHEST,
+                    "test-only proposed after-image chest failed to persist across JVM restart");
+        } else {
+            require(block.getType().isAir(), "test-only proposed after-image chest location occupied");
+            block.setType(Material.CHEST);
+            Files.createDirectories(fixture);
+        }
+
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "test-only proposed after-image target is not a physical chest");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "test-only proposed after-image requires one physical chest");
+
+        ItemStack updated = ItemStack.deserializeBytes(registeredBytes);
+        updated.setAmount(63);
+        byte[] expectedUpdated = updated.serializeAsBytes();
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        Class<?> envelope = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method bindingFrom = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        bindingFrom.setAccessible(true);
+        Object binding = bindingFrom.invoke(null, block.getLocation(), block.getState(), contents);
+        Method capture = envelope.getDeclaredMethod(
+                "capture", Path.class, java.util.UUID.class, bindingClass, org.bukkit.inventory.Inventory.class);
+        capture.setAccessible(true);
+        Method verifyOrigin = envelope.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verifyOrigin.setAccessible(true);
+
+        Class<?> journal = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method begin = journal.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        begin.setAccessible(true);
+        Method inspect = journal.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+
+        java.util.UUID owner;
+        java.util.UUID receiptId;
+        java.util.UUID journalId;
+        if (restart) {
+            String[] tokens = Files.readString(idsFile).trim().split(":", -1);
+            require(tokens.length == 3, "test-only proposed journal owner/source/ID missing after restart");
+            owner = java.util.UUID.fromString(tokens[0]);
+            receiptId = java.util.UUID.fromString(tokens[1]);
+            journalId = java.util.UUID.fromString(tokens[2]);
+            require(Arrays.equals(expectedUpdated, Files.readAllBytes(proposedFile)),
+                    "test-only journal persisted proposed source bytes changed across JVM restart");
+        } else {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(2, typed);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            require(contents.getItem(0) != null
+                            && Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                            && contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes()),
+                    "test-only proposed chest original old/typed source did not seed byte-exactly");
+            owner = java.util.UUID.randomUUID();
+            Object origin = capture.invoke(null, fixture, owner, binding, contents);
+            Method receiptAccessor = origin.getClass().getDeclaredMethod("id");
+            receiptAccessor.setAccessible(true);
+            receiptId = (java.util.UUID) receiptAccessor.invoke(origin);
+            Object prepared = begin.invoke(null, fixture, owner, receiptId, binding, contents, resolver);
+            Method journalAccessor = prepared.getClass().getDeclaredMethod("id");
+            journalAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalAccessor.invoke(prepared);
+            Object before = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            Method stateAccessor = before.getClass().getDeclaredMethod("state");
+            stateAccessor.setAccessible(true);
+            require("ORIGINAL".equals(stateAccessor.invoke(before).toString()),
+                    "test-only proposed journal did not recognize unmodified native source chest");
+            Files.writeString(idsFile, owner + ":" + receiptId + ":" + journalId);
+            Files.write(proposedFile, expectedUpdated);
+
+            // Disposable world simulation ONLY, deliberately bypassing all
+            // production Doctor paths. No live writer or migration command.
+            contents.setItem(0, updated);
+        }
+
+        require(contents.getItem(0) != null
+                        && Arrays.equals(expectedUpdated, contents.getItem(0).serializeAsBytes())
+                        && contents.getItem(1) != null
+                        && Arrays.equals(currentBytes, contents.getItem(1).serializeAsBytes())
+                        && contents.getItem(2) != null
+                        && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(26) != null
+                        && contents.getItem(26).getType() == Material.STONE
+                        && contents.getItem(26).getAmount() == 17
+                        && contents.getItem(3) == null,
+                "test-only proposed physical chest lost exact persisted slot/PDC/quantity after-image");
+
+        Object after = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+        Method stateAccessor = after.getClass().getDeclaredMethod("state");
+        stateAccessor.setAccessible(true);
+        require("PROPOSED".equals(stateAccessor.invoke(after).toString()),
+                "test-only physically persisted proposed chest not recognized by exact-native journal");
+
+        Object originCheck = verifyOrigin.invoke(null, fixture, owner, receiptId, binding, contents);
+        Method unchanged = originCheck.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require(!(boolean) unchanged.invoke(originCheck),
+                "test-only proposed chest incorrectly classified as unchanged original source");
+
+        var merge = Bukkit.createInventory(null, 9);
+        require(merge.addItem(contents.getItem(0).clone(), contents.getItem(1).clone()).isEmpty()
+                        && merge.getItem(0) != null && merge.getItem(0).getAmount() == 64
+                        && merge.getItem(1) == null,
+                "test-only persisted proposed CARBONADO 63+1 native merge lost items");
+
+        if (restart) {
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object diverged = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            require("DIVERGED".equals(stateAccessor.invoke(diverged).toString()),
+                    "test-only proposed journal overlooked unrelated vanilla slot amount mutation");
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            Object unchangedAfter = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            require("PROPOSED".equals(stateAccessor.invoke(unchangedAfter).toString()),
+                    "test-only proposed chest did not recover correct journal state after stock reset");
+            require(contents.getItem(2) != null
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                            && Arrays.equals(registeredBytes,
+                                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "test-only proposed journal modified registered item or owner-PDC negative stock");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_RESTART_PASS");
+        } else {
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PROPOSED_JOURNAL_SEED_PASS");
+        }
+    }
+
+    /**
+     * Crash-interruption simulation: two style-eligible source stacks, but only
+     * the first is rewritten in a separate, disposable world chest on boot 1.
+     * The second JVM must call that DIVERGED, and test-only completion of the
+     * second eligible slot must be fully PROPOSED with stock conserved.
+     *
+     * Production Doctor never performs these setters.
+     */
+    private static void verifyPhysicalChestPartialJournal(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(12, 180, 6);
+        Path fixture = directory.resolve("physical-chest-partial-journal");
+        Path idsFile = fixture.resolve("operator-source-journal.txt");
+        if (restart) {
+            require(block.getType() == Material.CHEST,
+                    "disposable partial-journal chest did not persist across actual JVM restart");
+        } else {
+            require(block.getType().isAir(), "disposable partial-journal chest already occupied");
+            block.setType(Material.CHEST);
+            Files.createDirectories(fixture);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest,
+                "disposable partial-journal target is not a physical chest");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "disposable partial-journal chest must have 27 slots");
+
+        ItemStack proposed63 = ItemStack.deserializeBytes(registeredBytes);
+        proposed63.setAmount(63);
+        ItemStack proposed8 = ItemStack.deserializeBytes(registeredBytes);
+        proposed8.setAmount(8);
+        byte[] after63 = proposed63.serializeAsBytes();
+        byte[] after8 = proposed8.serializeAsBytes();
+        ItemStack old8 = ItemStack.deserializeBytes(oldBytes);
+        old8.setAmount(8);
+        byte[] old8Bytes = old8.serializeAsBytes();
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        Class<?> evidence = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope");
+        Class<?> bindingClass = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerEvidenceEnvelope$Binding");
+        Method from = bindingClass.getDeclaredMethod(
+                "from", org.bukkit.Location.class, org.bukkit.block.BlockState.class,
+                org.bukkit.inventory.Inventory.class);
+        from.setAccessible(true);
+        Object binding = from.invoke(null, block.getLocation(), block.getState(), contents);
+        Method capture = evidence.getDeclaredMethod(
+                "capture", Path.class, java.util.UUID.class, bindingClass, org.bukkit.inventory.Inventory.class);
+        capture.setAccessible(true);
+        Method verify = evidence.getDeclaredMethod(
+                "verify", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        verify.setAccessible(true);
+
+        Class<?> journal = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerTransactionJournal");
+        Method begin = journal.getDeclaredMethod(
+                "begin", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        begin.setAccessible(true);
+        Method inspect = journal.getDeclaredMethod(
+                "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+
+        java.util.UUID operator;
+        java.util.UUID receiptId;
+        java.util.UUID journalId;
+        if (restart) {
+            String[] saved = Files.readString(idsFile).trim().split(":", -1);
+            require(saved.length == 3, "disposable partial-journal recovery identifiers not persisted");
+            operator = java.util.UUID.fromString(saved[0]);
+            receiptId = java.util.UUID.fromString(saved[1]);
+            journalId = java.util.UUID.fromString(saved[2]);
+        } else {
+            contents.setItem(0, ItemStack.deserializeBytes(oldBytes));
+            contents.setItem(1, old8);
+            contents.setItem(2, ItemStack.deserializeBytes(currentBytes));
+            contents.setItem(3, typed);
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            operator = java.util.UUID.randomUUID();
+            Object receipt = capture.invoke(null, fixture, operator, binding, contents);
+            Method id = receipt.getClass().getDeclaredMethod("id");
+            id.setAccessible(true);
+            receiptId = (java.util.UUID) id.invoke(receipt);
+            Object savedJournal = begin.invoke(null, fixture, operator, receiptId, binding, contents, resolver);
+            Method journalAccessor = savedJournal.getClass().getDeclaredMethod("id");
+            journalAccessor.setAccessible(true);
+            journalId = (java.util.UUID) journalAccessor.invoke(savedJournal);
+            Method changedSlots = savedJournal.getClass().getDeclaredMethod("changedSlots");
+            changedSlots.setAccessible(true);
+            require(java.util.List.of(0, 1).equals(changedSlots.invoke(savedJournal)),
+                    "partial-journal setup must have exactly two independently eligible source stacks");
+            Files.writeString(idsFile, operator + ":" + receiptId + ":" + journalId);
+            // ONLY a synthetic crash at the first of two planned changes.
+            contents.setItem(0, proposed63);
+        }
+
+        require(contents.getItem(0) != null
+                        && Arrays.equals(after63, contents.getItem(0).serializeAsBytes())
+                        && contents.getItem(1) != null
+                        && Arrays.equals(old8Bytes, contents.getItem(1).serializeAsBytes())
+                        && contents.getItem(2) != null
+                        && Arrays.equals(currentBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(3) != null
+                        && Arrays.equals(typedBytes, contents.getItem(3).serializeAsBytes())
+                        && contents.getItem(26) != null && contents.getItem(26).getAmount() == 17
+                        && contents.getItem(4) == null,
+                "partial-journal source/stock/owner-PDC did not persist native-exactly");
+        Object partial = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+        Method status = partial.getClass().getDeclaredMethod("state");
+        status.setAccessible(true);
+        require("DIVERGED".equals(status.invoke(partial).toString()),
+                "partially migrated physical chest must NEVER be classified as PROPOSED or ORIGINAL");
+        Method expectedOnlyPartial = partial.getClass().getDeclaredMethod("expectedOnlyPartial");
+        expectedOnlyPartial.setAccessible(true);
+        Method appliedCandidates = partial.getClass().getDeclaredMethod("appliedCandidates");
+        appliedCandidates.setAccessible(true);
+        Method originalCandidates = partial.getClass().getDeclaredMethod("originalCandidates");
+        originalCandidates.setAccessible(true);
+        Method unexpectedSlots = partial.getClass().getDeclaredMethod("unexpectedSlots");
+        unexpectedSlots.setAccessible(true);
+        require((boolean) expectedOnlyPartial.invoke(partial)
+                        && (int) appliedCandidates.invoke(partial) == 1
+                        && (int) originalCandidates.invoke(partial) == 1
+                        && (int) unexpectedSlots.invoke(partial) == 0,
+                "partial native chest must classify one applied/one original candidate with no unrelated changes");
+        Object origin = verify.invoke(null, fixture, operator, receiptId, binding, contents);
+        Method unchanged = origin.getClass().getDeclaredMethod("unchanged");
+        unchanged.setAccessible(true);
+        require(!(boolean) unchanged.invoke(origin),
+                "partially migrated chest must not be certified unchanged source");
+
+        if (restart) {
+            // Simulates a manual operator completing ONLY THE TEST FIXTURE;
+            // NEVER call a production recovery writer.
+            contents.setItem(1, proposed8);
+            Object completed = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+            require("PROPOSED".equals(status.invoke(completed).toString()),
+                    "full after-image did not validate after test-only second-slot completion");
+            require(!(boolean) expectedOnlyPartial.invoke(completed)
+                            && (int) appliedCandidates.invoke(completed) == 2
+                            && (int) originalCandidates.invoke(completed) == 0
+                            && (int) unexpectedSlots.invoke(completed) == 0,
+                    "completed after-image should have only two exact applied candidates");
+            var quantity = Bukkit.createInventory(null, 9);
+            int total = 0;
+            for (int slot : new int[] {0, 1, 2, 3, 26}) {
+                total += contents.getItem(slot).getAmount();
+            }
+            require(total == 98, "partial-journal two-slot migration lost or duplicated stock");
+            require(quantity.addItem(contents.getItem(0).clone(), contents.getItem(2).clone()).isEmpty()
+                            && quantity.getItem(0) != null && quantity.getItem(0).getAmount() == 64,
+                    "partial-journal 63+1 stacking failed after test-only completion");
+            contents.setItem(26, new ItemStack(Material.STONE, 16));
+            Object drift = inspect.invoke(null, fixture, operator, journalId, binding, contents);
+            require("DIVERGED".equals(status.invoke(drift).toString()),
+                    "partial-journal completion failed to reject unrelated stock mutation");
+            require(!(boolean) expectedOnlyPartial.invoke(drift)
+                            && (int) unexpectedSlots.invoke(drift) == 1,
+                    "unrelated vanilla stock drift must never look like an expected-only interruption");
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            require("PROPOSED".equals(status.invoke(
+                            inspect.invoke(null, fixture, operator, journalId, binding, contents)).toString()),
+                    "partial-journal after-image did not recover after test-only stock restoration");
+            require(Arrays.equals(typedBytes, contents.getItem(3).serializeAsBytes())
+                            && Arrays.equals(registeredBytes,
+                                    SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "partial-journal fixture modified typed-PDC original or global CARBONADO");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_RESTART_PASS");
+        } else {
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_SEED_PASS");
+        }
+    }
+
+    private static void verifyPhysicalChestPersistence(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        Path fixture = directory.resolve("physical-world-chest");
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(3, 180, 3);
+        if (restart) {
+            require(block.getType() == Material.CHEST, "disposable physical chest was not persisted");
+        } else {
+            require(block.getType().isAir(), "physical chest fixture position is occupied");
+            block.setType(Material.CHEST);
+        }
+        require(block.getState() instanceof org.bukkit.block.Chest, "physical chest block state missing");
+        var contents = ((org.bukkit.block.Chest) block.getState()).getBlockInventory();
+        require(contents.getSize() == 27, "physical fixture must be one vanilla chest");
+
+        Path savedOld = fixture.resolve("old.bin");
+        Path savedCurrent = fixture.resolve("current.bin");
+        Path savedTyped = fixture.resolve("typed-owner.bin");
+        Path receiptsFile = fixture.resolve("receipts.txt");
+        if (restart) {
+            byte[] typedBytes = Files.readAllBytes(savedTyped);
+            require(Arrays.equals(oldBytes, Files.readAllBytes(savedOld))
+                            && Arrays.equals(currentBytes, Files.readAllBytes(savedCurrent)),
+                    "physical chest evidence files were changed");
+            require(contents.getItem(26) != null && contents.getItem(25) != null
+                            && contents.getItem(24) != null && contents.getItem(23) == null
+                            && Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                            && Arrays.equals(currentBytes, contents.getItem(25).serializeAsBytes())
+                            && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes()),
+                    "actual saved chest lost/rewrote/duplicated item metadata or slots");
+            require(contents.getItem(26).getAmount() == 63
+                            && contents.getItem(25).getAmount() == 1
+                            && contents.getItem(24).getAmount() == 9
+                            && Long.valueOf(75123L).equals(contents.getItem(24).getItemMeta()
+                                    .getPersistentDataContainer().get(OWNER, PersistentDataType.LONG)),
+                    "physical chest count or typed owner changed across restart");
+            var receiptLines = Files.readAllLines(receiptsFile);
+            require(receiptLines.size() == 3, "physical chest original receipts missing");
+            var owner = java.util.UUID.fromString(receiptLines.get(0));
+            verifyPrivateEvidenceReplay(fixture, owner,
+                    java.util.UUID.fromString(receiptLines.get(1)),
+                    java.util.UUID.fromString(receiptLines.get(2)),
+                    "STYLE_ONLY_CANDIDATE", true);
+            verifySyntheticShopMatcherReplay(
+                    oldBytes, currentBytes, typedBytes, contents.getItem(26), contents.getItem(25),
+                    contents.getItem(24), true);
+            require(Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                    "physical chest restart altered registered template");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_RESTART_PASS");
+            return;
+        }
+
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+        contents.setItem(26, old);
+        contents.setItem(25, current);
+        contents.setItem(24, typed);
+        require(Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                        && Arrays.equals(currentBytes, contents.getItem(25).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes())
+                        && contents.getItem(23) == null,
+                "physical chest seed failed to retain all three source stacks");
+        Files.createDirectories(fixture);
+        Files.write(savedOld, oldBytes);
+        Files.write(savedCurrent, currentBytes);
+        Files.write(savedTyped, typedBytes);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method capture = engine.getDeclaredMethod(
+                "captureContainer", org.bukkit.inventory.Inventory.class, int.class,
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        capture.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolve =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Object receiptPair = capture.invoke(null, contents, 26, resolve, fixture, owner);
+        Method first = receiptPair.getClass().getDeclaredMethod("mainReceipt");
+        Method second = receiptPair.getClass().getDeclaredMethod("offhandReceipt");
+        first.setAccessible(true);
+        second.setAccessible(true);
+        var originalReceipt = (java.util.UUID) first.invoke(receiptPair);
+        var referenceReceipt = (java.util.UUID) second.invoke(receiptPair);
+        verifyPrivateEvidenceReplay(fixture, owner, originalReceipt, referenceReceipt,
+                "STYLE_ONLY_CANDIDATE", false);
+        verifySyntheticShopMatcherReplay(
+                oldBytes, currentBytes, typedBytes, contents.getItem(26), contents.getItem(25),
+                contents.getItem(24), false);
+        require(Arrays.equals(oldBytes, contents.getItem(26).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(24).serializeAsBytes())
+                        && Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                "physical chest evidence capture changed stock, typed owner or registered template");
+        Files.write(receiptsFile, List.of(owner.toString(), originalReceipt.toString(), referenceReceipt.toString()));
+        Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_SEED_PASS");
+    }
+
+
+    /**
+     * Isolated native physical-chest write/restart proof for the existing
+     * bounded player-inventory repair engine. This is intentionally NOT
+     * exposed as a production chest command. The test creates its own
+     * fresh single chest and never touches an existing QuickShop record.
+     *
+     * A separate read-only physical chest fixture still verifies untouched
+     * historical stock. The migrated test slot must preserve its exact
+     * original private receipt, amount and registered Slimefun identity,
+     * while the functional typed-PDC negative control remains unchanged.
+     */
+    private static void verifyPhysicalChestStyleMigration(
+            Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
+            throws Exception {
+        var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 3);
+        Path evidence = directory.resolve("physical-chest-style-migration");
+        Path migratedFile = evidence.resolve("migrated.bin");
+        Path negativeFile = evidence.resolve("typed-negative.bin");
+        Path receiptFile = evidence.resolve("receipt.txt");
+        if (restart) {
+            require(block.getType() == Material.CHEST, "migrated physical chest did not persist");
+        } else {
+            require(block.getType().isAir(), "migrated fixture requires an empty disposable block");
+            block.setType(Material.CHEST);
+        }
+        var chest = (org.bukkit.block.Chest) block.getState();
+        var slots = chest.getBlockInventory();
+        require(slots.getSize() == 27, "migration fixture must target a single 27-slot chest");
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        ItemStack typed = ItemStack.deserializeBytes(oldBytes);
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(OWNER, PersistentDataType.LONG, 75123L));
+        byte[] typedBytes = typed.serializeAsBytes();
+        require(Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO").getItem().serializeAsBytes()),
+                "physical chest migration registry changed");
+
+        if (restart) {
+            String[] tokens = Files.readString(receiptFile).trim().split(":", -1);
+            require(tokens.length == 2, "physical chest migration receipt missing");
+            java.util.UUID owner = java.util.UUID.fromString(tokens[0]);
+            java.util.UUID receipt = java.util.UUID.fromString(tokens[1]);
+            ItemStack migrated = slots.getItem(0);
+            require(migrated != null && migrated.getAmount() == 63
+                            && Arrays.equals(Files.readAllBytes(migratedFile), migrated.serializeAsBytes())
+                            && migrated.isSimilar(current),
+                    "saved physical chest style migration lost repaired identity or amount");
+            require(slots.getItem(1) != null
+                            && Arrays.equals(currentBytes, slots.getItem(1).serializeAsBytes())
+                            && slots.getItem(2) != null
+                            && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes())
+                            && Arrays.equals(typedBytes, Files.readAllBytes(negativeFile))
+                            && slots.getItem(3) == null,
+                    "physical chest migration changed fresh stock, typed-PDC stock or a spare slot");
+            ItemStack backedUp = readDoctorBackup(evidence, owner, receipt);
+            require(Arrays.equals(oldBytes, backedUp.serializeAsBytes())
+                            && matchesDoctorBackup(backedUp, migrated, current,
+                                    ItemStack.deserializeBytes(registeredBytes)),
+                    "physical chest migration original bytes or postrestart rollback proof failed");
+            // The same physical stock must not be offered for another update
+            // after a clean server restart. Any typed owner-PDC negative control
+            // remains ineligible even though it differs from the template.
+            Class<?> engine = Class.forName(
+                    "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+            Method preview = engine.getDeclaredMethod(
+                    "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+            preview.setAccessible(true);
+            java.util.function.Function<ItemStack, ItemStack> resolver =
+                    observed -> SlimefunItem.getById("CARBONADO").getItem();
+            Object noOp = preview.invoke(null, slots, resolver);
+            Method eligible = noOp.getClass().getDeclaredMethod("eligible");
+            eligible.setAccessible(true);
+            require((int) eligible.invoke(noOp) == 0,
+                    "physical chest migration must be idempotent across restart");
+            var merge = Bukkit.createInventory(null, 9);
+            require(merge.addItem(migrated.clone(), current.clone()).isEmpty()
+                            && merge.getItem(0).getAmount() == 64 && merge.getItem(1) == null,
+                    "persisted repaired physical chest 63+1 native merge did not conserve items");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_STYLE_MIGRATION_RESTART_PASS");
+            return;
+        }
+
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        require(!old.isSimilar(current), "physical migration source is not a historical style mismatch");
+        slots.setItem(0, old);
+        slots.setItem(1, current);
+        slots.setItem(2, typed);
+        require(Arrays.equals(oldBytes, slots.getItem(0).serializeAsBytes())
+                        && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes()),
+                "physical migration fixture failed to seed exact native stock");
+        java.util.function.Function<ItemStack, ItemStack> resolver =
+                observed -> SlimefunItem.getById("CARBONADO").getItem();
+        Class<?> engine = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorLiveItemUpdate");
+        Method preview = engine.getDeclaredMethod(
+                "preview", org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        preview.setAccessible(true);
+        Object plan = preview.invoke(null, slots, resolver);
+        Method eligible = plan.getClass().getDeclaredMethod("eligible");
+        eligible.setAccessible(true);
+        require((int) eligible.invoke(plan) == 1,
+                "physical migration must offer only the historical style stack, never typed PDC");
+        Method apply = engine.getDeclaredMethod(
+                "apply", org.bukkit.inventory.Inventory.class, plan.getClass(),
+                java.util.function.Function.class, Path.class, java.util.UUID.class);
+        apply.setAccessible(true);
+        Files.createDirectories(evidence);
+        java.util.UUID owner = java.util.UUID.randomUUID();
+        var receipts = (java.util.List<?>) apply.invoke(null, slots, plan, resolver, evidence, owner);
+        require(receipts.size() == 1, "physical chest migration must back up exactly one original stack");
+        Method receiptId = receipts.getFirst().getClass().getDeclaredMethod("id");
+        receiptId.setAccessible(true);
+        java.util.UUID receipt = (java.util.UUID) receiptId.invoke(receipts.getFirst());
+        ItemStack migrated = slots.getItem(0);
+        require(migrated != null && migrated.getAmount() == 63 && migrated.isSimilar(current)
+                        && Arrays.equals(oldBytes, readDoctorBackup(evidence, owner, receipt).serializeAsBytes())
+                        && Arrays.equals(currentBytes, slots.getItem(1).serializeAsBytes())
+                        && Arrays.equals(typedBytes, slots.getItem(2).serializeAsBytes())
+                        && slots.getItem(3) == null
+                        && Arrays.equals(registeredBytes, SlimefunItem.getById("CARBONADO")
+                                .getItem().serializeAsBytes()),
+                "native physical chest update changed original backup, amount, typed PDC or other stock");
+        Files.write(migratedFile, migrated.serializeAsBytes());
+        Files.write(negativeFile, typedBytes);
+        Files.writeString(receiptFile, owner + ":" + receipt);
+        Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_STYLE_MIGRATION_SEED_PASS");
+    }
+
+    /**
+     * Tests the production QuickShop triage classifier with native Paper/Folia
+     * ItemStack.isSimilar semantics on both JVM boots using physical chest stock.
+     * The predicate only models QuickShop's default similarity matcher: NO
+     * QuickShop-Hikari binary/API or persisted shop record is loaded by this test.
+     */
+    private static void verifySyntheticShopMatcherReplay(
+            byte[] oldBytes, byte[] currentBytes, byte[] typedBytes,
+            ItemStack oldStock, ItemStack currentStock, ItemStack typedStock, boolean restart)
+            throws Exception {
+        Class<?> inspector = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorQuickShopReadOnly");
+        Method compare = inspector.getDeclaredMethod(
+                "compare", ItemStack.class, ItemStack.class, ItemStack.class, java.util.function.Predicate.class);
+        compare.setAccessible(true);
+        ItemStack old = ItemStack.deserializeBytes(oldBytes);
+        ItemStack current = ItemStack.deserializeBytes(currentBytes);
+        java.util.function.Predicate<ItemStack> matcher = old::isSimilar;
+
+        Object oldAndOld = compare.invoke(null, old, oldStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOld, "saleDifference"))
+                        && "STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOld, "stockDifference"))
+                        && flag(oldAndOld, "saleMatchesStock")
+                        && !flag(oldAndOld, "matcherAcceptsFresh")
+                        && flag(oldAndOld, "matcherAcceptsStock"),
+                "native QuickShop model failed historical sale/reference/stock classification");
+
+        Object oldAndFresh = compare.invoke(null, old, currentStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndFresh, "saleDifference"))
+                        && "CURRENT".equals(shopDifference(oldAndFresh, "stockDifference"))
+                        && !flag(oldAndFresh, "saleMatchesStock")
+                        && !flag(oldAndFresh, "matcherAcceptsFresh")
+                        && !flag(oldAndFresh, "matcherAcceptsStock"),
+                "native QuickShop model treated fresh stock as historical shop reference");
+
+        Object oldAndOwned = compare.invoke(null, old, typedStock, current, matcher);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(oldAndOwned, "saleDifference"))
+                        && "FUNCTIONAL_METADATA".equals(shopDifference(oldAndOwned, "stockDifference"))
+                        && !flag(oldAndOwned, "saleMatchesStock")
+                        && !flag(oldAndOwned, "matcherAcceptsStock"),
+                "native QuickShop model ignored a typed owner PDC difference");
+
+        // Exercise the production cached-YAML parser on the real Paper/Folia
+        // ItemStack serializer on BOTH JVM boots. Unlike the mock matcher
+        // model above, the source here is the actual world-persisted chest.
+        Method compareCache = inspector.getDeclaredMethod(
+                "compareCached", String.class, ItemStack.class, ItemStack.class, ItemStack.class);
+        compareCache.setAccessible(true);
+        org.bukkit.configuration.file.YamlConfiguration cachedYaml =
+                new org.bukkit.configuration.file.YamlConfiguration();
+        cachedYaml.set("item", old);
+        String originalCache = cachedYaml.saveToString();
+        Object cacheOldStock = compareCache.invoke(null, originalCache, old, oldStock, current);
+        require("STYLE_ONLY_CANDIDATE".equals(shopDifference(cacheOldStock, "cachedDifference"))
+                        && flag(cacheOldStock, "cachedMatchesView")
+                        && flag(cacheOldStock, "cachedMatchesStock"),
+                "native QuickShop cache parser lost historical matching old chest stock");
+        cachedYaml.set("item", current);
+        Object cacheFresh = compareCache.invoke(null, cachedYaml.saveToString(), old, currentStock, current);
+        require("CURRENT".equals(shopDifference(cacheFresh, "cachedDifference"))
+                        && !flag(cacheFresh, "cachedMatchesView")
+                        && flag(cacheFresh, "cachedMatchesStock"),
+                "native QuickShop cache parser confused modern internal item with event-processed old view");
+        cachedYaml.set("item", typedStock);
+        Object cacheTyped = compareCache.invoke(null, cachedYaml.saveToString(), old, typedStock, current);
+        require("FUNCTIONAL_METADATA".equals(shopDifference(cacheTyped, "cachedDifference"))
+                        && !flag(cacheTyped, "cachedMatchesView")
+                        && flag(cacheTyped, "cachedMatchesStock"),
+                "native QuickShop cache parser discarded typed owner metadata");
+
+        ItemStack wrongId = ItemStack.deserializeBytes(oldBytes);
+        wrongId.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("slimefun", "slimefun_item"),
+                PersistentDataType.STRING, "CARBON_CHUNK"));
+        require(wrongId.getType() == old.getType(), "native wrong-ID negative control changed material");
+        boolean refusedWrongId = false;
+        try {
+            compare.invoke(null, old, wrongId, current, matcher);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            refusedWrongId = exception.getCause() instanceof java.io.IOException;
+        }
+        require(refusedWrongId, "native QuickShop model accepted a different Slimefun ID");
+
+        cachedYaml.set("item", wrongId);
+        boolean rejectedWrongCachedId = false;
+        try {
+            compareCache.invoke(null, cachedYaml.saveToString(), old, oldStock, current);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            rejectedWrongCachedId = exception.getCause() instanceof java.io.IOException;
+        }
+        require(rejectedWrongCachedId, "native QuickShop cache accepted same-material different Slimefun ID");
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(currentBytes, current.serializeAsBytes())
+                        && Arrays.equals(oldBytes, oldStock.serializeAsBytes())
+                        && Arrays.equals(currentBytes, currentStock.serializeAsBytes())
+                        && Arrays.equals(typedBytes, typedStock.serializeAsBytes()),
+                "native QuickShop cache deserialization changed a persisted source item");
+        Bukkit.getLogger().info("SFL_QUICKSHOP_CACHED_ITEM_MODEL_"
+                + (restart ? "RESTART" : "SEED") + "_PASS");
+
+        boolean refusedMatcherMutation = false;
+        java.util.function.Predicate<ItemStack> mutating = candidate -> {
+            candidate.setAmount(candidate.getAmount() + 1);
+            return true;
+        };
+        try {
+            compare.invoke(null, old, oldStock, current, mutating);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            refusedMatcherMutation = exception.getCause() instanceof java.io.IOException;
+        }
+        require(refusedMatcherMutation, "native QuickShop model trusted a mutating external matcher");
+
+        require(Arrays.equals(oldBytes, old.serializeAsBytes())
+                        && Arrays.equals(currentBytes, current.serializeAsBytes())
+                        && Arrays.equals(oldBytes, oldStock.serializeAsBytes())
+                        && Arrays.equals(currentBytes, currentStock.serializeAsBytes())
+                        && Arrays.equals(typedBytes, typedStock.serializeAsBytes()),
+                "native QuickShop diagnostic mutated historical stock or reference");
+        Bukkit.getLogger().info("SFL_QUICKSHOP_MATCHER_MODEL_" + (restart ? "RESTART" : "SEED") + "_PASS");
+    }
+
+    private static String shopDifference(Object comparison, String accessor) throws Exception {
+        Method method = comparison.getClass().getDeclaredMethod(accessor);
+        method.setAccessible(true);
+        return method.invoke(comparison).toString();
+    }
+
+    /** Replays existing synthetic receipts on each JVM; never recaptures or repairs an item. */
+    private static void verifyPrivateEvidenceReplay(
+            Path directory, java.util.UUID owner, java.util.UUID originalReceipt,
+            java.util.UUID referenceReceipt, String expectedDifference, boolean restart) throws Exception {
+        SlimefunItem registered = SlimefunItem.getById("CARBONADO");
+        require(registered != null, "private evidence replay registered CARBONADO unavailable");
+        byte[] registeredBytes = registered.getItem().serializeAsBytes();
+        Path backups = directory.resolve("recovery/identity");
+        Path originalPath = backups.resolve(owner + "-" + originalReceipt + ".bin");
+        Path referencePath = backups.resolve(owner + "-" + referenceReceipt + ".bin");
+        byte[] originalBytes = Files.readAllBytes(originalPath);
+        byte[] referenceBytes = Files.readAllBytes(referencePath);
+
+        Class<?> audit = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackEvidenceAudit");
+        Method inspect = audit.getDeclaredMethod("inspect", Path.class, java.util.UUID.class,
+                java.util.UUID.class, java.util.UUID.class, java.util.function.Function.class);
+        inspect.setAccessible(true);
+        java.util.function.Function<ItemStack, ItemStack> resolver = ignored -> registered.getItem();
+        Object assessment = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, resolver);
+        Method difference = assessment.getClass().getDeclaredMethod("savedDifference");
+        difference.setAccessible(true);
+        require(expectedDifference.equals(difference.invoke(assessment).toString())
+                        && flag(assessment, "savedReferenceStillRegistered")
+                        && !flag(assessment, "historicalMatchesCurrent")
+                        && flag(assessment, "strictStyleOnlyCandidate")
+                                == "STYLE_ONLY_CANDIDATE".equals(expectedDifference),
+                "private evidence replay classification/eligibility drifted: " + expectedDifference);
+
+        ItemStack drifted = ItemStack.deserializeBytes(registeredBytes);
+        drifted.editMeta(meta -> meta.lore(List.of(Component.text("Synthetic changed registration"))));
+        byte[] driftedBytes = drifted.serializeAsBytes();
+        java.util.function.Function<ItemStack, ItemStack> changed = ignored -> drifted;
+        Object afterDrift = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, changed);
+        require(expectedDifference.equals(difference.invoke(afterDrift).toString())
+                        && !flag(afterDrift, "savedReferenceStillRegistered")
+                        && !flag(afterDrift, "historicalMatchesCurrent")
+                        && !flag(afterDrift, "strictStyleOnlyCandidate"),
+                "private evidence replay trusted a changed registered template");
+        java.util.function.Function<ItemStack, ItemStack> missing = ignored -> null;
+        Object afterRemoval = inspect.invoke(null, directory, owner, originalReceipt, referenceReceipt, missing);
+        require(expectedDifference.equals(difference.invoke(afterRemoval).toString())
+                        && !flag(afterRemoval, "savedReferenceStillRegistered")
+                        && !flag(afterRemoval, "historicalMatchesCurrent")
+                        && !flag(afterRemoval, "strictStyleOnlyCandidate"),
+                "private evidence replay treated missing registration as repair permission");
+
+        boolean refusedOtherOwner = false;
+        try {
+            inspect.invoke(null, directory, java.util.UUID.randomUUID(), originalReceipt, referenceReceipt, resolver);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            require(exception.getCause() instanceof java.io.IOException,
+                    "private evidence wrong-owner refusal had an unexpected cause");
+            refusedOtherOwner = true;
+        }
+        require(refusedOtherOwner, "private evidence replay accepted another operator's receipt");
+        require(Arrays.equals(originalBytes, Files.readAllBytes(originalPath))
+                        && Arrays.equals(referenceBytes, Files.readAllBytes(referencePath))
+                        && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes())
+                        && Arrays.equals(driftedBytes, drifted.serializeAsBytes()),
+                "private evidence replay modified original bytes or a registered template");
+        try (var files = Files.list(backups)) {
+            require(files.count() == 2, "private evidence replay created or removed a receipt");
+        }
+        Bukkit.getLogger().info("SFL_PRIVATE_EVIDENCE_REPLAY_" + expectedDifference
+                + (restart ? "_RESTART_PASS" : "_SEED_PASS"));
+    }
+
     private static void verifyHistoricalPresentation(Path folder, boolean restart) throws Exception {
         // Exercise both reported AlbionMC IDs using current actual registered
         // Paper item templates in addition to the purpose-built fixture.
@@ -290,6 +2249,11 @@ final class ItemIdentityProbe {
         for (String id : List.of("RAW_CARBONADO", "CARBON_CHUNK")) {
             verifyRegisteredCarbonHistory(folder, id, restart);
         }
+        verifyStaticCarbonadoLore(folder, restart);
+        verifyOldBukkitTextApiMatrix(folder, restart);
+        verifyEvidenceExport(folder, restart);
+        verifyLivePlayerInventoryBatch(folder, restart);
+        verifyNativeChestEvidence(folder, restart);
         Path oldFile = folder.resolve("identity-historical-old.bin");
         Path freshFile = folder.resolve("identity-historical-fresh.bin");
         if (restart) {
@@ -389,6 +2353,15 @@ final class ItemIdentityProbe {
         Class<?> doctor = Class.forName(
                 "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
         Method method = doctor.getDeclaredMethod("prepare", ItemStack.class, ItemStack.class, ItemStack.class);
+        method.setAccessible(true);
+        return (ItemStack) method.invoke(null, old, fresh, template);
+    }
+
+    private static ItemStack repairStaticLoreCandidate(ItemStack old, ItemStack fresh, ItemStack template)
+            throws Exception {
+        Class<?> doctor = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorHistoricalStackRepair");
+        Method method = doctor.getDeclaredMethod("prepareStaticLore", ItemStack.class, ItemStack.class, ItemStack.class);
         method.setAccessible(true);
         return (ItemStack) method.invoke(null, old, fresh, template);
     }

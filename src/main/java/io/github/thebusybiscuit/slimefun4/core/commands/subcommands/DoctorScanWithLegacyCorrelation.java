@@ -82,6 +82,11 @@ final class DoctorScanWithLegacyCorrelation {
                 + " &8| &7Presentation-only candidates: &e" + report.getIdentityPresentationCandidates()
                 + " &8| &7Other differences: &c" + report.getIdentityOtherDifferences()
                 + " &8| &7Unavailable: &e" + report.getIdentityUnavailable());
+        send(sender, "&7Blank-lore layout variants (diagnostic only): &e" + report.getIdentityBlankLoreVariants());
+        if (!report.getIdentityBlankLoreVariantIds().isEmpty()) {
+            send(sender, "&7Blank-lore item ID samples: &e"
+                    + String.join(", ", report.getIdentityBlankLoreVariantIds()));
+        }
         if (!report.getIdentityPresentationCandidateIds().isEmpty()) {
             send(sender, "&7Presentation candidate item ID samples: &e"
                     + String.join(", ", report.getIdentityPresentationCandidateIds()));

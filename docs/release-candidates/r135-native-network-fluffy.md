@@ -29,3 +29,21 @@ world, not asynchronous third-party inventory races, full controller topology,
 external chunk unload, world upgrade, crash atomicity or AlbionMC's live TPS.
 Keep those claims out of release notes until separately tested. Any failure blocks
 the staging full-stack lane but never changes the published v4.1.73/r134 assets.
+
+## v4.1.82 draft addon source-pin adjustment, 20 November 2026
+
+The new candidate reuses the working r156 bundle schema while advancing its
+**candidate-only** source pins for Networks and FluffyMachines. The immutable
+published v4.1.81 ZIP is not replaced. The Paper 26.3 native conservation
+probe must accept *only* these exact new source revisions, not an arbitrary
+version or newer master:
+
+- Networks `v1.0.65` / `SF_Networks1.0.65.jar` at `8853a85c99acdb22c8d05d93f010272889922c9d`.
+- FluffyMachines `v26.2.23` / `SF_FluffyMachines26.2.23.jar` at `6ab739439c083bcaf8e7514d51c9b9b431fca31a`.
+
+Both official GitHub release assets and their source commits were independently
+verified from the respective repository release metadata. The two source pins
+also match `compatibility/sfl-addon-release-matrix.json` in this exact draft
+branch. This fixes a **false test provenance mismatch**, not a storage or
+item-stacking failure. The live native conservation test must run to completion
+before it is considered verified; no assertion or anti-dupe check is skipped.

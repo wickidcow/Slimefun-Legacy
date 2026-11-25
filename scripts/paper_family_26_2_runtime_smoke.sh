@@ -156,18 +156,31 @@ if [[ "$SOFTWARE" == "purpur" ]]; then
     fi
     SERVER_URL="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}/download"
 elif [[ "$SOFTWARE" == "leaf" ]]; then
-    # Leaf moved from the v2 service to Fill v3 in November 2026.
+    # Leaf migrated off api.leafmc.one/v2 to the official Fill v3 service.
+    # Select one exact build from the provider's published version/build list;
+    # never substitute a different Minecraft version or another distribution.
     LEAF_BUILDS_URL="https://dl.leafmc.one/v3/projects/leaf/versions/${MC_VERSION}/builds"
     LEAF_BUILDS="$(runtime_download "$LEAF_BUILDS_URL")"
-    LEAF_BUILD="$(jq -ce 'if type == "array" and length > 0 then max_by(.id) else error("No Leaf builds returned by v3") end' <<<"$LEAF_BUILDS")"
+    if ! jq -e 'type == "array" and length > 0 and all(.[]; (.id | type) == "number")' \
+            <<<"$LEAF_BUILDS" >/dev/null; then
+        echo "Leaf v3 did not report a valid nonempty build list for Minecraft ${MC_VERSION}." >&2
+        exit 1
+    fi
+    LEAF_BUILD="$(jq -c 'max_by(.id)' <<<"$LEAF_BUILDS")"
     SERVER_BUILD="$(jq -r '.id // empty' <<<"$LEAF_BUILD")"
     SERVER_CHANNEL="$(jq -r '.channel // empty' <<<"$LEAF_BUILD")"
-    SERVER_URL="$(jq -r '.downloads."server:default".url // empty' <<<"$LEAF_BUILD")"
-    SERVER_SHA256="$(jq -r '.downloads."server:default".checksums.sha256 // empty' <<<"$LEAF_BUILD")"
-    if [[ ! "$SERVER_BUILD" =~ ^[0-9]+$ || ! "$SERVER_CHANNEL" =~ ^(ALPHA|BETA|STABLE|RECOMMENDED)$
-          || "$SERVER_URL" != "https://dl-data.leafmc.one/leaf/${MC_VERSION}/${SERVER_BUILD}/leaf-${MC_VERSION}-${SERVER_BUILD}.jar"
-          || ! "$SERVER_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]; then
-        echo "Leaf v3 did not report valid exact-version server download metadata for Minecraft ${MC_VERSION}." >&2
+    LEAF_BINARY="$(jq -c '.downloads["server:default"] // empty' <<<"$LEAF_BUILD")"
+    if [[ ! "$SERVER_BUILD" =~ ^[0-9]+$ || ! "$SERVER_CHANNEL" =~ ^(ALPHA|BETA|STABLE|RECOMMENDED)$ || -z "$LEAF_BINARY" ]]; then
+        echo "Leaf v3 omitted the verified default server JAR for Minecraft ${MC_VERSION}." >&2
+        exit 1
+    fi
+    SERVER_URL="$(jq -r '.url // empty' <<<"$LEAF_BINARY")"
+    LEAF_FILENAME="$(jq -r '.name // empty' <<<"$LEAF_BINARY")"
+    LEAF_SHA256="$(jq -r '.checksums.sha256 // empty' <<<"$LEAF_BINARY")"
+    if [[ "$LEAF_FILENAME" != "leaf-${MC_VERSION}-${SERVER_BUILD}.jar" \
+          || ! "$LEAF_SHA256" =~ ^[0-9a-fA-F]{64}$ \
+          || "$SERVER_URL" != "https://dl-data.leafmc.one/leaf/${MC_VERSION}/${SERVER_BUILD}/${LEAF_FILENAME}" ]]; then
+        echo "Leaf v3 returned an untrusted server URL, file name, or invalid SHA256." >&2
         exit 1
     fi
 else
@@ -195,7 +208,9 @@ printf 'Software: %s\nMinecraft: %s\nBuild: %s\nChannel: %s\nDownload: %s\nJava:
 runtime_download "$SERVER_URL" "$WORK_DIR/server.jar"
 test -s "$WORK_DIR/server.jar"
 if [[ "$SOFTWARE" == "leaf" ]]; then
-    printf '%s  %s\n' "$SERVER_SHA256" "$WORK_DIR/server.jar" | sha256sum --check --status || {
+    # Verify the exact provider-returned archive digest before booting any
+    # untrusted remote bytes. Never replace failed downloads with old builds.
+    printf '%s  %s\n' "$LEAF_SHA256" "$WORK_DIR/server.jar" | sha256sum --check --strict || {
         echo "Leaf server JAR SHA-256 mismatch for Minecraft ${MC_VERSION} build ${SERVER_BUILD}." >&2
         exit 1
     }

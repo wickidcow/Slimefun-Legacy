@@ -18,10 +18,12 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 /**
  * Opt-in single held-stack repair of presentation-only historical differences.
@@ -30,6 +32,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 final class DoctorHistoricalStackRepair {
 
     private static final long PLAN_TTL_MILLIS = 5L * 60L * 1000L;
+    private static final NamespacedKey SLIMEFUN_ID_KEY = new NamespacedKey("slimefun", "slimefun_item");
+    private static final String STATIC_LORE_ITEM = "CARBONADO";
     private static final int MAX_PLANS = 128;
     private static final int MAX_RESTORATIONS_PER_PLAYER = 32;
     private static final long MAX_BACKUP_BYTES = 16L * 1024L * 1024L;
@@ -56,8 +60,17 @@ final class DoctorHistoricalStackRepair {
 
         String action = args.length > 3 ? args[3].toLowerCase(java.util.Locale.ROOT) : "help";
         switch (action) {
-            case "scan" -> scan(player, now);
-            case "confirm" -> confirm(plugin, player, now);
+            case "scan" -> {
+                boolean staticLore = args.length == 5 && args[4].equalsIgnoreCase("static-lore");
+                if (args.length > 4 && !staticLore) {
+                    send(player, "&eUsage: /sf doctor identity repair scan [static-lore]");
+                } else if (staticLore && !player.isOp()) {
+                    send(player, "&cStatic-lore recovery requires a server operator.");
+                } else {
+                    scan(player, now, staticLore);
+                }
+            }
+            case "confirm" -> confirm(plugin, player, now, args.length == 5 && args[4].equalsIgnoreCase("static-lore"));
             case "verify" -> {
                 if (args.length == 5) {
                     verifySavedBackup(plugin, player, args[4], false);
@@ -80,12 +93,16 @@ final class DoctorHistoricalStackRepair {
                 send(sender, "&eHold the OLD item in your main hand, a matching NEW item in your offhand.");
                 send(sender, "&eRun /sf doctor identity repair scan then /sf doctor identity repair confirm.");
                 send(sender, "&eAfter restart: /sf doctor identity repair verify <backup-uuid>.");
+                send(sender, "&8Advanced, OP-only single-stack CARBONADO lore recovery:");
+                send(sender, "&e/sf doctor identity repair scan static-lore");
+                send(sender, "&e/sf doctor identity repair confirm static-lore");
+                send(sender, "&cOnly blank-line layout may change; nonblank lore text must match exactly.");
                 send(sender, "&cNo barrel, backpack, machine or other inventory is rewritten by this command.");
             }
         }
     }
 
-    private static void scan(Player player, long now) {
+    private static void scan(Player player, long now, boolean staticLore) {
         PLANS.remove(player.getUniqueId());
         if (PLANS.size() >= MAX_PLANS) {
             send(player, "&cToo many pending item repair scans. Try again after they expire.");
@@ -100,7 +117,7 @@ final class DoctorHistoricalStackRepair {
         }
 
         try {
-            ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template());
+            ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template(), staticLore);
             if (candidate == null) {
                 send(player, "&eNo safe presentation-only repair is proven for these items.");
                 send(player, "&eUse /sf doctor identity compare for read-only mismatch details.");
@@ -114,23 +131,39 @@ final class DoctorHistoricalStackRepair {
                             fingerprint(pair.fresh()),
                             fingerprint(pair.template()),
                             fingerprint(candidate),
-                            now + PLAN_TTL_MILLIS));
-            send(player, "&aHistorical item preview passed: only Adventure name/lore presentation would change.");
+                            now + PLAN_TTL_MILLIS,
+                            staticLore));
+            send(
+                    player,
+                    staticLore
+                            ? "&eCARBONADO blank-lore preview: every nonblank lore line matches."
+                            : "&aHistorical item preview passed: only Adventure name/lore presentation would change.");
+            if (staticLore) {
+                send(player, "&cOnly blank lore lines differ; original item byte backup is required.");
+                send(player, "&cOnly the held CARBONADO stack can change; chests and shop records remain untouched.");
+            }
             send(player, "&7Original amount: &e" + pair.old().getAmount() + " &7| New stack capacity unchanged.");
             send(player, "&7Item ID: &e" + pair.itemId() + " &7| PDC, model, skull and other metadata MATCH.");
             send(player, "&cMake a server backup first. This plan expires in five minutes.");
             send(player, "&eTo back up and convert only the main-hand stack:");
-            send(player, "&6/sf doctor identity repair confirm");
+            send(
+                    player,
+                    staticLore
+                            ? "&6/sf doctor identity repair confirm static-lore"
+                            : "&6/sf doctor identity repair confirm");
         } catch (RuntimeException exception) {
             PLANS.remove(player.getUniqueId());
             send(player, "&cRepair preview cannot safely serialize these items. Nothing was changed.");
         }
     }
 
-    private static void confirm(Slimefun plugin, Player player, long now) {
+    private static void confirm(Slimefun plugin, Player player, long now, boolean staticLore) {
         Plan plan = PLANS.remove(player.getUniqueId());
-        if (plan == null || plan.expiresAt() < now) {
-            send(player, "&cNo current repair preview. Run /sf doctor identity repair scan again.");
+        if (plan == null
+                || plan.expiresAt() < now
+                || plan.staticLore() != staticLore
+                || (staticLore && !player.isOp())) {
+            send(player, "&cNo matching repair preview or operator permission. Nothing changed.");
             return;
         }
         var pair = eligiblePair(player);
@@ -143,7 +176,7 @@ final class DoctorHistoricalStackRepair {
         boolean attemptedWrite = false;
         boolean backupVerified = false;
         try {
-            ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template());
+            ItemStack candidate = prepare(pair.old(), pair.fresh(), pair.template(), staticLore);
             if (candidate == null || !matches(plan, pair, candidate)) {
                 send(player, "&cHeld item, amount, template or metadata changed since preview. No repair.");
                 return;
@@ -192,7 +225,11 @@ final class DoctorHistoricalStackRepair {
                 send(player, "&cAn identical rollback was registered during confirmation; original restored.");
                 return;
             }
-            send(player, "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
+            send(
+                    player,
+                    staticLore
+                            ? "&aCARBONADO blank-line layout updated; original bytes and amount safely retained."
+                            : "&aOnly the historical name/lore styling was updated; amount and functional data retained.");
             send(player, "&7Original serialized item saved under plugins/Slimefun/recovery/identity.");
             send(player, "&7Private rollback receipt: &e" + backupId);
             send(player, "&eUndo within five minutes while still holding this stack:");
@@ -384,6 +421,9 @@ final class DoctorHistoricalStackRepair {
     /** Only exact original styling may be restored, never a different typed item. */
     static boolean matchesSavedBackup(ItemStack original, ItemStack held, ItemStack fresh, ItemStack template) {
         ItemStack candidate = prepare(original, fresh, template);
+        if (candidate == null) {
+            candidate = prepare(original, fresh, template, true);
+        }
         return candidate != null
                 && fingerprint(candidate).equals(fingerprint(held))
                 && original.getAmount() == held.getAmount()
@@ -396,6 +436,15 @@ final class DoctorHistoricalStackRepair {
      * current registered template reference, never just visually equivalent.
      */
     static ItemStack prepare(ItemStack old, ItemStack fresh, ItemStack template) {
+        return prepare(old, fresh, template, false);
+    }
+
+    /** OP-only, preview-bound special case; never called by bulk or automatic inventory repair. */
+    static ItemStack prepareStaticLore(ItemStack old, ItemStack fresh, ItemStack template) {
+        return prepare(old, fresh, template, true);
+    }
+
+    private static ItemStack prepare(ItemStack old, ItemStack fresh, ItemStack template, boolean staticLore) {
         if (old == null
                 || fresh == null
                 || template == null
@@ -414,9 +463,16 @@ final class DoctorHistoricalStackRepair {
                 || templateNative == null
                 || oldNative.isSimilar(freshNative)
                 || !freshNative.isSimilar(templateNative)
-                || !sameNativeBytesIgnoringAmount(freshNative, templateNative)
-                || !DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative)
-                        .candidate()) {
+                || !sameNativeBytesIgnoringAmount(freshNative, templateNative)) {
+            return null;
+        }
+        DoctorIdentityCommand.HistoricalPresentation presentation =
+                DoctorIdentityCommand.inspectHistoricalPresentation(oldNative, freshNative);
+        if (staticLore) {
+            if (!eligibleStaticLore(oldNative, freshNative, templateNative, presentation)) {
+                return null;
+            }
+        } else if (!presentation.candidate()) {
             return null;
         }
         ItemMeta referenceMeta = freshNative.getItemMeta();
@@ -436,6 +492,38 @@ final class DoctorHistoricalStackRepair {
                         && preservesNonPresentationBytes(old, oldNative)
                 ? oldNative
                 : null;
+    }
+
+    /**
+     * Strictly one registered Slimefun core resource with an unchanged plain display
+     * name and the same nonblank lore lines, differing ONLY in blank-line
+     * placement. Unknown items, custom text, aliases, PDC changes, and custom
+     * names are ineligible even in explicit static-lore mode.
+     * The operator knowingly replaces the original lore only after preview and
+     * an independently verified native-byte backup.
+     */
+    private static boolean eligibleStaticLore(
+            ItemStack old,
+            ItemStack fresh,
+            ItemStack template,
+            DoctorIdentityCommand.HistoricalPresentation presentation) {
+        if (presentation.plainTextSame() || !presentation.nonPresentationSame()) {
+            return false;
+        }
+        ItemMeta oldMeta = old.getItemMeta();
+        ItemMeta freshMeta = fresh.getItemMeta();
+        ItemMeta templateMeta = template.getItemMeta();
+        if (oldMeta == null || freshMeta == null || templateMeta == null) {
+            return false;
+        }
+        String oldId = oldMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
+        String freshId = freshMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
+        String templateId = templateMeta.getPersistentDataContainer().get(SLIMEFUN_ID_KEY, PersistentDataType.STRING);
+        if (!STATIC_LORE_ITEM.equals(oldId) || !Objects.equals(oldId, freshId) || !Objects.equals(oldId, templateId)) {
+            return false;
+        }
+        DoctorIdentityCommand.PlainPresentation parts = DoctorIdentityCommand.inspectPlainPresentation(old, fresh);
+        return parts.nameSame() && !parts.loreSame() && DoctorIdentityCommand.sameNonblankPlainLore(old, fresh);
     }
 
     /**
@@ -582,7 +670,12 @@ final class DoctorHistoricalStackRepair {
     private record Pair(ItemStack old, ItemStack fresh, ItemStack template, String itemId) {}
 
     private record Plan(
-            String oldHash, String referenceHash, String templateHash, String repairedHash, long expiresAt) {}
+            String oldHash,
+            String referenceHash,
+            String templateHash,
+            String repairedHash,
+            long expiresAt,
+            boolean staticLore) {}
 
     private record Restoration(UUID receipt, String originalHash, String repairedHash, long expiresAt) {}
 }
