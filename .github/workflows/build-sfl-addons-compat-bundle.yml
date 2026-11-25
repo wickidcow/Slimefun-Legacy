@@ -17,6 +17,9 @@ on:
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'compatibility/r156-official-addon-releases.json'
+      - 'compatibility/r157-infernal-expansion-release.json'
+      - 'scripts/stage_r157_infernal_release.py'
+      - 'scripts/test_stage_r157_infernal_release.py'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
       - 'scripts/stage_r156_official_addons.py'
@@ -46,6 +49,9 @@ on:
       - '.github/workflows/build-sfl-addons-compat-bundle.yml'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'compatibility/r156-official-addon-releases.json'
+      - 'compatibility/r157-infernal-expansion-release.json'
+      - 'scripts/stage_r157_infernal_release.py'
+      - 'scripts/test_stage_r157_infernal_release.py'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
       - 'scripts/stage_r156_official_addons.py'
@@ -91,6 +97,13 @@ jobs:
         run: python3 scripts/test_retired_addon_exclusion.py
       - name: Validate conservative Minecraft compatibility claims
         run: python3 -m unittest scripts.test_release_compatibility_claims -v
+      - name: Validate 45-addon r157 lock, build receipt, and source code
+        run: |
+          python3 -m py_compile scripts/stage_r157_infernal_release.py scripts/verify_published_addon_bundle.py
+          python3 -m unittest scripts.test_stage_r157_infernal_release -v
+          python3 -m unittest scripts.test_release_compatibility_claims -v
+          python3 -m unittest scripts.test_black_market_probe_contracts -v
+          python3 -m unittest scripts.test_native_storage_probe_contracts -v
       - name: Verify official released addon tag/source and raw JAR SHA-256 receipts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -232,7 +245,7 @@ jobs:
     strategy:
       fail-fast: false
       # Avoid a burst of simultaneous Maven Central plugin downloads (HTTP 429).
-      # Keep all 44 exact-source addon compiles mandatory and fail-fast disabled.
+      # Keep all 45 exact-source addon compiles mandatory and fail-fast disabled.
       max-parallel: 4
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
@@ -320,6 +333,17 @@ jobs:
             "$PWD/candidate-core/Slimefun-Legacy-candidate.jar" \
             "$PAPER_API_VERSION" \
             --report-dir "$PWD/report"
+      - name: Rebuild Infernal Expansion against Java 21 / Paper 1.21.11 floor
+        if: matrix.slug == 'infernalexpansion'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SLIMEFUN_COMPATIBILITY_JAR="$PWD/candidate-core/Slimefun-Legacy-candidate.jar"
+          export SLIMEFUN_CORE_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
+          export SLIMEFUN_LEGACY_JAR="$SLIMEFUN_COMPATIBILITY_JAR"
+          python3 tools/scripts/compile_addon_paper_26_3.py \
+            addon "$SLIMEFUN_COMPATIBILITY_JAR" \
+            1.21.11-R0.1-SNAPSHOT --report-dir "$PWD/report-native-floor"
       - name: Test and rebuild CrystamaeHistoria and MobCapturer against the supported API floor
         if: matrix.slug == 'crystamaehistoria' || matrix.slug == 'mobcapturer'
         env:
@@ -535,12 +559,12 @@ jobs:
               'artifact_base': base,
               'sha256': sha256,
               'paper_26_3_api': os.environ['PAPER_API_VERSION'],
-              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide') or slug in ('crystamaehistoria', 'mobcapturer') or slug in ('networksexp', 'infinityexpansion2') else os.environ['PAPER_API_VERSION'],
+              'distributable_api': '1.21.11-R0.1-SNAPSHOT' if slug in ('slimeeasy', 'dracfunreborn', 'justenoughguide') or slug == 'infernalexpansion' or slug in ('crystamaehistoria', 'mobcapturer') or slug in ('networksexp', 'infinityexpansion2') else os.environ['PAPER_API_VERSION'],
               'primary_api_target': '26.3',
               'backwards_compatible_through': '1.21.11',
               'minimum_supported': '1.21.11',
               'primary_platforms': ['Paper', 'Purpur'],
-              'secondary_platforms': [] if slug in ('networksexp', 'infinityexpansion2') else ['Folia', 'Leaf'],
+              'secondary_platforms': [] if slug in ('networksexp', 'infinityexpansion2', 'infernalexpansion') else ['Folia', 'Leaf'],
           }
           if slug in ('networksexp', 'infinityexpansion2'):
               published = Path(f'staged/evidence/{slug}-published.json')
@@ -614,6 +638,20 @@ jobs:
           python3 -m scripts.stage_r156_official_addons --jars collected/jars --metadata collected/metadata --verify-only
           python3 scripts/verify_addon_bytecode.py collected/jars/SF_CrystamaeHistoria1.0.3.jar --expected-java 21
           python3 scripts/verify_addon_bytecode.py collected/jars/SF_Galactifun1.0.8.jar --expected-java 21
+      - name: Stage checksum-pinned published Infernal Expansion 1.1.0 JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN="$(python3 -c "import json;print(json.load(open('compatibility/r157-infernal-expansion-release.json'))['source_commit'])")"
+          test "$(gh api repos/wickidcow/SF_InfernalExpansion/releases/tags/v1.1.0 --jq .target_commitish)" = "$PIN"
+          mkdir -p official-infernal
+          gh release download v1.1.0 --repo wickidcow/SF_InfernalExpansion --pattern SF_InfernalExpansion1.1.0.jar --dir official-infernal
+          python3 -m unittest scripts.test_stage_r157_infernal_release -v
+          python3 -m scripts.stage_r157_infernal_release --jars collected/jars --metadata collected/metadata --official official-infernal/SF_InfernalExpansion1.1.0.jar
+          python3 -m scripts.stage_r157_infernal_release --jars collected/jars --metadata collected/metadata --official official-infernal/SF_InfernalExpansion1.1.0.jar --verify-only
+          python3 scripts/verify_addon_bytecode.py collected/jars/SF_InfernalExpansion1.1.0.jar --expected-java 21
       - name: Verify complete maintained set and canonical names
         env:
           EXPECTED: ${{ needs.prepare.outputs.count }}
@@ -668,6 +706,7 @@ jobs:
               'dracfunreborn',
               'fastmachines',
               'infinityexpansion2',
+              'infernalexpansion',
               'justenoughguide',
               'magicexpansion',
               'mobcapturer',
@@ -746,6 +785,7 @@ jobs:
           - WorldEditSlimefun exception: SF_SFWorldEdit<version>_(1.21.11-26.3).jar
           - WorldEditSlimefun requires WorldEdit or FAWE and is explicitly labeled for 1.21.11 through 26.3
           - Magic Legacy is intentionally excluded from this bundle and can be installed separately if needed
+          - Infernal Expansion 1.1.0 is checksum-pinned to its official Java 21 test release; gameplay testing remains separate
           - RykenSlimeCustomizer remains bundled and only probes legacy external recipe types when the matching plugin is installed
           - MagicExpansion remains bundled; its optional MagicLegacy integration is used only when Magic Legacy is installed separately
           - No Legacy, Legacy-English, SNAPSHOT, compatibility suffixes, or repo-only suffixes except the approved WorldEdit support-range suffix
@@ -759,7 +799,7 @@ jobs:
           Server platforms:
           - PRIMARY: Paper, Purpur
           - SECONDARY: Folia, Leaf only for addons with separately verified runtime support
-          - Networks and InfinityExpansion2 do not support Folia runtime operation
+          - Networks, InfinityExpansion2 and InfernalExpansion are not Folia runtime-certified
 
           Every addon source in this archive was verified against the Paper ${PAPER_API_VERSION}
           / Slimefun Legacy candidate stack. Distributable JARs keep their intended baseline
