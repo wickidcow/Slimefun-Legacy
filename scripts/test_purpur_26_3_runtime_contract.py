@@ -206,12 +206,12 @@ done
         target.write_text(content, encoding="utf-8")
         target.chmod(0o755)
 
-    def run_harness(self, disabled_boot: str = "never") -> subprocess.CompletedProcess[str]:
+    def run_harness(self, disabled_boot: str = "never", software: str = "folia", minecraft: str = "26.3") -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.update({
             "PATH": str(self.bin) + os.pathsep + env["PATH"],
-            "SERVER_SOFTWARE": "folia",
-            "SERVER_MINECRAFT_VERSION": "26.3",
+            "SERVER_SOFTWARE": software,
+            "SERVER_MINECRAFT_VERSION": minecraft,
             "SLIMEFUN_SMOKE_VERSION": "4.1.76",
             "SLIMEFUN_SMOKE_EXTRA_PLUGIN_DIR": str(self.addons),
             "SLIMEFUN_SMOKE_EXPECT_PLUGINS_FILE": str(self.expected),
@@ -225,6 +225,47 @@ done
             ["bash", str(self.script), str(self.core), str(self.work)],
             env=env, capture_output=True, text=True, check=False, timeout=15,
         )
+
+
+    def configure_leaf_v3_fixture(self, checksum: str) -> None:
+        # Exercise the actual jq parser and the exact official host/path contract.
+        (self.bin / "jq").unlink()
+        builds = [
+            {"id": 136, "channel": "ALPHA", "downloads": {"server:default": {
+                "url": "https://dl-data.leafmc.one/leaf/26.2/136/leaf-26.2-136.jar",
+                "checksums": {"sha256": checksum}
+            }}},
+            {"id": 135, "channel": "ALPHA", "downloads": {"server:default": {
+                "url": "https://dl-data.leafmc.one/leaf/26.2/135/leaf-26.2-135.jar",
+                "checksums": {"sha256": "0" * 64}
+            }}},
+        ]
+        (self.scripts / "leaf-builds.json").write_text(json.dumps(builds), encoding="utf-8")
+        (self.scripts / "runtime_download.sh").write_text(
+            'runtime_download() {\n'
+            '  case "$1" in\n'
+            '    https://dl.leafmc.one/v3/projects/leaf/versions/26.2/builds) cat "$REPO_ROOT/scripts/leaf-builds.json" ;;\n'
+            '    https://dl-data.leafmc.one/leaf/26.2/136/leaf-26.2-136.jar) printf fixture-server > "$2" ;;\n'
+            '    *) return 90 ;;\n'
+            '  esac\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+    def test_leaf_v3_latest_build_and_checksum_allow_both_boots(self) -> None:
+        self.configure_leaf_v3_fixture(hashlib.sha256(b"fixture-server").hexdigest())
+        result = self.run_harness(software="leaf", minecraft="26.2")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Build: 136", (self.work / "runtime-build.txt").read_text())
+        self.assertIn("Cycles: 2", (self.work / "smoke-result.txt").read_text())
+
+    def test_leaf_v3_checksum_mismatch_blocks_runtime_evidence(self) -> None:
+        self.configure_leaf_v3_fixture("0" * 64)
+        result = self.run_harness(software="leaf", minecraft="26.2")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Leaf server JAR SHA-256 mismatch", result.stderr)
+        self.assertFalse((self.work / "smoke-result.txt").exists())
+        self.assertFalse((self.work / "fixture-boot-count").exists())
 
     def test_both_boots_allow_disable_only_after_normal_server_shutdown(self) -> None:
         result = self.run_harness()
