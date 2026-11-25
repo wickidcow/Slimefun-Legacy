@@ -33,6 +33,7 @@ PAPER_REPOSITORY = "https://repo.papermc.io/repository/maven-public/"
 SLIMEFUN_PROBE_GROUP = "com.github.slimefun"
 SLIMEFUN_PROBE_ARTIFACT = "Slimefun"
 SLIMEFUN_PROBE_VERSION = "Paper-26.3-CI"
+MAVEN_INSTALL_GOAL = "org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file"
 CORE_ARTIFACTS = {"slimefun", "slimefun4"}
 CORE_GROUP_HINTS = ("slimefun", "thebusybiscuit", "starwishsama")
 LEGACY_FORK_COORDINATE = ("com.github.wickidcow", "slimefun-legacy")
@@ -599,7 +600,7 @@ def install_slimefun_candidate(project: Path, jar: Path, env: dict[str, str], lo
             "mvn",
             "-B",
             "-Dmaven.wagon.http.retryHandler.count=3",
-            "install:install-file",
+            MAVEN_INSTALL_GOAL,
             f"-Dfile={jar}",
             f"-DgroupId={SLIMEFUN_PROBE_GROUP}",
             f"-DartifactId={SLIMEFUN_PROBE_ARTIFACT}",
@@ -644,7 +645,7 @@ def build_project(
             return BuildResult(
                 INSTRUMENTATION_ERROR,
                 build_system,
-                ["mvn", "install:install-file"],
+                ["mvn", MAVEN_INSTALL_GOAL],
                 install_code,
                 0,
                 0,

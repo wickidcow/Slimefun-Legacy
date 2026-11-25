@@ -121,6 +121,34 @@ def test_maven_retry_backoff_remains_fail_closed() -> None:
         assert calls == [["mvn", "package"]]
 
 
+def test_pinned_candidate_install_avoids_plugin_prefix_resolution() -> None:
+    # Avoid the unversioned install:install-file alias: that can request
+    # org.apache.maven.plugins/maven-metadata.xml and hit a transient HTTP 429
+    # even when the exact plugin version is already known.
+    with tempfile.TemporaryDirectory() as raw:
+        project = Path(raw)
+        candidate = project / "slimefun-candidate.jar"
+        calls = []
+
+        def capture(command, *, cwd, env, log):
+            calls.append((list(command), cwd))
+            return 0
+
+        with patch.object(probe, "stream_maven_command", side_effect=capture):
+            code = probe.install_slimefun_candidate(project, candidate, {}, io.StringIO())
+        assert code == 0
+        assert len(calls) == 1
+        command, cwd = calls[0]
+        assert cwd == project
+        assert command[:4] == [
+            "mvn", "-B", "-Dmaven.wagon.http.retryHandler.count=3",
+            "org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file",
+        ]
+        assert f"-Dfile={candidate}" in command
+        assert "-Dpackaging=jar" in command
+        assert "-DgeneratePom=true" in command
+
+
 def test_maven_property_rewrite() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
@@ -423,6 +451,7 @@ def main() -> int:
     test_coordinate_classification()
     test_transient_repository_classification()
     test_maven_retry_backoff_remains_fail_closed()
+    test_pinned_candidate_install_avoids_plugin_prefix_resolution()
     test_maven_property_rewrite()
     test_maven_rewrites_legacy_fork_coordinate()
     test_maven_injects_missing_direct_dependencies()

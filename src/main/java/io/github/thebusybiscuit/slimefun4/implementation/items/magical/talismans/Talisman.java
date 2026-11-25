@@ -43,6 +43,12 @@ public class Talisman extends SlimefunItem {
             new NamespacedKey(Slimefun.instance(), "talismans"),
             new CustomItemStack(SlimefunItems.COMMON_TALISMAN, "&7Talismans - &aTier I"),
             2);
+
+    static {
+        // Addon talismans intentionally share the built-in guide category.
+        TALISMANS_ITEMGROUP.setCrossAddonItemGroup(true);
+    }
+
     private static final String WIKI_PAGE = "Talismans";
 
     private final SlimefunItemStack enderTalisman;
