@@ -33,6 +33,8 @@ FLUFFY_R154 = ("SF_FluffyMachines26.2.18.jar", "bb1a50387e8dfe34c4c4e3b592038c81
 # (release source 6ab7394). The v4.1.81 published r156 ZIP remains immutable.
 # Never accept a different source version simply because the JAR has the same name.
 FLUFFY_R156 = ("SF_FluffyMachines26.2.23.jar", "6ab739439c083bcaf8e7514d51c9b9b431fca31a")
+# r157 selects independently verified, published v26.2.24 without rewriting r156.
+FLUFFY_R157 = ("SF_FluffyMachines26.2.24.jar", "7d6f363d55b96e5a043ea20627f68b208a48e448")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),
@@ -71,6 +73,8 @@ NETWORK_VERSIONS = {
     # Current v4.1.82 r156 candidate pins official Networks v1.0.65
     # (release source 8853a85), distinct from the historical v4.1.81 archive.
     156: ("SF_Networks1.0.65.jar", "8853a85c99acdb22c8d05d93f010272889922c9d"),
+    # r157 current official Networks v1.0.66.
+    157: ("SF_Networks1.0.66.jar", "97453ab06f9ff86baf180498406500e172c9facb"),
 }
 
 
@@ -99,11 +103,12 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
     revision = manifest.get("bundle_revision")
     if type(revision) is not int or revision not in NETWORK_VERSIONS:
-        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156; found bundle revision {revision!r}")
+        raise RuntimeError(f"Native conservation test requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157; found bundle revision {revision!r}")
     expected_versions = dict(EXPECTED_VERSIONS)
-    if revision in (153, 154, 155, 156):
+    if revision in (153, 154, 155, 156, 157):
         expected_versions["wickidcow/SF_FluffyMachines"] = (
-            FLUFFY_R156 if revision == 156
+            FLUFFY_R157 if revision == 157
+            else FLUFFY_R156 if revision == 156
             else FLUFFY_R154 if revision in (154, 155)
             else FLUFFY_R153
         )
