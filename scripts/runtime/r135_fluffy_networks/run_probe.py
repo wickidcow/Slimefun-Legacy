@@ -32,6 +32,8 @@ FLUFFY_R154 = ("SF_FluffyMachines26.2.18.jar", "bb1a50387e8dfe34c4c4e3b592038c81
 # v4.1.81/r156: official published Fluffy 26.2.21, source-pinned in
 # compatibility/sfl-addon-release-matrix.json. Keep all older revisions stable.
 FLUFFY_R156 = ("SF_FluffyMachines26.2.21.jar", "365c30bdd9fedd0bb9989c13829341c501150a5a")
+# r157 adds InfernalExpansion and advances Fluffy to its reviewed v26.2.22 source.
+FLUFFY_R157 = ("SF_FluffyMachines26.2.22.jar", "274275331f0d3087d96998aa4576ef1cc2b3a1ff")
 NETWORK_VERSIONS = {
     135: ("SF_Networks1.0.54.jar", "c24064cbeafe4f112c7d46bf3de5617fa151d88d"),
     136: ("SF_Networks1.0.55.jar", "bcdef34d362dc74aa1aab23c8961a629daa79950"),
@@ -69,7 +71,7 @@ NETWORK_VERSIONS = {
     155: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
     # r156 only advances CrystamaeHistoria/Galactifun. Native storage source pins are unchanged.
     156: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
-    # r157 adds InfernalExpansion and retains the independently validated Networks/storage pair.
+    # r157 retains the exact Networks 1.0.64 source; Fluffy advances separately.
     157: ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5"),
 }
 
@@ -103,7 +105,8 @@ def prepare(work: Path, bundle: Path, java: Path, runtime_core_version: str | No
     expected_versions = dict(EXPECTED_VERSIONS)
     if revision in (153, 154, 155, 156, 157):
         expected_versions["wickidcow/SF_FluffyMachines"] = (
-            FLUFFY_R156 if revision in (156, 157)
+            FLUFFY_R157 if revision == 157
+            else FLUFFY_R156 if revision == 156
             else FLUFFY_R154 if revision in (154, 155)
             else FLUFFY_R153
         )

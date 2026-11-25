@@ -278,6 +278,14 @@ class TestFoliaAdmissionWorkflow(unittest.TestCase):
                                    "GITHUB_REPOSITORY": "example/core", "GITHUB_SHA": "2" * 40,
                                    "PR_HEAD_SHA": "1" * 40, "FIXTURE_EXIT": str(exit_code)}, timeout=10)
 
+    def test_descriptor_audit_count_matches_canonical_release_matrix(self):
+        root = Path(__file__).resolve().parents[1]
+        matrix = json.loads((root / "compatibility/sfl-addon-release-matrix.json").read_text())
+        config = yaml.safe_load((root / ".github/workflows/folia-26.3-addon-admission.yml").read_text())
+        audit_step = next(step["run"] for step in config["jobs"]["audit"]["steps"]
+                          if step.get("name") == "Audit descriptor-level Folia admission")
+        self.assertIn(f'--expect-addons {len(matrix["addons"])} --expect-source', audit_step)
+
     def test_pr_keeps_head_distinct_from_tested_merge_source(self):
         result = self.run_fetch("pull_request")
         self.assertEqual(result.returncode, 0, result.stderr)
