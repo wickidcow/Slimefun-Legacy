@@ -20,6 +20,9 @@ on:
       - 'compatibility/r157-infernal-expansion-release.json'
       - 'scripts/stage_r157_infernal_release.py'
       - 'scripts/test_stage_r157_infernal_release.py'
+      - 'compatibility/r157-fluffymachines-release.json'
+      - 'scripts/stage_r157_fluffymachines_release.py'
+      - 'scripts/test_stage_r157_fluffymachines_release.py'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
       - 'scripts/stage_r156_official_addons.py'
@@ -52,6 +55,9 @@ on:
       - 'compatibility/r157-infernal-expansion-release.json'
       - 'scripts/stage_r157_infernal_release.py'
       - 'scripts/test_stage_r157_infernal_release.py'
+      - 'compatibility/r157-fluffymachines-release.json'
+      - 'scripts/stage_r157_fluffymachines_release.py'
+      - 'scripts/test_stage_r157_fluffymachines_release.py'
       - 'scripts/verify_r156_addon_publications.py'
       - 'scripts/test_r156_addon_publications.py'
       - 'scripts/stage_r156_official_addons.py'
@@ -99,8 +105,9 @@ jobs:
         run: python3 -m unittest scripts.test_release_compatibility_claims -v
       - name: Validate 45-addon r157 lock, build receipt, and source code
         run: |
-          python3 -m py_compile scripts/stage_r157_infernal_release.py scripts/verify_published_addon_bundle.py
+          python3 -m py_compile scripts/stage_r157_infernal_release.py scripts/stage_r157_fluffymachines_release.py scripts/verify_published_addon_bundle.py
           python3 -m unittest scripts.test_stage_r157_infernal_release -v
+          python3 -m unittest scripts.test_stage_r157_fluffymachines_release -v
           python3 -m unittest scripts.test_release_compatibility_claims -v
           python3 -m unittest scripts.test_black_market_probe_contracts -v
           python3 -m unittest scripts.test_native_storage_probe_contracts -v
@@ -652,6 +659,20 @@ jobs:
           python3 -m scripts.stage_r157_infernal_release --jars collected/jars --metadata collected/metadata --official official-infernal/SF_InfernalExpansion1.1.0.jar
           python3 -m scripts.stage_r157_infernal_release --jars collected/jars --metadata collected/metadata --official official-infernal/SF_InfernalExpansion1.1.0.jar --verify-only
           python3 scripts/verify_addon_bytecode.py collected/jars/SF_InfernalExpansion1.1.0.jar --expected-java 21
+      - name: Stage checksum-pinned official FluffyMachines 26.2.24 release JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN="$(python3 -c "import json;print(json.load(open('compatibility/r157-fluffymachines-release.json'))['source_commit'])")"
+          test "$(gh api repos/wickidcow/SF_FluffyMachines/releases/tags/v26.2.24 --jq .target_commitish)" = "$PIN"
+          mkdir -p official-fluffy
+          gh release download v26.2.24 --repo wickidcow/SF_FluffyMachines --pattern SF_FluffyMachines26.2.24.jar --dir official-fluffy
+          python3 -m unittest scripts.test_stage_r157_fluffymachines_release -v
+          python3 -m scripts.stage_r157_fluffymachines_release --jars collected/jars --metadata collected/metadata --official official-fluffy/SF_FluffyMachines26.2.24.jar
+          python3 -m scripts.stage_r157_fluffymachines_release --jars collected/jars --metadata collected/metadata --official official-fluffy/SF_FluffyMachines26.2.24.jar --verify-only
+          python3 scripts/verify_addon_bytecode.py collected/jars/SF_FluffyMachines26.2.24.jar --expected-java 21
       - name: Verify complete maintained set and canonical names
         env:
           EXPECTED: ${{ needs.prepare.outputs.count }}
