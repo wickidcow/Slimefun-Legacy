@@ -923,11 +923,16 @@ final class DoctorLiveItemUpdate {
             throw new IOException("Live item update plan is empty or oversized");
         }
         List<Prepared> prepared = new ArrayList<>();
+        boolean[] selectedSlots = new boolean[MAX_SLOTS];
         int totalOriginalBytes = 0;
         for (Entry entry : plan.entries()) {
             if (entry.slot() < 0 || entry.slot() >= Math.min(inventory.getStorageContents().length, MAX_SLOTS)) {
                 throw new IOException("Live item update slot is out of bounds");
             }
+            if (selectedSlots[entry.slot()]) {
+                throw new IOException("Live item update plan repeats a slot");
+            }
+            selectedSlots[entry.slot()] = true;
             ItemStack old = inventory.getItem(entry.slot());
             ItemStack template = old == null ? null : templates.apply(old);
             if (template == null || !sameRegisteredId(old, template)
@@ -995,6 +1000,15 @@ final class DoctorLiveItemUpdate {
                 if (written == null
                         || !item.entry().replacementHash().equals(DoctorHistoricalStackRepair.fingerprint(written))) {
                     throw new IOException("Live inventory write readback disagrees with verified replacement");
+                }
+            }
+            // A later write can synchronously change an earlier slot. Never
+            // report success based on a stale per-slot readback.
+            for (Prepared item : prepared) {
+                ItemStack written = inventory.getItem(item.entry().slot());
+                if (written == null
+                        || !item.entry().replacementHash().equals(DoctorHistoricalStackRepair.fingerprint(written))) {
+                    throw new IOException("Live inventory final batch readback disagrees with verified replacement");
                 }
             }
         } catch (RuntimeException | IOException failure) {

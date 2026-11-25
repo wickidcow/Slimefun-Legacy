@@ -498,6 +498,79 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void laterWriteChangingEarlierSlotRefusesSuccessAndPreservesForeignStack() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack oldFirst = olderStyling(template, 19);
+        ItemStack oldSecond = olderStyling(template, 27);
+        ItemStack external = current("CARBON_CHUNK");
+        external.setAmount(17);
+        byte[] firstBytes = oldFirst.serializeAsBytes();
+        byte[] secondBytes = oldSecond.serializeAsBytes();
+        byte[] externalBytes = external.serializeAsBytes();
+        byte[] templateBytes = template.serializeAsBytes();
+        backing.setItem(0, oldFirst);
+        backing.setItem(1, oldSecond);
+
+        AtomicInteger writes = new AtomicInteger();
+        Inventory changedDuringWrite = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem")
+                                && writes.incrementAndGet() == 2
+                                && Integer.valueOf(1).equals(args[0])) {
+                            backing.setItem(0, external);
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+
+        var plan = DoctorLiveItemUpdate.preview(changedDuringWrite, ignored -> template);
+        assertEquals(2, plan.entries().size());
+        UUID owner = UUID.randomUUID();
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                changedDuringWrite, plan, ignored -> template, data, owner));
+        assertEquals("Live item update interrupted; original receipts retained", failure.getMessage());
+        assertEquals("Live inventory final batch readback disagrees with verified replacement",
+                failure.getCause().getMessage());
+        assertEquals(3, writes.get());
+        assertArrayEquals(externalBytes, backing.getItem(0).serializeAsBytes());
+        assertArrayEquals(secondBytes, backing.getItem(1).serializeAsBytes());
+        assertArrayEquals(templateBytes, template.serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            var receipts = files.filter(Files::isRegularFile).toList();
+            assertEquals(2, receipts.size());
+            byte[] first = Files.readAllBytes(receipts.get(0));
+            byte[] second = Files.readAllBytes(receipts.get(1));
+            assertTrue(java.util.Arrays.equals(firstBytes, first) || java.util.Arrays.equals(firstBytes, second));
+            assertTrue(java.util.Arrays.equals(secondBytes, first) || java.util.Arrays.equals(secondBytes, second));
+        }
+    }
+
+    @Test
+    void duplicatePlannedSlotRefusesBeforeWritingBackups() throws Exception {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack old = olderStyling(template, 19);
+        byte[] original = old.serializeAsBytes();
+        inventory.setItem(0, old);
+        var plan = DoctorLiveItemUpdate.preview(inventory, ignored -> template);
+        var entry = plan.entries().getFirst();
+        var duplicate = new DoctorLiveItemUpdate.Preview(
+                plan.scannedSlots(), plan.mismatched(), plan.eligible(), plan.refused(),
+                List.of(entry, entry), plan.blankLoreOnly(), plan.meaningfulText(),
+                plan.functionalMetadata(), plan.unknownIds(), plan.differingSlots());
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                inventory, duplicate, ignored -> template, data, UUID.randomUUID()));
+        assertEquals("Live item update plan repeats a slot", failure.getMessage());
+        assertArrayEquals(original, inventory.getItem(0).serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery")));
+    }
+
+    @Test
     void oldSteelModelComponentIsDetectedBeforeMockBukkitLosesItDuringStackCopies() {
         // MockBukkit 4.110.0 does not faithfully preserve modern model
         // components through item copies / ItemMetaMock equality. Assert
