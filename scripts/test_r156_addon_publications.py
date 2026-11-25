@@ -14,7 +14,7 @@ class OfficialReleaseProvenanceTest(unittest.TestCase):
     def test_exact_published_tag_sources_are_pinned(self):
         rows = validate_local(self.matrix, self.lock)
         self.assertEqual(set(EXPECTED), {r["repository"] for r in rows})
-        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(45, len(self.matrix["addons"]))
 
     def test_stale_prerelease_source_is_rejected(self):
         matrix = copy.deepcopy(self.matrix)
