@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_revision": 156,
+  "bundle_revision": 157,
   "bundle_name": "SF_Addons_1.21.11-26.3.zip",
   "artifact_naming": {
     "format": "SF_<AddonName><Version>.jar",
@@ -132,7 +132,7 @@
     {
       "repository": "wickidcow/SF_FluffyMachines",
       "slug": "fluffymachines",
-      "source_commit": "6ab739439c083bcaf8e7514d51c9b9b431fca31a"
+      "source_commit": "7d6f363d55b96e5a043ea20627f68b208a48e448"
     },
     {
       "repository": "wickidcow/SF_FNAmplifications",
@@ -170,10 +170,15 @@
       "source_commit": "91090c398ece30dbf90ddde6124a7f1faf0f05bb"
     },
     {
+      "repository": "wickidcow/SF_InfernalExpansion",
+      "slug": "infernalexpansion",
+      "source_commit": "06e32ea6d551c9961a50c993602d4e84cf8edcbe"
+    },
+    {
       "repository": "wickidcow/SF_InfinityExpansion2",
       "slug": "infinityexpansion2",
       "artifact_base": "InfinityExpansion",
-      "source_commit": "94e64236312a8c0b3fb18812143c6a02a806405b"
+      "source_commit": "d75a2ad8f7fcb32cfe7d2f28c0da60b1341af7e6"
     },
     {
       "repository": "wickidcow/SF_LiteXpansion",
@@ -215,7 +220,7 @@
       "repository": "wickidcow/SF_NetworksExp",
       "slug": "networksexp",
       "artifact_base": "Networks",
-      "source_commit": "8853a85c99acdb22c8d05d93f010272889922c9d"
+      "source_commit": "97453ab06f9ff86baf180498406500e172c9facb"
     },
     {
       "repository": "wickidcow/SF_RelicsOfCthonia",
