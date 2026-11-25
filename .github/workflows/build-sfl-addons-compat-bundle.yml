@@ -69,7 +69,7 @@ permissions:
 
 concurrency:
   group: sf-addons-1.21.11-26.3-bundle-v2-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   BUNDLE_NAME: SF_Addons_1.21.11-26.3.zip
