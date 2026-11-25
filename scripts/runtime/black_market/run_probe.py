@@ -58,6 +58,8 @@ MAGIC_RELEASES = {
     # v4.1.81/r156 advances MagicExpansion to the immutable official 1.1.20
     # release. Keep historical r137-r155 source/JAR pairs unchanged.
     156: ("1eb30acb5e52b9c7d8a78850fef9a308dda5245e", "SF_MagicExpansion1.1.20.jar"),
+    # r157 adds InfernalExpansion only; preserve immutable official Magic 1.1.20.
+    157: ("1eb30acb5e52b9c7d8a78850fef9a308dda5245e", "SF_MagicExpansion1.1.20.jar"),
 }
 MAGIC_VERSIONS = {
     137: "1.1.13",
@@ -80,6 +82,7 @@ MAGIC_VERSIONS = {
     154: "1.1.19",
     155: "1.1.19",
     156: "1.1.20",
+    157: "1.1.20",
 }
 DIRECTORIES = {"full-stack-1.21.11", "full-stack-26.2", "full-stack-26.3", "full-stack-purpur-26.3"}
 PLUGIN = "BlackMarketRestartProbe"
@@ -141,10 +144,10 @@ def validate_fixture(work: Path, bundle: Path) -> dict:
         manifest = json.loads(archive.read("SF_ADDON_MANIFEST.json"))
         revision = manifest.get("bundle_revision")
         if type(revision) is not int or revision not in MAGIC_RELEASES:
-            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156")
+            raise RuntimeError("This exact-source probe requires candidate r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157")
         magic_commit, magic_jar = MAGIC_RELEASES[revision]
         rows = manifest.get("addons", [])
-        expected_addons = 44 if revision >= 153 else 45
+        expected_addons = 45 if revision == 157 or revision < 153 else 44
         if len(rows) != expected_addons or len({r["repository"] for r in rows}) != expected_addons:
             raise RuntimeError(f"Expected {expected_addons} unique canonical addon repositories")
         if len({r["jar"] for r in rows}) != expected_addons:

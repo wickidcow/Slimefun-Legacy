@@ -147,12 +147,12 @@ class AdmissionTests(unittest.TestCase):
                          "1eb30acb5e52b9c7d8a78850fef9a308dda5245e")
         self.assertEqual(evidence["tested_addons"][probe.MAGIC]["jar"],
                          "SF_MagicExpansion1.1.20.jar")
-        # Keep the fixture anchored to the canonical 44-addon release manifest.
+        # Keep historical r156 fixture intact; validate latest canonical r157 45-addon source manifest.
         matrix = json.loads((SOURCE.parents[3] / "compatibility/sfl-addon-release-matrix.json")
                             .read_text(encoding="utf-8"))
-        self.assertEqual(156, matrix["bundle_revision"])
+        self.assertEqual(157, matrix["bundle_revision"])
         selected = {r["repository"]: r["source_commit"] for r in matrix["addons"]}
-        self.assertEqual(44, len(selected))
+        self.assertEqual(45, len(selected))
         self.assertEqual(probe.MAGIC_RELEASES[156][0], selected[probe.MAGIC])
         self.rows[0]["commit"] = probe.MAGIC_RELEASES[155][0]
         self.write_bundle()
@@ -170,8 +170,27 @@ class AdmissionTests(unittest.TestCase):
         self.write_bundle()
         self.rejects()
 
+    def test_r157_admits_infernal_addition_without_changing_magic_receipt(self):
+        self.select_r156_roster()
+        name = "SF_InfernalExpansion1.1.0.jar"
+        blob = b"synthetic-official-infernal-test-plugin"
+        self.rows.append({
+            "repository": "wickidcow/SF_InfernalExpansion",
+            "jar": name, "commit": "06e32ea6d551c9961a50c993602d4e84cf8edcbe",
+            "sha256": hashlib.sha256(blob).hexdigest(),
+        })
+        self.blobs[name] = blob
+        (self.work / "plugins" / name).write_bytes(blob)
+        self.manifest["bundle_revision"] = 157
+        self.write_bundle()
+        result = self.validate()
+        self.assertEqual(result["bundle_revision"], 157)
+        self.assertEqual(len(result["tested_addons"]), 45)
+        self.assertEqual(result["magic_version"], "1.1.20")
+        self.assertIn("wickidcow/SF_InfernalExpansion", result["tested_addons"])
+
     def test_bad_or_noninteger_revision_refused(self):
-        for revision in (136, 157, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, "155", 155.0, "156", 156.0, True):
+        for revision in (136, 158, "141", 141.0, "142", 142.0, "143", 143.0, "144", 144.0, "145", 145.0, "146", 146.0, "147", 147.0, "148", 148.0, "149", 149.0, "150", 150.0, "151", 151.0, "152", 152.0, "153", 153.0, "154", 154.0, "155", 155.0, "156", 156.0, True):
             with self.subTest(revision=revision):
                 self.manifest["bundle_revision"] = revision
                 self.write_bundle()
