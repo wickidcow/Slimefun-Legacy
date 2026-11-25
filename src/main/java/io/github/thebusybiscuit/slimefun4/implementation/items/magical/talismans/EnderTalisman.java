@@ -25,6 +25,12 @@ class EnderTalisman extends Talisman {
             3,
             Talisman.TALISMANS_ITEMGROUP.getKey());
 
+    static {
+        // Addon talismans intentionally share the built-in guide category.
+        ENDER_TALISMANS_ITEMGROUP.setCrossAddonItemGroup(true);
+    }
+
+
     @ParametersAreNonnullByDefault
     public EnderTalisman(Talisman parent, SlimefunItemStack item) {
         super(
