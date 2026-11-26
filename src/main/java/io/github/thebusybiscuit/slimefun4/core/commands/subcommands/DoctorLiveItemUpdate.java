@@ -24,6 +24,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -924,7 +925,7 @@ final class DoctorLiveItemUpdate {
         }
         // Preserve every ordinary storage, armor and offhand slot, not just
         // the eight slots selected for the operator-approved update.
-        byte[][] originalInventory = DoctorLiveInventoryRollback.snapshotStorage(inventory);
+        byte[][] originalInventory = snapshotFullInventory(inventory);
         List<Prepared> prepared = new ArrayList<>();
         boolean[] selectedSlots = new boolean[MAX_SLOTS];
         int totalOriginalBytes = 0;
@@ -982,7 +983,7 @@ final class DoctorLiveItemUpdate {
 
         // Saving verified receipts involves disk I/O. If any unselected
         // player slot changed while saving, do not attempt even one write.
-        if (!sameSlotBytes(originalInventory, DoctorLiveInventoryRollback.snapshotStorage(inventory))) {
+        if (!sameSlotBytes(originalInventory, snapshotFullInventory(inventory))) {
             throw new IOException("Player inventory changed while saving live item backups");
         }
 
@@ -1013,7 +1014,7 @@ final class DoctorLiveItemUpdate {
                 // A synchronous addon hook must not silently mutate an
                 // unrelated stack while Doctor repairs a different slot.
                 if (!unchangedOutsideSelected(originalInventory,
-                        DoctorLiveInventoryRollback.snapshotStorage(inventory), selectedSlots)) {
+                        snapshotFullInventory(inventory), selectedSlots)) {
                     throw new IOException("Unselected player inventory slot changed during live update");
                 }
             }
@@ -1027,7 +1028,7 @@ final class DoctorLiveItemUpdate {
                 }
             }
             if (!unchangedOutsideSelected(originalInventory,
-                    DoctorLiveInventoryRollback.snapshotStorage(inventory), selectedSlots)) {
+                    snapshotFullInventory(inventory), selectedSlots)) {
                 throw new IOException("Unselected player inventory slot changed during final live update validation");
             }
         } catch (RuntimeException | IOException failure) {
@@ -1047,6 +1048,31 @@ final class DoctorLiveItemUpdate {
             throw new IOException("Live item update interrupted; original receipts retained", failure);
         }
         return List.copyOf(receipts);
+    }
+
+    /**
+     * The live command passes an actual PlayerInventory, so keep its full
+     * storage, armor and offhand byte-level snapshot. The existing native
+     * migration harness deliberately calls this engine by reflection with
+     * a disposable 27-slot chest to verify historical saved-world identity.
+     * Its inventory is fully captured as well, but this method does not
+     * expose any new chest-write command or automatic migration.
+     */
+    private static byte[][] snapshotFullInventory(Inventory inventory) throws IOException {
+        if (inventory instanceof PlayerInventory) {
+            return DoctorLiveInventoryRollback.snapshotStorage(inventory);
+        }
+        if (inventory == null || inventory.getSize() < 9
+                || inventory.getSize() > MAX_CONTAINER_SCAN_SLOTS
+                || inventory.getStorageContents().length != inventory.getSize()) {
+            throw new IOException("Unsupported bounded native inventory fixture layout");
+        }
+        byte[][] first = exactContainerSlots(inventory);
+        byte[][] second = exactContainerSlots(inventory);
+        if (!sameSlotBytes(first, second)) {
+            throw new IOException("Native inventory fixture changed during snapshot");
+        }
+        return first;
     }
 
     private static boolean unchangedOutsideSelected(byte[][] original, byte[][] observed, boolean[] selected) {

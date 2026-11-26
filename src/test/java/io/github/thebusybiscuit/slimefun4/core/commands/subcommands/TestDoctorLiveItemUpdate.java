@@ -449,6 +449,40 @@ class TestDoctorLiveItemUpdate {
     }
 
 
+
+    @Test
+    void nativePhysicalChestFixtureKeepsOtherSlotsExactDuringManualEngineExercise() throws Exception {
+        // This is only the disposable native saved-world fixture API: the
+        // operator live command still passes PlayerInventory exclusively.
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current("CARBONADO");
+        ItemStack old = olderStyling(template, 63);
+        ItemStack typed = current("CARBONADO");
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.LONG, 75123L));
+        chest.setItem(0, old);
+        chest.setItem(1, template);
+        chest.setItem(2, typed);
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = template.serializeAsBytes();
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        var preview = DoctorLiveItemUpdate.preview(chest, ignored -> template);
+        assertEquals(1, preview.eligible());
+        UUID owner = UUID.randomUUID();
+        var receipts = DoctorLiveItemUpdate.apply(chest, preview, ignored -> template, data, owner);
+
+        assertEquals(1, receipts.size());
+        assertEquals(63, chest.getItem(0).getAmount());
+        assertTrue(chest.getItem(0).isSimilar(template));
+        assertArrayEquals(freshBytes, chest.getItem(1).serializeAsBytes());
+        assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
+        assertNull(chest.getItem(3));
+        assertArrayEquals(oldBytes, DoctorHistoricalStackRepair.readVerifiedBackup(
+                data, owner, receipts.getFirst().id()).serializeAsBytes());
+    }
+
     @Test
     void unrelatedSlotMutationDuringUpdateIsDetectedWithoutOverwritingForeignStack() throws Exception {
         Inventory backing = Bukkit.createInventory(null, 36);
