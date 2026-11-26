@@ -18,9 +18,6 @@ on:
       - 'scripts/release_cleanup_authorization.py'
       - 'scripts/test_release_cleanup_authorization.py'
       - 'compatibility/bedrock-resource-pack-release.json'
-  workflow_run:
-    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
-    types: [completed]
   workflow_dispatch:
     inputs:
       confirm_existing_release_asset_cleanup:
@@ -52,18 +49,13 @@ jobs:
   clean:
     name: Keep Slimefun Legacy release core-focused
     needs: policy-tests
-    # Keep the prior PR/origin protections as defense in depth, but automatic
-    # events are never sufficient: only a separately confirmed dispatch may run.
+    # Release asset changes require an explicit, confirmed master dispatch.
+    # Bundle completion no longer triggers redundant policy-only runs.
     if: >-
       github.event_name == 'workflow_dispatch' &&
       inputs.confirm_existing_release_asset_cleanup == true &&
       github.event_name != 'pull_request' &&
-      github.ref == 'refs/heads/master' &&
-      (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'master' &&
-        github.event.workflow_run.head_repository.full_name == github.repository &&
-        github.event.workflow_run.event != 'pull_request'))
+      github.ref == 'refs/heads/master'
     permissions:
       contents: write
     runs-on: ubuntu-latest

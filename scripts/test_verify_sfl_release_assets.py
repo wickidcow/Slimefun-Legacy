@@ -595,14 +595,16 @@ class WorkflowShellTests(unittest.TestCase):
                 self.assertEqual(state, after)
                 self.assertEqual([], deletions(calls))
 
-    def test_workflow_permissions_and_origin_guards_remain_present(self):
+    def test_workflow_permissions_and_manual_master_authorization_remain_present(self):
         text = WORKFLOW.read_text()
         self.assertIn("permissions:\n  contents: read", text)
         self.assertIn("needs: policy-tests", text)
+        self.assertIn("github.event_name == 'workflow_dispatch'", text)
+        self.assertIn("inputs.confirm_existing_release_asset_cleanup == true", text)
         self.assertIn("github.event_name != 'pull_request'", text)
         self.assertIn("github.ref == 'refs/heads/master'", text)
-        self.assertIn("github.event.workflow_run.head_repository.full_name == github.repository", text)
-        self.assertIn("github.event.workflow_run.event != 'pull_request'", text)
+        self.assertNotIn("\n  workflow_run:\n", text)
+        self.assertNotIn("github.event.workflow_run.", text)
         self.assertIn("cancel-in-progress: false", text)
 
 

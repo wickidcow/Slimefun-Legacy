@@ -6,12 +6,13 @@ on:
       - '.github/workflows/mirror-resource-pack-release.yml'
       - '.github/workflows/reproducible-release.yml'
       - '.github/workflows/cleanup-sfl-release-assets.yml'
-      - '.github/workflows/cleanup-sfl-release-assets.yml'
       - 'compatibility/resource-pack-release.json'
       - 'scripts/verify_release_resource_pack.py'
       - 'scripts/test_resource_pack_mirror_immutability.py'
       - 'scripts/test_release_asset_immutability.py'
       - 'scripts/test_verify_next_release_geyser_carry.py'
+      - 'scripts/test_verify_v4178_release_readonly.py'
+      - 'scripts/test_verify_v4178_bedrock_carry.py'
       - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/verify_legacy.py'
       - 'docs/RESOURCE_PACK.md'
@@ -25,6 +26,8 @@ on:
       - 'scripts/test_resource_pack_mirror_immutability.py'
       - 'scripts/test_release_asset_immutability.py'
       - 'scripts/test_verify_next_release_geyser_carry.py'
+      - 'scripts/test_verify_v4178_release_readonly.py'
+      - 'scripts/test_verify_v4178_bedrock_carry.py'
       - 'scripts/verify_sfl_release_assets.py'
       - 'scripts/verify_legacy.py'
       - 'docs/RESOURCE_PACK.md'
@@ -54,6 +57,8 @@ jobs:
           python3 -m unittest scripts.test_resource_pack_mirror_immutability -v
           python3 -m unittest scripts.test_release_asset_immutability -v
           python3 -m unittest scripts.test_verify_next_release_geyser_carry -v
+          python3 -m unittest scripts.test_verify_v4178_release_readonly -v
+          python3 -m unittest scripts.test_verify_v4178_bedrock_carry -v
 
       - name: Download exact pinned stable resource pack
         env:
