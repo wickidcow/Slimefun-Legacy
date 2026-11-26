@@ -109,8 +109,16 @@ class StackWiringTests(unittest.TestCase):
         self.assertIn('run_cycle first false\nrun_cycle second true', self.script)
 
     def test_source_changes_trigger_and_evidence_is_uploaded(self):
+        # The direct full-stack master push was intentionally retired: the canonical
+        # 45-addon bundle builds on every relevant source push, then invokes the
+        # source-pinned full-stack via a trusted successful workflow_run.
+        bundle = (self.root / ".github/workflows/build-sfl-addons-compat-bundle.yml").read_text()
+        self.assertIn("  push:\n    branches: [master]", bundle)
+        self.assertIn("      - 'scripts/**'", bundle)
+        self.assertIn("  workflow_run:", self.workflow)
+        self.assertIn("    branches: [master]", self.workflow)
         for name in ('prepare_worldedit_runtime.py', 'test_prepare_worldedit_runtime.py', 'test_worldedit_stack_integration.py'):
-            self.assertEqual(2, self.workflow.count("      - 'scripts/" + name + "'"))
+            self.assertEqual(1, self.workflow.count("      - 'scripts/" + name + "'"))
         self.assertIn('/plugins/worldedit-runtime.json', self.workflow)
         self.assertIn("-p 'test_*worldedit*.py'", self.workflow)
 
