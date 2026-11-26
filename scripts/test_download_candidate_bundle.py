@@ -218,15 +218,17 @@ class CandidateBundleTest(unittest.TestCase):
             self.assertEqual(error.exception.code, 2)
         self.assertFalse((Path(self.temp.name) / 'unused').exists())
 
-    def test_master_push_requires_same_source_bundle(self):
+    def test_master_full_stack_uses_exact_source_upstream_bundle(self):
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/paper-26.3-full-stack.yml').read_text()
-        marker = 'elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then'
-        self.assertIn(marker, workflow)
-        push = workflow.split(marker, 1)[1].split('elif ', 1)[0]
-        for required in ('scripts/download_candidate_bundle.py', '--event push',
-                         '--head "$GITHUB_SHA"', '--source "$GITHUB_SHA"'):
-            self.assertIn(required, push)
-        self.assertNotIn('gh release', push)
+        self.assertNotIn('  push:\n', workflow)
+        self.assertNotIn('elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then', workflow)
+        self.assertIn("  workflow_run:\n    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']\n", workflow)
+        self.assertIn('    branches: [master]', workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        self.assertIn("github.event.workflow_run.event == 'push'", workflow)
+        self.assertIn('gh run download "$TRIGGER_RUN_ID"', workflow)
+        self.assertIn('"$TRIGGER_HEAD_SHA" > bundle/bundle-source.txt', workflow)
+        self.assertNotIn("gh release download", workflow.split('elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then')[1].split('else', 1)[0])
 
     def test_full_stack_core_pins_and_verifies_actual_checkout(self):
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/paper-26.3-full-stack.yml').read_text()
