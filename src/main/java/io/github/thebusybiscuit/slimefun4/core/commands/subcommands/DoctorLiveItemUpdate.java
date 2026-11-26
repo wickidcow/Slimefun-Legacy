@@ -922,6 +922,9 @@ final class DoctorLiveItemUpdate {
         if (plan.entries().isEmpty() || plan.entries().size() > MAX_UPDATES) {
             throw new IOException("Live item update plan is empty or oversized");
         }
+        // Preserve every ordinary storage, armor and offhand slot, not just
+        // the eight slots selected for the operator-approved update.
+        byte[][] originalInventory = DoctorLiveInventoryRollback.snapshotStorage(inventory);
         List<Prepared> prepared = new ArrayList<>();
         boolean[] selectedSlots = new boolean[MAX_SLOTS];
         int totalOriginalBytes = 0;
@@ -977,6 +980,12 @@ final class DoctorLiveItemUpdate {
             }
         }
 
+        // Saving verified receipts involves disk I/O. If any unselected
+        // player slot changed while saving, do not attempt even one write.
+        if (!sameSlotBytes(originalInventory, DoctorLiveInventoryRollback.snapshotStorage(inventory))) {
+            throw new IOException("Player inventory changed while saving live item backups");
+        }
+
         List<Prepared> attempted = new ArrayList<>();
         try {
             for (Prepared item : prepared) {
@@ -1001,6 +1010,12 @@ final class DoctorLiveItemUpdate {
                         || !item.entry().replacementHash().equals(DoctorHistoricalStackRepair.fingerprint(written))) {
                     throw new IOException("Live inventory write readback disagrees with verified replacement");
                 }
+                // A synchronous addon hook must not silently mutate an
+                // unrelated stack while Doctor repairs a different slot.
+                if (!unchangedOutsideSelected(originalInventory,
+                        DoctorLiveInventoryRollback.snapshotStorage(inventory), selectedSlots)) {
+                    throw new IOException("Unselected player inventory slot changed during live update");
+                }
             }
             // A later write can synchronously change an earlier slot. Never
             // report success based on a stale per-slot readback.
@@ -1010,6 +1025,10 @@ final class DoctorLiveItemUpdate {
                         || !item.entry().replacementHash().equals(DoctorHistoricalStackRepair.fingerprint(written))) {
                     throw new IOException("Live inventory final batch readback disagrees with verified replacement");
                 }
+            }
+            if (!unchangedOutsideSelected(originalInventory,
+                    DoctorLiveInventoryRollback.snapshotStorage(inventory), selectedSlots)) {
+                throw new IOException("Unselected player inventory slot changed during final live update validation");
             }
         } catch (RuntimeException | IOException failure) {
             // Don't overwrite an unrelated stack inserted by another plugin.
@@ -1028,6 +1047,19 @@ final class DoctorLiveItemUpdate {
             throw new IOException("Live item update interrupted; original receipts retained", failure);
         }
         return List.copyOf(receipts);
+    }
+
+    private static boolean unchangedOutsideSelected(byte[][] original, byte[][] observed, boolean[] selected) {
+        if (original.length != observed.length) {
+            return false;
+        }
+        for (int slot = 0; slot < original.length; slot++) {
+            if ((slot >= selected.length || !selected[slot])
+                    && !Arrays.equals(original[slot], observed[slot])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static UUID receiptId(UUID owner, Path path) throws IOException {
