@@ -201,6 +201,40 @@ class TestDoctorLiveItemUpdate {
     }
 
     @Test
+    void finalTemplateLookupReplacingSelectedSlotNeverOverwritesForeignStack() throws Exception {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack historical = olderStyling(template, 23);
+        ItemStack foreign = new ItemStack(Material.DIAMOND, 7);
+        inventory.setItem(0, historical);
+        byte[] originalBytes = inventory.getItem(0).serializeAsBytes();
+        byte[] foreignBytes = foreign.serializeAsBytes();
+        var plan = DoctorLiveItemUpdate.preview(inventory, ignored -> template);
+        assertEquals(1, plan.entries().size());
+
+        AtomicInteger reads = new AtomicInteger();
+        UUID owner = UUID.randomUUID();
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                inventory, plan, ignored -> {
+                    // Preparation and post-backup reads succeed. The final
+                    // pre-write lookup synchronously replaces the selected slot.
+                    if (reads.incrementAndGet() == 3) {
+                        inventory.setItem(0, foreign);
+                    }
+                    return template;
+                }, data, owner));
+
+        assertEquals(3, reads.get());
+        assertEquals("Live inventory slot changed during final template lookup", failure.getCause().getMessage());
+        assertArrayEquals(foreignBytes, inventory.getItem(0).serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            var receipts = files.filter(Files::isRegularFile).toList();
+            assertEquals(1, receipts.size());
+            assertArrayEquals(originalBytes, Files.readAllBytes(receipts.getFirst()));
+        }
+    }
+
+    @Test
     void allEightBatchReceiptsAreWrittenAndNinthSlotLeftUnchanged() throws Exception {
         Inventory inventory = Bukkit.createInventory(null, 36);
         ItemStack template = current("CARBONADO");
