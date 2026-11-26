@@ -599,11 +599,13 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.assertEqual("NOT_TESTED", evidence["paxel_input_consumption"])
         self.assertEqual("NOT_TESTED", evidence["paxel_recipe_selection"])
 
-    def test_candidate_workflow_requires_paxel_but_historical_core_does_not(self):
+    def test_current_workflow_requires_paxel_and_archived_candidates_stay_retired(self):
         root = SOURCE.parents[3]
         self.assertIn("--verify-paxel-recipes", (root / ".github/workflows/paper-26.3-full-stack.yml").read_text())
+        # The obsolete r137/r140 workflow definitions were retired after v4.1.82.
+        # Preserve the current native consumption check without reopening archived CI.
         for name in ("addons-r140-candidate.yml", "r137-release-candidate.yml"):
-            self.assertNotIn("--verify-paxel-recipes", (root / ".github/workflows" / name).read_text())
+            self.assertFalse((root / ".github/workflows" / name).exists(), name)
 
     def test_r153_java_command_preserves_historical_fluffy_version(self):
         self.populate(153)

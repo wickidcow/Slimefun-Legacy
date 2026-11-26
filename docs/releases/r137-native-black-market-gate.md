@@ -18,7 +18,7 @@ The integration matrix and native probe explicitly target this new head and vers
 
 ## Final exact-byte gate
 
-`.github/workflows/r137-release-candidate.yml` is read-only and has no release-writing step. It must:
+The [archived r137 release-candidate workflow](https://github.com/wickidcow/Slimefun-Legacy/blob/497c7659d244bba203a90e030e9054990924590f/.github/workflows/r137-release-candidate.yml) was read-only and had no release-writing step. It was retired from active Actions after v4.1.82. Its historical verification contract required:
 
 1. Validate the still-published 4.1.74/r136 release ID, source, asset IDs, names, sizes and SHA-256 digests before and after preparation.
 2. Validate the pinned 1.1.13 source workflow, raw JAR artifact and actual 146-test report artifact. An expired artifact, changed head or failed/skipped test refuses preparation.
