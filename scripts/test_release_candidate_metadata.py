@@ -1,4 +1,4 @@
-"""Exact candidate metadata regressions for distinct Slimefun Legacy 4.1.81."""
+"""Exact candidate metadata regressions for distinct Slimefun Legacy 4.1.82."""
 import json
 import io
 import zipfile
@@ -9,7 +9,7 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLISHED_V4180_SOURCE = "cdb74b69cb972ad8c851ce53f57763fb0640fe4a"
+PUBLISHED_V4181_SOURCE = "d728bf04ebd738dd5779e27b2ea83c68f0edbd10"
 
 
 class ReleaseCandidateMetadataTest(unittest.TestCase):
@@ -24,7 +24,7 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
     def test_candidate_version_matches_both_release_registries(self):
         match = re.search(r"^projectVersion=(\d+\.\d+\.\d+)$", self.properties, re.M)
         self.assertIsNotNone(match)
-        self.assertEqual("4.1.81", match.group(1))
+        self.assertEqual("4.1.82", match.group(1))
         self.assertEqual(match.group(1), self.support["release"])
         self.assertEqual(match.group(1), self.baselines["candidate"]["version"])
         for name in ("addon-compatibility-matrix.json", "cross-fork-api-matrix.json", "core-api-registry.json"):
@@ -49,9 +49,9 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
                 self.assertEqual(1, len(check(empty=entry)))
 
     def test_new_candidate_notes_preserve_scope_and_release_gate(self):
-        notes = (ROOT / "docs/releases/4.1.81.md").read_text(encoding="utf-8")
+        notes = (ROOT / "docs/releases/4.1.82.md").read_text(encoding="utf-8")
         for required in (
-            "Slimefun-Legacy4.1.81.jar", "SF_Addons_1.21.11-26.3.zip",
+            "Slimefun-Legacy4.1.82.jar", "SF_Addons_1.21.11-26.3.zip",
             "SlimefunLegacyRP.zip", "SlimefunLegacyRP_Geyser.zip",
             "UNTESTED", "Historical inventories are not rewritten", "CraftingRestrictions.yml",
             # Publication wording changes after PR merge and later after tag publication;
@@ -81,23 +81,23 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
                 self.assertIn("is undergoing exact-source validation primarily", source)
                 self.assertIn("was published on", source)
 
-    def test_previous_stable_is_exact_published_v4180_source(self):
+    def test_previous_stable_is_exact_published_v4181_source(self):
         previous = self.baselines["previous_stable"]
-        self.assertEqual("4.1.80", previous["version"])
+        self.assertEqual("4.1.81", previous["version"])
         self.assertEqual("git-ref", previous["source"]["mode"])
-        self.assertEqual(PUBLISHED_V4180_SOURCE, previous["source"]["ref"])
+        self.assertEqual(PUBLISHED_V4181_SOURCE, previous["source"]["ref"])
         self.assertIs(True, previous["release_blocking"])
         self.assertEqual("4.1.15", self.baselines["legacy_floor"]["version"])
         self.assertIs(False, self.baselines["legacy_floor"]["release_blocking"])
 
     def test_published_readme_and_protected_publisher_notes_are_distinct(self):
-        # README tracks the actual most recent *published* 4.1.80 release.
+        # README tracks the actual most recent *published* 4.1.81 release.
         # Archived 4.1.79 notes below must remain immutable and are not v81 proof.
-        self.assertIn("Latest published release:** [Slimefun Legacy 4.1.80]", self.readme)
-        self.assertIn("cdb74b69cb972ad8c851ce53f57763fb0640fe4a", self.readme)
-        self.assertIn("/releases/tag/v4.1.80", self.readme)
-        self.assertIn("v4.1.81 is a separate, unpublished candidate", self.readme)
-        self.assertNotIn("Slimefun Legacy 4.1.81 was published", self.readme)
+        self.assertIn("Latest published release:** [Slimefun Legacy 4.1.81]", self.readme)
+        self.assertIn("d728bf04ebd738dd5779e27b2ea83c68f0edbd10", self.readme)
+        self.assertIn("/releases/tag/v4.1.81", self.readme)
+        self.assertIn("v4.1.82 is a separate, unpublished candidate", self.readme)
+        self.assertNotIn("Slimefun Legacy 4.1.82 was published", self.readme)
         self.assertNotIn("4.1.79 was published", self.notes)
         self.assertNotIn("unreleased candidate", self.notes)
         self.assertNotIn("Status: candidate only", self.notes)
@@ -136,7 +136,7 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         )
         evidence = purpur["validation"]
         self.assertIn("then-current 45-addon canonical bundle", evidence)
-        self.assertIn("new 44-addon release must pass its own exact-source runtime checks", evidence)
+        self.assertIn("new 45-addon release must pass its own exact-source runtime checks", evidence)
         self.assertEqual("experimental", purpur["status"])
 
 
