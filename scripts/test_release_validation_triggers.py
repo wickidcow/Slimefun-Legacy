@@ -19,6 +19,9 @@ RELEASE_INPUTS = (
     "scripts/test_compile_addon_paper_26_3.py",
     "scripts/test_release_candidate_metadata.py",
     "scripts/test_release_validation_triggers.py",
+    "scripts/verify_published_addon_bundle.py",
+    "scripts/test_verify_published_addon_bundle.py",
+    "scripts/test_actions_release_trigger_policy.py",
 
     "gradle.properties",
     "docs/releases/**",

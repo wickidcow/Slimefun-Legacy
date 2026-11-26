@@ -1,29 +1,29 @@
-"""Release-safe, low-noise Actions schedule and event trigger regressions.
+"""Actions cleanup regressions: preserve protected release checks, reduce idle CI.
 
-Every release-affecting source push and PR still builds the canonical 45-addon
-bundle. Unchanged default branch does not compile 45 addon JARs each night.
-Published-asset verification belongs to release publication, not a build.
+The standalone published-archive workflow is retired: GITHUB_TOKEN-created
+GitHub releases do not reliably emit a separate workflow trigger. The protected
+reproducible release job now validates the same archive and published bytes.
 """
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / ".github/workflows/build-sfl-addons-compat-bundle.yml"
-PUBLISHED = ROOT / ".github/workflows/publish-sfl-addon-release-jars.yml"
 RELEASE = ROOT / ".github/workflows/reproducible-release.yml"
+NATIVE = ROOT / ".github/workflows/native-entity-retirement.yml"
+RETIRED = ROOT / ".github/workflows/publish-sfl-addon-release-jars.yml"
 
 
 class ActionsReleaseTriggerPolicyTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.bundle = BUNDLE.read_text(encoding="utf-8")
-        cls.published = PUBLISHED.read_text(encoding="utf-8")
         cls.release = RELEASE.read_text(encoding="utf-8")
+        cls.native = NATIVE.read_text(encoding="utf-8")
 
     def test_bundle_still_compiles_on_source_and_manual_dispatch(self):
-        self.assertIn("  push:\n", self.bundle)
-        self.assertIn("  pull_request:\n", self.bundle)
-        self.assertIn("  workflow_dispatch:\n", self.bundle)
+        for trigger in ("  push:\n", "  pull_request:\n", "  workflow_dispatch:\n"):
+            self.assertIn(trigger, self.bundle)
         for required in (
             "      - 'src/**'",
             "      - 'scripts/**'",
@@ -39,25 +39,33 @@ class ActionsReleaseTriggerPolicyTest(unittest.TestCase):
         self.assertIn("cron: '17 6 * * 0'", self.bundle)
         self.assertNotIn("cron: '17 6 * * *'", self.bundle)
 
-    def test_published_validator_checks_publication_not_bundle_completion(self):
-        self.assertIn("  release:\n    types: [published]\n", self.published)
-        self.assertNotIn("  workflow_run:\n", self.published)
-        self.assertNotIn("github.event.workflow_run.", self.published)
-        self.assertIn("  pull_request:\n", self.published)
-        self.assertIn("  push:\n", self.published)
-        self.assertIn("  workflow_dispatch:\n", self.published)
-        self.assertIn('gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_EVENT_ID"', self.published)
-        self.assertIn('gh api "repos/$GITHUB_REPOSITORY/releases/latest"', self.published)
-        self.assertIn("sha256:", self.published)
-        self.assertIn("scripts/verify_published_addon_bundle.py", self.published)
-        self.assertIn("permissions:\n  contents: read", self.published)
-        self.assertNotIn("contents: write", self.published)
+    def test_redundant_published_archive_workflow_is_retired(self):
+        self.assertFalse(RETIRED.exists())
+        self.assertIn("Verify canonical addon ZIP with independent published-archive integrity validator", self.release)
+        self.assertIn('python3 scripts/verify_published_addon_bundle.py "dist/$' + '{CANONICAL_ADDON_BUNDLE}"', self.release)
+        self.assertIn("scripts.test_actions_release_trigger_policy -v", self.release)
+        self.assertIn("scripts.test_actions_release_trigger_policy -v", self.bundle)
+        self.assertIn("result['addon_count'] != 45", self.release)
+        self.assertIn("> build/release-verification/published-addon-validation.json", self.release)
 
-    def test_exact_source_publication_remains_explicit_and_immutable(self):
+    def test_new_source_validator_changes_retrigger_exact_release_evidence(self):
+        for required in (
+            "scripts/verify_published_addon_bundle.py",
+            "scripts/test_verify_published_addon_bundle.py",
+            "scripts/test_actions_release_trigger_policy.py",
+        ):
+            with self.subTest(path=required):
+                self.assertIn(f"      - '{required}'", self.release)
+                self.assertEqual(2, self.native.count(f"      - '{required}'"))
+                self.assertIn("      - 'scripts/**'", self.bundle)
+
+    def test_published_assets_still_verified_and_immutable(self):
         self.assertIn("  workflow_dispatch:\n", self.release)
         self.assertIn("inputs.publish == true", self.release)
         self.assertIn("github.ref == 'refs/heads/master'", self.release)
         self.assertIn("Refusing to overwrite an existing release at another source", self.release)
+        self.assertIn('gh release download "$TAG"', self.release)
+        self.assertIn('cmp "dist/$file" "verify-release-bytes/$file"', self.release)
         self.assertNotIn("--clobber", self.release)
 
 
