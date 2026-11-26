@@ -17,6 +17,9 @@ on:
       - 'scripts/test_compile_addon_paper_26_3.py'
       - 'scripts/test_release_candidate_metadata.py'
       - 'scripts/test_release_validation_triggers.py'
+      - 'scripts/verify_published_addon_bundle.py'
+      - 'scripts/test_verify_published_addon_bundle.py'
+      - 'scripts/test_actions_release_trigger_policy.py'
       - gradle.properties
       - 'docs/releases/**'
       - '.github/workflows/reproducible-release.yml'
@@ -243,6 +246,23 @@ jobs:
           echo "RELEASE_BUNDLE_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "Canonical addon bundle source: exact release commit $GITHUB_SHA (Actions run ${RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
           echo "Canonical addon bundle SHA-256: ${BUNDLE_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify canonical addon ZIP with independent published-archive integrity validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-verification
+          python3 -m unittest discover -s scripts -p 'test_verify_published_addon_bundle.py' -v
+          python3 -m unittest scripts.test_actions_release_trigger_policy -v
+          python3 scripts/verify_published_addon_bundle.py "dist/${CANONICAL_ADDON_BUNDLE}" \
+            > build/release-verification/published-addon-validation.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('build/release-verification/published-addon-validation.json').read_text())
+          if result['addon_count'] != 45:
+              raise SystemExit(f"Release must contain exactly 45 verified addon JARs, got {result['addon_count']}")
+          PY
 
       - name: Await exact-source native and full-stack runtime results
         shell: bash
