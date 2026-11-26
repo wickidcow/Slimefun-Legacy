@@ -21,6 +21,20 @@ class HistoricalReleaseReadOnlyTest(unittest.TestCase):
         self.assertIn("scripts.test_verify_v4178_release_readonly -v", self.mirror)
         self.assertIn("scripts.test_verify_v4178_bedrock_carry -v", self.mirror)
 
+    def test_historical_verifier_changes_trigger_its_new_test_owner(self):
+        for event in ("pull_request", "push"):
+            with self.subTest(event=event):
+                block = re.search(
+                    rf"(?ms)^  {event}:\n(.*?)(?=^  \S|\Z)", self.mirror
+                )
+                self.assertIsNotNone(block, f"Missing {event} trigger")
+                for path in (
+                    "scripts/verify_v4178_bedrock_carry.py",
+                    "scripts/test_verify_v4178_bedrock_carry.py",
+                    "scripts/test_verify_v4178_release_readonly.py",
+                ):
+                    self.assertIn(f"      - '{path}'", block.group(1))
+
     def test_current_mirror_has_read_only_release_permissions(self):
         self.assertIn("permissions:\n  contents: read", self.mirror)
         self.assertNotIn("contents: write", self.mirror)
