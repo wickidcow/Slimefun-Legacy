@@ -23,6 +23,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -560,6 +561,69 @@ class TestDoctorLiveItemUpdate {
         try (var files = Files.list(data.resolve("recovery/identity"))) {
             assertEquals(1, files.filter(Files::isRegularFile).count(),
                     "The verified historical receipt must be retained for recovery");
+        }
+    }
+
+    @Test
+    void synchronousArmorMutationAbortsLivePlayerRepair() throws Exception {
+        assertEquipmentMutationAbortsLiveRepair(true);
+    }
+
+    @Test
+    void synchronousOffhandMutationAbortsLivePlayerRepair() throws Exception {
+        assertEquipmentMutationAbortsLiveRepair(false);
+    }
+
+    private void assertEquipmentMutationAbortsLiveRepair(boolean armor) throws Exception {
+        var player = MockBukkit.getMock().addPlayer();
+        PlayerInventory backing = player.getInventory();
+        ItemStack template = current("CARBONADO");
+        ItemStack historical = olderStyling(template, 23);
+        ItemStack originalHelmet = new ItemStack(Material.IRON_HELMET);
+        ItemStack originalOffhand = new ItemStack(Material.EMERALD, 5);
+        ItemStack foreign = armor ? new ItemStack(Material.DIAMOND_HELMET) : new ItemStack(Material.DIAMOND, 2);
+        backing.setItem(0, historical);
+        backing.setHelmet(originalHelmet);
+        backing.setItemInOffHand(originalOffhand);
+        byte[] historicalBytes = backing.getItem(0).serializeAsBytes();
+        byte[] helmetBytes = backing.getHelmet().serializeAsBytes();
+        byte[] offhandBytes = backing.getItemInOffHand().serializeAsBytes();
+        byte[] foreignBytes = foreign.serializeAsBytes();
+
+        AtomicInteger writes = new AtomicInteger();
+        PlayerInventory hooked = (PlayerInventory) Proxy.newProxyInstance(
+                PlayerInventory.class.getClassLoader(), new Class<?>[] {PlayerInventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem") && Integer.valueOf(0).equals(args[0])
+                                && writes.incrementAndGet() == 1) {
+                            if (armor) {
+                                backing.setHelmet(foreign);
+                            } else {
+                                backing.setItemInOffHand(foreign);
+                            }
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+
+        var plan = DoctorLiveItemUpdate.preview(hooked, item -> template);
+        assertEquals(1, plan.entries().size());
+        UUID owner = player.getUniqueId();
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                hooked, plan, item -> template, data, owner));
+
+        assertEquals("Unselected player inventory slot changed during live update",
+                failure.getCause().getMessage());
+        assertEquals(2, writes.get(), "Only the selected historical stack should be rolled back");
+        assertArrayEquals(historicalBytes, backing.getItem(0).serializeAsBytes());
+        assertArrayEquals(armor ? foreignBytes : helmetBytes, backing.getHelmet().serializeAsBytes());
+        assertArrayEquals(armor ? offhandBytes : foreignBytes, backing.getItemInOffHand().serializeAsBytes());
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(1, files.filter(Files::isRegularFile).count(),
+                    "Original native backup must survive the interrupted live repair");
         }
     }
 
