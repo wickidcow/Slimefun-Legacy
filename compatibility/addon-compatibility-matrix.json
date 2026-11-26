@@ -248,6 +248,17 @@
       ]
     },
     {
+      "name": "Infernal Expansion Legacy Fork",
+      "repository": "wickidcow/SF_InfernalExpansion",
+      "slug": "legacy-fork-infernal-expansion",
+      "tier": "fork-advisory",
+      "advisory": true,
+      "enabled": true,
+      "tested_core_variants": [
+        "legacy"
+      ]
+    },
+    {
       "name": "ElectricSpawners Legacy Fork",
       "repository": "wickidcow/SF_ElectricSpawners",
       "slug": "legacy-fork-electric-spawners",

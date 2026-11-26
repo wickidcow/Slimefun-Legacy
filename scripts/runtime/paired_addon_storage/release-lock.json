@@ -5,28 +5,28 @@
   "addons": {
     "networks": {
       "repository": "wickidcow/SF_NetworksExp",
-      "source": "8853a85c99acdb22c8d05d93f010272889922c9d",
-      "tree": "da830ef9eb67cf7fb76b14802bffe1d9f6802a24",
+      "source": "97453ab06f9ff86baf180498406500e172c9facb",
+      "tree": "9b46e489506e55f7ec2729b57fd44863f4a56351",
       "plugin": "Networks",
-      "version": "1.0.65",
-      "jar": "build/libs/SF_Networks1.0.65.jar",
+      "version": "1.0.66",
+      "jar": "build/libs/SF_Networks1.0.66.jar",
       "published_artifact": {
-        "url": "https://github.com/wickidcow/SF_NetworksExp/releases/download/v1.0.65/SF_Networks1.0.65.jar",
-        "bytes": 1684870,
-        "sha256": "114bfa0d2bc5a12f65e320640691bfa075470ddc9ff021969ade85e92333277f"
+        "url": "https://github.com/wickidcow/SF_NetworksExp/releases/download/v1.0.66/SF_Networks1.0.66.jar",
+        "bytes": 1685021,
+        "sha256": "1769bdb6fc941c4c01d893bb0c3f0f2288598403c2c86b0368a16dffe2acc215"
       }
     },
     "ie2": {
       "repository": "wickidcow/SF_InfinityExpansion2",
-      "source": "94e64236312a8c0b3fb18812143c6a02a806405b",
-      "tree": "371e740ea4b74fc0b09c4a5540836ed8cfa93f0d",
+      "source": "d75a2ad8f7fcb32cfe7d2f28c0da60b1341af7e6",
+      "tree": "4ac71755ddeb984de4135234539b6b287d69aff6",
       "plugin": "InfinityExpansion2",
-      "version": "2.0.21",
-      "jar": "build/libs/SF_InfinityExpansion2.0.21.jar",
+      "version": "2.0.22",
+      "jar": "build/libs/SF_InfinityExpansion2.0.22.jar",
       "published_artifact": {
-        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.21/SF_InfinityExpansion2.0.21.jar",
-        "bytes": 1795834,
-        "sha256": "7c307269b0e3afe9d32a0c0a5f7f742d8f50d4f55a31b0dfd3befdd55debb633"
+        "url": "https://github.com/wickidcow/SF_InfinityExpansion2/releases/download/v2.0.22/SF_InfinityExpansion2.0.22.jar",
+        "bytes": 1798759,
+        "sha256": "7f313cfb1ec61c3a500ee7baf517e0c5a94565726890368fa262b7704e82a736"
       }
     }
   },

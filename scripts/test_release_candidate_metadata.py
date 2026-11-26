@@ -129,7 +129,7 @@ class ReleaseCandidateMetadataTest(unittest.TestCase):
         matrix = json.loads(
             (ROOT / "compatibility/sfl-addon-release-matrix.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(44, len(matrix["addons"]))
+        self.assertEqual(45, len(matrix["addons"]))
         purpur = next(
             platform for platform in self.support["secondary_platforms"]
             if platform["software"] == "Purpur" and platform["basis"] == "Paper 26.3"

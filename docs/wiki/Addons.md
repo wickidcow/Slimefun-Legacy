@@ -26,7 +26,7 @@ Slimefun Legacy releases: https://github.com/wickidcow/Slimefun-Legacy/releases
 
 ## Curated Slimefun Legacy addon repositories
 
-This list reflects the **unreleased 4.1.78/r153 44-addon candidate roster**, not the previously published v4.1.77 bundle. BuildingStaff is intentionally excluded at the operator's request. Its original upstream plugin may be assessed for optional compatibility separately. Listing a repository does not certify gameplay on every Paper, Purpur, Leaf or Folia version.
+This is the **next r157 canonical 45-addon candidate roster**. The previously published Slimefun Legacy v4.1.81 44-addon ZIP is immutable and remains unchanged; Infernal Expansion enters only a newly verified future bundle. BuildingStaff is intentionally excluded at the operator's request. Its original upstream plugin may be assessed for optional compatibility separately. Listing a repository does not certify gameplay on every Paper, Purpur, Leaf or Folia version.
 
 | Addon | Repository |
 | --- | --- |
@@ -51,6 +51,7 @@ This list reflects the **unreleased 4.1.78/r153 44-addon candidate roster**, not
 | GeneticChickEngineering | https://github.com/wickidcow/SF_GeneticChickEngineering |
 | HotbarPets | https://github.com/wickidcow/SF_HotbarPets |
 | IDreamOfEasy | https://github.com/wickidcow/SF_IDreamOfEasy |
+| Infernal Expansion | https://github.com/wickidcow/SF_InfernalExpansion |
 | InfinityExpansion2 | https://github.com/wickidcow/SF_InfinityExpansion2 |
 | JustEnoughGuide | https://github.com/wickidcow/SF_JustEnoughGuide |
 | LiteXpansion | https://github.com/wickidcow/SF_LiteXpansion |

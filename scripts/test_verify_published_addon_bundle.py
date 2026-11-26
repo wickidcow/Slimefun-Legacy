@@ -9,7 +9,7 @@ import unittest
 import warnings
 import zipfile
 from pathlib import Path
-from verify_published_addon_bundle import main, valid_public_name, validate_bundle, verify_r156_official_records
+from verify_published_addon_bundle import main, valid_public_name, validate_bundle, verify_r156_official_records, verify_r157_fluffymachines_records
 
 
 class PublishedBundleTest(unittest.TestCase):
@@ -78,6 +78,48 @@ class PublishedBundleTest(unittest.TestCase):
             verify_r156_official_records(bad, lock, blobs.__getitem__)
         with self.assertRaisesRegex(ValueError, "Both exact"):
             verify_r156_official_records(manifest, {**lock, "releases": rows[:1]}, blobs.__getitem__)
+
+    def test_r157_fluffymachines_rejects_fake_release_bytes_and_receipts(self):
+        # A fixture cannot masquerade as the immutable published 392325-byte JAR.
+        # Positive end-to-end acceptance uses the actual checksum-verified release
+        # download in the canonical packaging workflow, not synthetic bytes.
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w') as jar:
+            jar.writestr('plugin.yml', "name: FluffyMachines\nversion: 26.2.24\napi-version: '1.21.11'\n")
+            jar.writestr('io/ncbpfluffybear/fluffymachines/FluffyMachines.class',
+                         bytes.fromhex('cafebabe00000041') + b'fixture')
+        fake = buf.getvalue()
+        repo = 'wickidcow/SF_FluffyMachines'
+        source = '7d6f363d55b96e5a043ea20627f68b208a48e448'
+        sha = '1cfa3da859cea788af405c47bd3b1222ee975e8d27b368e2c5afe8c844afc033'
+        tag = 'v26.2.24'
+        name = 'SF_FluffyMachines26.2.24.jar'
+        lock = {'schema': 1, 'bundle_revision': 157, 'repository': repo,
+                'tag': tag, 'asset': name, 'source_commit': source,
+                'sha256': sha, 'bytes': 392325}
+        receipt = {'tag': tag, 'source_commit': source,
+                   'url': f'https://github.com/{repo}/releases/download/{tag}/{name}',
+                   'sha256': sha, 'bytes': 392325, 'verified_download': True}
+        row = {'repository': repo, 'commit': source, 'jar': name,
+               'version': '26.2.24', 'sha256': sha,
+               'source_build_sha256': 'a' * 64,
+               'distributable_api': '26.3-R0.1-SNAPSHOT',
+               'secondary_platforms': ['Folia', 'Leaf'],
+               'published_artifact': receipt}
+        manifest = {'bundle_revision': 157, 'addons': [row]}
+        with self.assertRaisesRegex(ValueError, 'differs from officially published'):
+            verify_r157_fluffymachines_records(manifest, lock, lambda _: fake)
+        damaged = json.loads(json.dumps(manifest))
+        damaged['addons'][0]['published_artifact']['sha256'] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'receipt'):
+            verify_r157_fluffymachines_records(damaged, lock, lambda _: fake)
+        damaged = json.loads(json.dumps(manifest))
+        damaged['addons'][0].pop('source_build_sha256')
+        with self.assertRaisesRegex(ValueError, 'receipt'):
+            verify_r157_fluffymachines_records(damaged, lock, lambda _: fake)
+        tampered_lock = {**lock, 'sha256': hashlib.sha256(fake).hexdigest()}
+        with self.assertRaisesRegex(ValueError, 'release lock'):
+            verify_r157_fluffymachines_records(manifest, tampered_lock, lambda _: fake)
 
     def test_current_worldedit_name_is_accepted(self):
         self.write()

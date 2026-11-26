@@ -92,9 +92,10 @@ class NativeStorageProbeContracts(unittest.TestCase):
     def populate(self, revision):
         self.manifest["bundle_revision"] = revision
         expected = dict(probe.EXPECTED_VERSIONS)
-        if revision in (153, 154, 155, 156):
+        if revision in (153, 154, 155, 156, 157):
             expected["wickidcow/SF_FluffyMachines"] = (
-                probe.FLUFFY_R156 if revision == 156
+                probe.FLUFFY_R157 if revision == 157
+                else probe.FLUFFY_R156 if revision == 156
                 else probe.FLUFFY_R154 if revision in (154, 155)
                 else probe.FLUFFY_R153)
         expected["wickidcow/SF_NetworksExp"] = (
@@ -108,6 +109,8 @@ class NativeStorageProbeContracts(unittest.TestCase):
             if revision in (141, 142) else
             ("SF_Networks1.0.63.jar", "ea5777ce58c45c3c3cd4789bd155164ccbb5336b")
             if revision == 153 else
+            ("SF_Networks1.0.66.jar", "97453ab06f9ff86baf180498406500e172c9facb")
+            if revision == 157 else
             ("SF_Networks1.0.65.jar", "8853a85c99acdb22c8d05d93f010272889922c9d")
             if revision == 156 else
             ("SF_Networks1.0.64.jar", "1d46a1afd04ceae7f04c7e0849397350ce273ec5")
@@ -258,15 +261,41 @@ class NativeStorageProbeContracts(unittest.TestCase):
         self.manifest["addons"][1]["jar"] = "SF_Networks1.0.64.jar"
         self.reject("addon source mismatch")
 
+    def test_r157_requires_verified_current_fluffy_networks_source(self):
+        self.populate(157)
+        evidence = self.prepare()
+        self.assertEqual(evidence["bundle_revision"], 157)
+        self.assertEqual(evidence["status"], "STARTED")
+        self.assertNotIn("result", evidence)
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["jar"],
+                         "SF_FluffyMachines26.2.24.jar")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_FluffyMachines"]["commit"],
+                         probe.FLUFFY_R157[1])
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["jar"],
+                         "SF_Networks1.0.66.jar")
+        self.assertEqual(evidence["tested_addons"]["wickidcow/SF_NetworksExp"]["commit"],
+                         probe.NETWORK_VERSIONS[157][1])
+        self.compile.reset_mock()
+        self.manifest["addons"][0]["commit"] = probe.FLUFFY_R156[1]
+        self.reject("addon source mismatch")
+        self.populate(157)
+        self.compile.reset_mock()
+        self.manifest["addons"][1]["commit"] = probe.NETWORK_VERSIONS[156][1]
+        self.reject("addon source mismatch")
+        self.populate(157)
+        self.compile.reset_mock()
+        self.manifest["addons"][1]["jar"] = probe.NETWORK_VERSIONS[156][0]
+        self.reject("addon source mismatch")
+
     def test_unknown_revision_is_rejected_instead_of_skipped(self):
-        self.manifest["bundle_revision"] = 157
-        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156")
+        self.manifest["bundle_revision"] = 158
+        self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157")
 
     def test_non_integer_revisions_are_rejected(self):
         for value in (141.0, "141", 142.0, "142", 143.0, "143", 144.0, "144", 145.0, "145", 146.0, "146", 147.0, "147", 148.0, "148", 149.0, "149", 150.0, "150", 151.0, "151", 152.0, "152", 153.0, "153", 154.0, "154", 155.0, "155", 156.0, "156", True, None):
             with self.subTest(value=value):
                 self.manifest["bundle_revision"] = value
-                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156")
+                self.reject("requires r135, r136, r137, r138, r139, r140, r141, r142, r143, r144, r145, r146, r147, r148, r149, r150, r151, r152 or r153 or r154 or r155 or r156 or r157")
 
     def test_r141_requires_networks_1_0_59_and_its_exact_source(self):
         self.populate(141)

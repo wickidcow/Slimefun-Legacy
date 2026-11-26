@@ -62,14 +62,14 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
 
     def test_maintained_repin_is_exact_and_preserves_native_pairs(self):
-        # Reviewed r156 source selection: preserve historical native storage
+        # Reviewed r157 source selection: preserve historical native storage
         # fixtures and immutable published Networks/IE2 artifact locks. The
         # candidate matrix intentionally advances beyond those release sources.
-        self.assertEqual(156, self.matrix["bundle_revision"])
-        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(157, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
-        self.assertEqual(44, len(selected), "Duplicate addon repository")
+        self.assertEqual(45, len(selected), "Duplicate addon repository")
         expected = {
             "wickidcow/SF_AlchimiaVitae": "f684b1c0b62cd4118db8eb3a536a042d5007c284",
             "wickidcow/SF_BetterChests": "e80e395ca331bad234fd5733eb106da3b5656545",
@@ -96,9 +96,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
                 self.assertEqual(sha, selected[repository])
         # These distinct post-v81 releases are officially tagged, pinned to
         # verified source commits and backed by the published-pair byte lock.
-        self.assertEqual("8853a85c99acdb22c8d05d93f010272889922c9d",
+        self.assertEqual("97453ab06f9ff86baf180498406500e172c9facb",
                          selected["wickidcow/SF_NetworksExp"])
-        self.assertEqual("94e64236312a8c0b3fb18812143c6a02a806405b",
+        self.assertEqual("d75a2ad8f7fcb32cfe7d2f28c0da60b1341af7e6",
                          selected["wickidcow/SF_InfinityExpansion2"])
         self.assertEqual("f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
                          selected["wickidcow/SF_Supreme"])
@@ -109,8 +109,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
         # These are immutable historical official v81 source-tag commits, NOT
         # mutable master/HEAD snapshots. Never overwrite v81 tag or assets.
         # The v82 candidate may select only separately verified, new releases.
-        self.assertEqual(156, self.matrix["bundle_revision"])
-        self.assertEqual(44, len(self.matrix["addons"]))
+        self.assertEqual(157, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(self.matrix["addons"]))
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
         expected_releases = {
@@ -125,8 +125,9 @@ class CompatibilityClaimsTest(unittest.TestCase):
         }
         self.assertEqual(8, len(expected_releases))
         newer_official_v82 = {
-            "wickidcow/SF_FluffyMachines": "6ab739439c083bcaf8e7514d51c9b9b431fca31a",
-            "wickidcow/SF_InfinityExpansion2": "94e64236312a8c0b3fb18812143c6a02a806405b",
+            "wickidcow/SF_FluffyMachines": "7d6f363d55b96e5a043ea20627f68b208a48e448",
+            "wickidcow/SF_InfinityExpansion2": "d75a2ad8f7fcb32cfe7d2f28c0da60b1341af7e6",
+            "wickidcow/SF_NetworksExp": "97453ab06f9ff86baf180498406500e172c9facb",
         }
         for repository, old_source in expected_releases.items():
             with self.subTest(repository=repository):
@@ -139,20 +140,20 @@ class CompatibilityClaimsTest(unittest.TestCase):
 
     def test_v82_retains_other_r156_merged_release_sources(self):
         # FlowerPower / ExtraHeads and unchanged r156 addon pins remain
-        # reviewed sources; three replacements are distinct published
+        # reviewed sources; four replacements are distinct published
         # post-v81 tags. Historical storage fixture pins remain immutable.
         selected = {row["repository"]: row["source_commit"]
                     for row in self.matrix["addons"]}
-        self.assertEqual(44, len(selected))
-        self.assertEqual(156, self.matrix["bundle_revision"])
+        self.assertEqual(45, len(selected))
+        self.assertEqual(157, self.matrix["bundle_revision"])
         expected = {
             "wickidcow/SF_CultivationLegacy": "ab97e9d1a89a57bfca3801fce7cef75020fd9bf0",
             "wickidcow/SF_HotbarPets": "54c802438a6819e6f3b0eea411e675a3eb0855dc",
             "wickidcow/SF_FlowerPower": "d8c3f2c8ec66b7c08e0ceb8b23f710f020b5c36f",
             "wickidcow/SF_ExtraHeads": "b1e8a1f11692b44d359eec863f3be5be0f061516",
-            "wickidcow/SF_FluffyMachines": "6ab739439c083bcaf8e7514d51c9b9b431fca31a",
-            "wickidcow/SF_NetworksExp": "8853a85c99acdb22c8d05d93f010272889922c9d",
-            "wickidcow/SF_InfinityExpansion2": "94e64236312a8c0b3fb18812143c6a02a806405b",
+            "wickidcow/SF_FluffyMachines": "7d6f363d55b96e5a043ea20627f68b208a48e448",
+            "wickidcow/SF_NetworksExp": "97453ab06f9ff86baf180498406500e172c9facb",
+            "wickidcow/SF_InfinityExpansion2": "d75a2ad8f7fcb32cfe7d2f28c0da60b1341af7e6",
             "wickidcow/SF_Supreme": "f03ed0c75f1df16aa484d25bf3a1b8bcd20d9b7c",
         }
         for repository, sha in expected.items():
@@ -165,6 +166,8 @@ class CompatibilityClaimsTest(unittest.TestCase):
                          selected["wickidcow/SF_CrystamaeHistoria"])
         self.assertEqual("1fff7080cb8bcd00eeb1555f433cc0bf8e99c172",
                          selected["wickidcow/SF_Galactifun"])
+        self.assertEqual("06e32ea6d551c9961a50c993602d4e84cf8edcbe",
+                         selected["wickidcow/SF_InfernalExpansion"])
         self.assertNotIn("wickidcow/SF_BuildingStaff", selected)
 
 
