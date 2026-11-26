@@ -1,30 +1,12 @@
 name: Paper 26.2 / 26.3 Full Stack Smoke
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - '.github/workflows/paper-26.3-full-stack.yml'
-      - 'scripts/full_stack_runtime_smoke.sh'
-      - 'scripts/runtime/black_market/**'
-      - 'scripts/test_black_market_probe_contracts.py'
-      - 'scripts/test_full_stack_purpur_26_3.py'
-      - 'scripts/prepare_worldedit_runtime.py'
-      - 'scripts/test_prepare_worldedit_runtime.py'
-      - 'scripts/test_worldedit_stack_integration.py'
-      - 'scripts/download_candidate_bundle.py'
-      - 'scripts/test_download_candidate_bundle.py'
-      - 'scripts/test_workflow_run_trust_boundary.py'
-      - 'scripts/paper_candidate_versions.py'
-      - 'compatibility/sfl-addon-release-matrix.json'
-      - 'build.gradle.kts'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - 'src/**'
   workflow_dispatch:
   workflow_run:
     workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
     types: [completed]
+    # Only canonical master bundle builds start downstream native release evidence.
+    branches: [master]
   schedule:
     - cron: '53 11 * * 4'
   pull_request:
@@ -40,6 +22,7 @@ on:
       - 'scripts/download_candidate_bundle.py'
       - 'scripts/test_download_candidate_bundle.py'
       - 'scripts/test_workflow_run_trust_boundary.py'
+      - 'scripts/test_worldedit_release_version_trigger.py'
       - 'scripts/paper_candidate_versions.py'
       - 'compatibility/sfl-addon-release-matrix.json'
       - 'build.gradle.kts'
@@ -164,10 +147,6 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             python3 scripts/download_candidate_bundle.py \
               --repository "$GITHUB_REPOSITORY" --head "$PR_HEAD_SHA" \
-              --source "$GITHUB_SHA" --output bundle --timeout 3600
-          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            python3 scripts/download_candidate_bundle.py \
-              --repository "$GITHUB_REPOSITORY" --event push --head "$GITHUB_SHA" \
               --source "$GITHUB_SHA" --output bundle --timeout 3600
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
             test -n "${TRIGGER_RUN_ID:-}"
