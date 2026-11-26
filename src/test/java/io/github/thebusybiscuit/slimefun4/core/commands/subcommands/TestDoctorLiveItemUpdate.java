@@ -448,6 +448,87 @@ class TestDoctorLiveItemUpdate {
         }
     }
 
+
+
+    @Test
+    void nativePhysicalChestFixtureKeepsOtherSlotsExactDuringManualEngineExercise() throws Exception {
+        // This is only the disposable native saved-world fixture API: the
+        // operator live command still passes PlayerInventory exclusively.
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current("CARBONADO");
+        ItemStack old = olderStyling(template, 63);
+        ItemStack typed = current("CARBONADO");
+        typed.setAmount(9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.LONG, 75123L));
+        chest.setItem(0, old);
+        chest.setItem(1, template);
+        chest.setItem(2, typed);
+        byte[] oldBytes = old.serializeAsBytes();
+        byte[] freshBytes = template.serializeAsBytes();
+        byte[] typedBytes = typed.serializeAsBytes();
+
+        var preview = DoctorLiveItemUpdate.preview(chest, ignored -> template);
+        assertEquals(1, preview.eligible());
+        UUID owner = UUID.randomUUID();
+        var receipts = DoctorLiveItemUpdate.apply(chest, preview, ignored -> template, data, owner);
+
+        assertEquals(1, receipts.size());
+        assertEquals(63, chest.getItem(0).getAmount());
+        assertTrue(chest.getItem(0).isSimilar(template));
+        assertArrayEquals(freshBytes, chest.getItem(1).serializeAsBytes());
+        assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
+        assertNull(chest.getItem(3));
+        assertArrayEquals(oldBytes, DoctorHistoricalStackRepair.readVerifiedBackup(
+                data, owner, receipts.getFirst().id()).serializeAsBytes());
+    }
+
+    @Test
+    void unrelatedSlotMutationDuringUpdateIsDetectedWithoutOverwritingForeignStack() throws Exception {
+        Inventory backing = Bukkit.createInventory(null, 36);
+        ItemStack template = current("CARBONADO");
+        ItemStack historical = olderStyling(template, 23);
+        ItemStack originalUnselected = new ItemStack(Material.STONE, 11);
+        ItemStack foreign = new ItemStack(Material.DIAMOND, 2);
+        byte[] historicalBytes = historical.serializeAsBytes();
+        byte[] foreignBytes = foreign.serializeAsBytes();
+        backing.setItem(0, historical);
+        backing.setItem(5, originalUnselected);
+
+        AtomicInteger writes = new AtomicInteger();
+        Inventory hooked = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(backing, args);
+                        if (method.getName().equals("setItem") && Integer.valueOf(0).equals(args[0])
+                                && writes.incrementAndGet() == 1) {
+                            // Another plugin synchronously modifies an unrelated slot.
+                            backing.setItem(5, foreign);
+                        }
+                        return result;
+                    } catch (InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+
+        var plan = DoctorLiveItemUpdate.preview(hooked, item -> template);
+        assertEquals(1, plan.entries().size());
+        UUID owner = UUID.randomUUID();
+        IOException failure = assertThrows(IOException.class, () -> DoctorLiveItemUpdate.apply(
+                hooked, plan, item -> template, data, owner));
+
+        assertEquals("Unselected player inventory slot changed during live update",
+                failure.getCause().getMessage());
+        assertEquals(2, writes.get(), "Doctor must roll back only its own selected slot");
+        assertArrayEquals(historicalBytes, backing.getItem(0).serializeAsBytes());
+        assertArrayEquals(foreignBytes, backing.getItem(5).serializeAsBytes(),
+                "Doctor must never overwrite the foreign unrelated-slot change");
+        try (var files = Files.list(data.resolve("recovery/identity"))) {
+            assertEquals(1, files.filter(Files::isRegularFile).count(),
+                    "The verified historical receipt must be retained for recovery");
+        }
+    }
+
     @Test
     void thirdPartyMutationOfLaterSlotDuringFirstWriteDoesNotOverwriteIt() throws Exception {
         Inventory backing = Bukkit.createInventory(null, 36);

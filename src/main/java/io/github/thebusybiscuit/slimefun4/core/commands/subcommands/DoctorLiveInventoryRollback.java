@@ -152,7 +152,9 @@ final class DoctorLiveInventoryRollback {
         return new Result(plan.slot(), plan.originalReceipt(), updatedReceipt);
     }
 
-    private static byte[][] snapshotStorage(Inventory inventory) throws IOException {
+    // Shared with Doctor's operator-only live batch so unrelated storage,
+    // armor and offhand slots get the same exact native-byte safety guard.
+    static byte[][] snapshotStorage(Inventory inventory) throws IOException {
         // PlayerInventory has 36 ordinary storage positions plus armor and
         // offhand. Snapshot ALL slots, but only permit a write within the
         // first 36. Never use physical-container capture here.
