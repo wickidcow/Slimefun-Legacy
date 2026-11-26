@@ -59,6 +59,26 @@ class ActionsReleaseTriggerPolicyTest(unittest.TestCase):
                 self.assertEqual(2, self.native.count(f"      - '{required}'"))
                 self.assertIn("      - 'scripts/**'", self.bundle)
 
+    def test_native_storage_contracts_still_run_after_deduplicating_workflow(self):
+        retired_storage_workflow = ROOT / ".github/workflows/native-storage-probe-contracts.yml"
+        self.assertFalse(retired_storage_workflow.exists())
+        # Keep all historic storage probe source, revision and checksum tests:
+        # only the redundant standalone workflow is removed.
+        self.assertIn(
+            "python3 -m unittest scripts.test_native_storage_probe_contracts -v",
+            self.bundle,
+        )
+        # Native-storage fixtures and the validator live under scripts/, so both
+        # exact-source source-change events still execute the canonical gate.
+        push = self.bundle.split("  push:\n", 1)[1].split("  pull_request:\n", 1)[0]
+        pull_request = self.bundle.split("  pull_request:\n", 1)[1].split(
+            "  workflow_dispatch:\n", 1
+        )[0]
+        for name, paths in (("push", push), ("pull_request", pull_request)):
+            with self.subTest(event=name):
+                self.assertIn("      - 'scripts/**'", paths)
+                self.assertIn("      - '.github/workflows/build-sfl-addons-compat-bundle.yml'", paths)
+
     def test_published_assets_still_verified_and_immutable(self):
         self.assertIn("  workflow_dispatch:\n", self.release)
         self.assertIn("inputs.publish == true", self.release)
