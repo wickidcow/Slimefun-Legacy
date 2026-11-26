@@ -74,7 +74,7 @@ on:
       - 'compatibility/resource-pack-release.json'
   workflow_dispatch:
   schedule:
-    - cron: '17 6 * * *'
+    - cron: '17 6 * * 0'
 
 permissions:
   contents: read
@@ -101,6 +101,8 @@ jobs:
           python3 -m unittest scripts/test_stage_published_pair.py scripts/test_stage_unpublished_pair_candidate.py -v
       - name: Validate retired addon exclusion
         run: python3 scripts/test_retired_addon_exclusion.py
+      - name: Guard low-noise CI triggers without weakening release evidence
+        run: python3 -m unittest scripts.test_actions_release_trigger_policy -v
       - name: Validate conservative Minecraft compatibility claims
         run: python3 -m unittest scripts.test_release_compatibility_claims -v
       - name: Validate 45-addon r157 lock, build receipt, and source code

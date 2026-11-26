@@ -7,14 +7,15 @@ on:
       - '.github/workflows/publish-sfl-addon-release-jars.yml'
       - 'scripts/verify_published_addon_bundle.py'
       - 'scripts/test_verify_published_addon_bundle.py'
+      - 'scripts/test_actions_release_trigger_policy.py'
   pull_request:
     paths:
       - '.github/workflows/publish-sfl-addon-release-jars.yml'
       - 'scripts/verify_published_addon_bundle.py'
       - 'scripts/test_verify_published_addon_bundle.py'
-  workflow_run:
-    workflows: ['Build SF Addons 1.21.11-26.3 Bundle']
-    types: [completed]
+      - 'scripts/test_actions_release_trigger_policy.py'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -27,7 +28,6 @@ concurrency:
 jobs:
   validate:
     name: Validate published addon JARs
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -36,14 +36,23 @@ jobs:
           persist-credentials: false
       - name: Run public-name and archive safety regressions
         run: python3 -m unittest discover -s scripts -p 'test_verify_published_addon_bundle.py' -v
+      - name: Verify published-only audit trigger policy
+        run: python3 -m unittest scripts.test_actions_release_trigger_policy -v
       - name: Resolve the latest stable release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_EVENT_ID: ${{ github.event.release.id }}
         run: |
           set -euo pipefail
           mkdir -p download
-          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > download/release.json
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            [[ "$RELEASE_EVENT_ID" =~ ^[0-9]+$ ]] || { echo 'Invalid published release ID' >&2; exit 1; }
+            gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_EVENT_ID" > download/release.json
+          else
+            gh api "repos/$GITHUB_REPOSITORY/releases/latest" > download/release.json
+          fi
           python3 - <<'PY'
           import json, os, re
           from pathlib import Path
