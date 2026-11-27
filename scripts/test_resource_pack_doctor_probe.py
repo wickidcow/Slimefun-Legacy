@@ -2,7 +2,7 @@
 """Fail-closed checks for the disposable Doctor connected-player retirement probe."""
 import unittest
 
-from scripts.resource_pack_doctor_probe import confirmed_retirement_reset
+from scripts.resource_pack_doctor_probe import confirmed_retirement_reset, require_container_attempt_marker
 
 
 CLIENT = (
@@ -79,6 +79,25 @@ class RetirementResetProofTest(unittest.TestCase):
 
     def test_arbitrary_client_connection_reset_without_proof_is_fatal(self):
         self.assert_rejected(server="Server socket disconnected\n")
+
+
+class ContainerAttemptProofTest(unittest.TestCase):
+    def test_each_exact_native_boot_marker_is_required(self):
+        for phase in ("SEED", "RESTART"):
+            marker = "[23:19:00 INFO]: SFL_PHYSICAL_CHEST_SINGLE_USE_" + phase + "_PASS\n"
+            require_container_attempt_marker(marker, phase)
+            for invalid in ("", marker * 2, marker.replace("_PASS", "_PASS_suffix"),
+                            "printed text " + marker, marker.replace(phase, "FAULT")):
+                with self.subTest(phase=phase, output=invalid):
+                    with self.assertRaises(RuntimeError):
+                        require_container_attempt_marker(invalid, phase)
+
+    def test_seed_cannot_stand_in_for_second_jvm_evidence(self):
+        with self.assertRaises(RuntimeError):
+            require_container_attempt_marker(
+                "[23:19:00 INFO]: SFL_PHYSICAL_CHEST_SINGLE_USE_SEED_PASS\n", "RESTART")
+        with self.assertRaises(ValueError):
+            require_container_attempt_marker("", "UNKNOWN")
 
 
 class PaxelPlayerGuardTest(unittest.TestCase):

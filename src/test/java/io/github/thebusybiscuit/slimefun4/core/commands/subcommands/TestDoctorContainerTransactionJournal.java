@@ -131,6 +131,86 @@ class TestDoctorContainerTransactionJournal {
     }
 
     @Test
+    void persistedAttemptRefusesReplayEvenWhenOriginalStockReturns() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        chest.setItem(0, historical(template, 63));
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] oldBytes = chest.getItem(0).serializeAsBytes();
+        byte[] stoneBytes = chest.getItem(26).serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+        Path marker = data.resolve("recovery/container-journals/" + operator + "-" + journal.id() + ".attempt");
+
+        assertEquals(journal, DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertTrue(chest.getItem(0).isSimilar(template));
+        assertEquals(63, chest.getItem(0).getAmount());
+        assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
+        byte[] intent = Files.readAllBytes(marker);
+        assertTrue(intent.length > 0);
+
+        // Simulate a world save that still contains the original image.
+        // There is no in-memory authorization state to reset or reuse.
+        chest.setItem(0, ItemStack.deserializeBytes(oldBytes));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
+        assertArrayEquals(intent, Files.readAllBytes(marker));
+
+        // A truncated intent must also refuse, never become a fresh attempt.
+        Files.write(marker, new byte[0]);
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertEquals(0, Files.size(marker));
+    }
+
+    @Test
+    void failedSetterRetainsSingleUseAttemptAndOriginalEvidence() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        chest.setItem(0, historical(template, 63));
+        byte[] oldBytes = chest.getItem(0).serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+        Path marker = data.resolve("recovery/container-journals/" + operator + "-" + journal.id() + ".attempt");
+        var writes = new java.util.concurrent.atomic.AtomicInteger();
+        Inventory hooked = (Inventory) java.lang.reflect.Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("setItem")) {
+                        assertTrue(Files.isRegularFile(marker));
+                        writes.incrementAndGet();
+                        throw new IllegalStateException("Injected setter refusal");
+                    }
+                    try {
+                        return method.invoke(chest, args);
+                    } catch (java.lang.reflect.InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, hooked, ignored -> template));
+        assertEquals(1, writes.get());
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        byte[] intent = Files.readAllBytes(marker);
+        assertTrue(intent.length > 0);
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(intent, Files.readAllBytes(marker));
+        assertTrue(Files.isRegularFile(data.resolve(
+                "recovery/containers/" + operator + "-" + original.id() + ".bin")));
+    }
+
+    @Test
     void internalApplyConservesExactStockAndRefusesReplay() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);
         ItemStack template = current();

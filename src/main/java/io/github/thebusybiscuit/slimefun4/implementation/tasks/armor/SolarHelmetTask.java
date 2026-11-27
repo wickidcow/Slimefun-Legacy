@@ -23,21 +23,22 @@ public class SolarHelmetTask extends AbstractArmorTask {
     @Override
     @ParametersAreNonnullByDefault
     protected void onPlayerTick(Player p, PlayerProfile profile) {
-        if (hasSunlight(p)) {
-            checkForSolarHelmet(p);
-        }
-    }
-
-    private void checkForSolarHelmet(@Nonnull Player p) {
         ItemStack helmet = p.getInventory().getHelmet();
-        SlimefunItem item = SlimefunItem.getByItem(helmet);
+        if (helmet == null || helmet.getType().isAir() || !hasDaylight(p)) {
+            return;
+        }
 
-        if (item instanceof SolarHelmet solarHelmet && item.canUse(p, true)) {
+        SlimefunItem item = SlimefunItem.getByItem(helmet);
+        // Most players do not wear a solar helmet. Avoid their eye-block
+        // lookup and skylight read; preserve the current-item permission gate.
+        if (item instanceof SolarHelmet solarHelmet
+                && p.getEyeLocation().getBlock().getLightFromSky() == 15
+                && item.canUse(p, true)) {
             solarHelmet.rechargeItems(p);
         }
     }
 
-    private boolean hasSunlight(@Nonnull Player p) {
+    private boolean hasDaylight(@Nonnull Player p) {
         World world = p.getWorld();
 
         if (world.getEnvironment() != Environment.NORMAL) {
@@ -45,7 +46,7 @@ public class SolarHelmetTask extends AbstractArmorTask {
             return false;
         }
 
-        return (world.getTime() < 12300 || world.getTime() > 23850)
-                && p.getEyeLocation().getBlock().getLightFromSky() == 15;
+        long time = world.getTime();
+        return time < 12300 || time > 23850;
     }
 }

@@ -1192,6 +1192,7 @@ final class ItemIdentityProbe {
             verifyPhysicalChestFullEnvelope(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestProposedJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             verifyPhysicalChestPartialJournal(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
+            ContainerAttemptProbe.verify(directory, true, oldBytes, currentBytes, registeredNative.serializeAsBytes());
             require(Arrays.equals(oldBytes, Files.readAllBytes(originalFile))
                             && Arrays.equals(currentBytes, Files.readAllBytes(currentFile)),
                     "native chest evidence source files were rewritten after restart");
@@ -1245,6 +1246,7 @@ final class ItemIdentityProbe {
         verifyPhysicalChestFullEnvelope(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestProposedJournal(directory, false, oldBytes, currentBytes, registeredBytes);
         verifyPhysicalChestPartialJournal(directory, false, oldBytes, currentBytes, registeredBytes);
+        ContainerAttemptProbe.verify(directory, false, oldBytes, currentBytes, registeredBytes);
         require(Arrays.equals(oldBytes, chest.getItem(53).serializeAsBytes())
                         && chest.getItem(52) == null
                         && Arrays.equals(registeredBytes, registered.getItem().serializeAsBytes()),
