@@ -1004,6 +1004,12 @@ final class DoctorLiveItemUpdate {
                         || !item.entry().templateHash().equals(DoctorHistoricalStackRepair.fingerprint(template))) {
                     throw new IOException("Registered template changed during an earlier batch write");
                 }
+                // Template resolution is another callback boundary. Do not
+                // overwrite a foreign stack inserted during that lookup.
+                ItemStack beforeWrite = inventory.getItem(item.entry().slot());
+                if (beforeWrite == null || !Arrays.equals(item.oldBytes(), beforeWrite.serializeAsBytes())) {
+                    throw new IOException("Live inventory slot changed during final template lookup");
+                }
                 attempted.add(item);
                 inventory.setItem(item.entry().slot(), item.replacement());
                 ItemStack written = inventory.getItem(item.entry().slot());
