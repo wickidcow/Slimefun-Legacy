@@ -5,12 +5,26 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 import xml.etree.ElementTree as ET
+
+from compile_addon_paper_26_3 import MAVEN_INSTALL_GOAL, stream_maven_command
 
 
 def run(*cmd: str, cwd: Path, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=cwd, env=env, check=True)
+
+
+def run_maven(*cmd: str, cwd: Path) -> None:
+    # Use the same bounded repository-failure retry policy as the Paper
+    # candidate probe. Stream each attempt to CI and retain the original
+    # exit code when compilation or dependency resolution does not succeed.
+    with tempfile.TemporaryDirectory(prefix="slimefun-addon-maven-") as directory:
+        with (Path(directory) / "build.log").open("w+", encoding="utf-8") as log:
+            code = stream_maven_command(list(cmd), cwd=cwd, env=dict(os.environ), log=log)
+    if code:
+        raise subprocess.CalledProcessError(code, cmd)
 
 
 def patch_maven_dependencies(project: Path) -> bool:
@@ -54,8 +68,8 @@ def patch_maven_dependencies(project: Path) -> bool:
 def build_maven(project: Path, jar: Path) -> None:
     if not patch_maven_dependencies(project):
         raise RuntimeError("No Slimefun Maven dependency was found")
-    run(
-        "mvn", "-B", "install:install-file",
+    run_maven(
+        "mvn", "-B", "-Dmaven.wagon.http.retryHandler.count=3", MAVEN_INSTALL_GOAL,
         f"-Dfile={jar}", "-DgroupId=com.github.slimefun", "-DartifactId=Slimefun",
         "-Dversion=Legacy-CI", "-Dpackaging=jar", "-DgeneratePom=true",
         cwd=project,
@@ -63,9 +77,9 @@ def build_maven(project: Path, jar: Path) -> None:
     wrapper = project / "mvnw"
     if wrapper.exists():
         wrapper.chmod(wrapper.stat().st_mode | 0o111)
-        run(str(wrapper), "-B", "-DskipTests", "package", cwd=project)
-    else:
-        run("mvn", "-B", "-DskipTests", "package", cwd=project)
+    executable = str(wrapper) if wrapper.exists() else "mvn"
+    run_maven(executable, "-B", "-Dmaven.wagon.http.retryHandler.count=3",
+              "-DskipTests", "package", cwd=project)
 
 
 def build_gradle(project: Path, jar: Path) -> None:
