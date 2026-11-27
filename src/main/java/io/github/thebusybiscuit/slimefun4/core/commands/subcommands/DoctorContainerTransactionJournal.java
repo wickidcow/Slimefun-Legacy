@@ -21,12 +21,11 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * Unexposed, read-only crash-replay journal of a proposed chest style update.
+ * Crash-replay journal of a proposed chest style update, with an internal fixture apply engine.
  *
- * <p>A durable proposal is NOT a write-ahead commit protocol: no physical
- * inventory or QuickShop code uses this class to apply, repair or restore
- * anything. The journal permits postrestart ORIGINAL/PROPOSED/DIVERGED
- * diagnosis, including unexpected partial changes, without any writes.
+ * <p>A durable proposal is NOT a write authorization. No live command or
+ * QuickShop code calls the internal apply engine. The journal permits
+ * postrestart ORIGINAL/PROPOSED/DIVERGED diagnosis without writes.
  */
 final class DoctorContainerTransactionJournal {
 
@@ -200,6 +199,91 @@ final class DoctorContainerTransactionJournal {
             throw new IOException("Physical container changed during proposal revalidation");
         }
         return journal;
+    }
+
+    /**
+     * Internal apply engine for controlled fixtures only until native region,
+     * interruption and restart tests permit an explicit operator command.
+     * A caller must already own the inventory's region and exclude shops,
+     * machines and unsupported physical layouts. Never resumes partial stock.
+     */
+    static Journal applyVerifiedProposal(
+            Path pluginFolder, UUID operator, UUID journalId,
+            DoctorContainerEvidenceEnvelope.Binding binding, Inventory inventory,
+            java.util.function.Function<ItemStack, ItemStack> templates) throws IOException {
+        Journal validated = revalidate(pluginFolder, operator, journalId, binding, inventory, templates);
+        Stored stored = read(pluginFolder, operator, journalId);
+        if (!validated.equals(stored.journal())) {
+            throw new IOException("Private proposal changed after current-template validation");
+        }
+        byte[][] original = verifySourceAndProposed(pluginFolder, stored);
+        byte[][] proposed = stored.proposedSlots();
+        byte[][] expected = original.clone();
+        requireExactStock(inventory, expected);
+        List<Integer> attempted = new java.util.ArrayList<>();
+        try {
+            for (int slot : validated.changedSlots()) {
+                ItemStack replacement = verifyCurrentCandidate(original[slot], proposed[slot], templates);
+                // All registry callbacks and deserialization have finished.
+                // Refuse ANY changed slot before a single targeted write.
+                requireExactStock(inventory, expected);
+                attempted.add(slot);
+                inventory.setItem(slot, replacement);
+                expected[slot] = proposed[slot];
+                requireExactStock(inventory, expected);
+            }
+            // A later callback may have changed the registered identity of
+            // an earlier candidate. Do not report a stale proposal as applied.
+            for (int slot : validated.changedSlots()) {
+                verifyCurrentCandidate(original[slot], proposed[slot], templates);
+            }
+            requireExactStock(inventory, proposed);
+        } catch (IOException | RuntimeException failure) {
+            for (int i = attempted.size() - 1; i >= 0; i--) {
+                int slot = attempted.get(i);
+                try {
+                    ItemStack restore = ItemStack.deserializeBytes(original[slot]);
+                    ItemStack observed = inventory.getItem(slot);
+                    // Never overwrite a foreign replacement or changed count.
+                    if (observed != null && Arrays.equals(proposed[slot], observed.serializeAsBytes())) {
+                        inventory.setItem(slot, restore);
+                    }
+                } catch (RuntimeException rollbackFailure) {
+                    failure.addSuppressed(rollbackFailure);
+                }
+            }
+            // Neither the original receipt nor the proposal is deleted.
+            // A failed rollback is not reported as a successful restoration.
+            throw new IOException("Physical container apply interrupted; inspect retained journal and original", failure);
+        }
+        return validated;
+    }
+
+    private static ItemStack verifyCurrentCandidate(
+            byte[] original, byte[] proposed, java.util.function.Function<ItemStack, ItemStack> templates)
+            throws IOException {
+        if (original == null || proposed == null) {
+            throw new IOException("Container proposal cannot create or remove a stack");
+        }
+        ItemStack source = ItemStack.deserializeBytes(original);
+        ItemStack reference = templates.apply(source);
+        ItemStack replacement = reference == null
+                ? null
+                : DoctorHistoricalStackRepair.prepare(source, reference, reference);
+        if (!Arrays.equals(original, source.serializeAsBytes())
+                || replacement == null
+                || !Arrays.equals(proposed, replacement.serializeAsBytes())
+                || !DoctorHistoricalStackRepair.matchesSavedBackup(source, replacement, reference, reference)) {
+            throw new IOException("Current registered template no longer proves the proposed item");
+        }
+        return replacement;
+    }
+
+    private static void requireExactStock(Inventory inventory, byte[][] expected) throws IOException {
+        if (!sameSlots(expected, DoctorLiveItemUpdate.exactContainerSlots(inventory))
+                || !sameSlots(expected, DoctorLiveItemUpdate.exactContainerSlots(inventory))) {
+            throw new IOException("Physical container stock diverged from exact expected slots");
+        }
     }
 
     /**

@@ -1481,11 +1481,11 @@ final class ItemIdentityProbe {
     /**
      * Independent physical chest initialized in a disposable test-only world.
      * First boot records the original source and exact proposed journal,
-     * then deliberately writes the eligible synthetic style into THIS
-     * fixture only. Second JVM boot must recognize the fully persisted
+     * then exercises the internal verified apply engine in THIS fixture only.
+     * Second JVM boot must recognize the fully persisted
      * proposed native stock while refusing unrelated stone/PDC drift.
      *
-     * This does not exercise or enable any production chest writer.
+     * This does not expose or enable any live chest repair command.
      */
     private static void verifyPhysicalChestProposedJournal(
             Path directory, boolean restart, byte[] oldBytes, byte[] currentBytes, byte[] registeredBytes)
@@ -1543,6 +1543,10 @@ final class ItemIdentityProbe {
                 "inspect", Path.class, java.util.UUID.class, java.util.UUID.class,
                 bindingClass, org.bukkit.inventory.Inventory.class);
         inspect.setAccessible(true);
+        Method apply = journal.getDeclaredMethod(
+                "applyVerifiedProposal", Path.class, java.util.UUID.class, java.util.UUID.class,
+                bindingClass, org.bukkit.inventory.Inventory.class, java.util.function.Function.class);
+        apply.setAccessible(true);
         java.util.function.Function<ItemStack, ItemStack> resolver =
                 observed -> SlimefunItem.getById("CARBONADO").getItem();
 
@@ -1584,9 +1588,48 @@ final class ItemIdentityProbe {
             Files.writeString(idsFile, owner + ":" + receiptId + ":" + journalId);
             Files.write(proposedFile, expectedUpdated);
 
-            // Disposable world simulation ONLY, deliberately bypassing all
-            // production Doctor paths. No live writer or migration command.
-            contents.setItem(0, updated);
+            // Native failure injection on this disposable physical chest:
+            // a synchronous third-party write changes unrelated vanilla stock.
+            var writes = new java.util.concurrent.atomic.AtomicInteger();
+            org.bukkit.inventory.Inventory hooked = (org.bukkit.inventory.Inventory)
+                    java.lang.reflect.Proxy.newProxyInstance(
+                            org.bukkit.inventory.Inventory.class.getClassLoader(),
+                            new Class<?>[] {org.bukkit.inventory.Inventory.class}, (proxy, method, arguments) -> {
+                                try {
+                                    Object result = method.invoke(contents, arguments);
+                                    if (method.getName().equals("setItem") && writes.incrementAndGet() == 1) {
+                                        contents.setItem(26, new ItemStack(Material.STONE, 16));
+                                    }
+                                    return result;
+                                } catch (java.lang.reflect.InvocationTargetException exception) {
+                                    throw exception.getCause();
+                                }
+                            });
+            boolean interrupted = false;
+            try {
+                apply.invoke(null, fixture, owner, journalId, binding, hooked, resolver);
+            } catch (java.lang.reflect.InvocationTargetException exception) {
+                interrupted = exception.getCause() instanceof java.io.IOException;
+            }
+            require(interrupted && writes.get() == 2
+                            && Arrays.equals(oldBytes, contents.getItem(0).serializeAsBytes())
+                            && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                            && contents.getItem(26).getType() == Material.STONE
+                            && contents.getItem(26).getAmount() == 16,
+                    "native journal apply failed to restore own write or preserve foreign stock");
+            Object failed = inspect.invoke(null, fixture, owner, journalId, binding, contents);
+            require("DIVERGED".equals(stateAccessor.invoke(failed).toString()),
+                    "native interrupted apply did not retain readable divergent journal");
+            // Test-only reset of injected stock; no automatic repair or resume.
+            contents.setItem(26, new ItemStack(Material.STONE, 17));
+            require("ORIGINAL".equals(stateAccessor.invoke(
+                            inspect.invoke(null, fixture, owner, journalId, binding, contents)).toString()),
+                    "native interrupted apply did not retain exact original evidence");
+            Bukkit.getLogger().info("SFL_PHYSICAL_CHEST_APPLY_FAULT_PASS");
+
+            // Exercise the actual internal engine on native chest inventory,
+            // never a live administrator command or arbitrary world container.
+            apply.invoke(null, fixture, owner, journalId, binding, contents, resolver);
         }
 
         require(contents.getItem(0) != null
@@ -1606,6 +1649,21 @@ final class ItemIdentityProbe {
         stateAccessor.setAccessible(true);
         require("PROPOSED".equals(stateAccessor.invoke(after).toString()),
                 "test-only physically persisted proposed chest not recognized by exact-native journal");
+
+        boolean replayRefused = false;
+        try {
+            apply.invoke(null, fixture, owner, journalId, binding, contents, resolver);
+        } catch (java.lang.reflect.InvocationTargetException exception) {
+            replayRefused = exception.getCause() instanceof java.io.IOException;
+        }
+        require(replayRefused
+                        && Arrays.equals(expectedUpdated, contents.getItem(0).serializeAsBytes())
+                        && Arrays.equals(currentBytes, contents.getItem(1).serializeAsBytes())
+                        && Arrays.equals(typedBytes, contents.getItem(2).serializeAsBytes())
+                        && contents.getItem(26).getAmount() == 17,
+                "native journal apply replay did not refuse without changing stock");
+        Bukkit.getLogger().info(restart
+                ? "SFL_PHYSICAL_CHEST_APPLY_RESTART_PASS" : "SFL_PHYSICAL_CHEST_APPLY_SEED_PASS");
 
         Object originCheck = verifyOrigin.invoke(null, fixture, owner, receiptId, binding, contents);
         Method unchanged = originCheck.getClass().getDeclaredMethod("unchanged");
