@@ -59,7 +59,7 @@ final class DoctorContainerTransactionJournal {
     record Inspection(
             State state, int slots, int changes, long originalItems, long proposedItems,
             int appliedCandidates, int originalCandidates, int unexpectedSlots,
-            boolean expectedOnlyPartial) {}
+            boolean expectedOnlyPartial, boolean attemptBlocked) {}
 
     private record Stored(Journal journal, byte[][] proposedSlots) {}
 
@@ -162,7 +162,8 @@ final class DoctorContainerTransactionJournal {
         return new Inspection(
                 state, binding.slots(), journal.changedSlots().size(),
                 journal.beforeItems(), journal.afterItems(),
-                applied, pending, unexpected, onlyExpectedPartial);
+                applied, pending, unexpected, onlyExpectedPartial,
+                !Files.notExists(attemptMarker(directory(pluginFolder), operator, journalId), LinkOption.NOFOLLOW_LINKS));
     }
 
     /**
@@ -214,9 +215,14 @@ final class DoctorContainerTransactionJournal {
             Path pluginFolder, UUID operator, UUID journalId,
             DoctorContainerEvidenceEnvelope.Binding binding, Inventory inventory,
             java.util.function.Function<ItemStack, ItemStack> templates) throws IOException {
-        Journal validated = revalidate(pluginFolder, operator, journalId, binding, inventory, templates);
         Path dir = directory(pluginFolder);
-        Path marker = dir.resolve(operator + "-" + journalId + ".attempt");
+        Path marker = attemptMarker(dir, operator, journalId);
+        // Refuse prior or indeterminate attempts before inventory and template
+        // work. Exclusive creation below remains the actual race-safe gate.
+        if (!Files.notExists(marker, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Private container execution intent already exists or cannot be checked");
+        }
+        Journal validated = revalidate(pluginFolder, operator, journalId, binding, inventory, templates);
         byte[] intent = ("SFL_CONTAINER_ATTEMPT_V1\n" + operator + "\n" + journalId + "\n"
                 + validated.originalReceipt() + "\n" + validated.beforeSha256() + "\n"
                 + validated.afterSha256() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -551,6 +557,13 @@ final class DoctorContainerTransactionJournal {
             }
         }
         return true;
+    }
+
+    private static Path attemptMarker(Path directory, UUID operator, UUID journalId) throws IOException {
+        if (operator == null || journalId == null) {
+            throw new IOException("Missing private container execution identity");
+        }
+        return directory.resolve(operator + "-" + journalId + ".attempt");
     }
 
     private static Path directory(Path pluginFolder) throws IOException {
