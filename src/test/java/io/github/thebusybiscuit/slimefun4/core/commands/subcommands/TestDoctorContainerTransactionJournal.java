@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -160,7 +161,7 @@ class TestDoctorContainerTransactionJournal {
         // Simulate a world save that still contains the original image.
         // There is no in-memory authorization state to reset or reuse.
         chest.setItem(0, ItemStack.deserializeBytes(oldBytes));
-        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+        assertThrows(FileAlreadyExistsException.class, () -> DoctorContainerTransactionJournal.applyOnce(
                 data, operator, journal.id(), location, chest, ignored -> template));
         assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
         assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
@@ -174,7 +175,7 @@ class TestDoctorContainerTransactionJournal {
         Files.write(marker, new byte[0]);
         assertTrue(DoctorContainerTransactionJournal.inspect(
                 data, operator, journal.id(), location, chest).attemptBlocked());
-        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+        assertThrows(FileAlreadyExistsException.class, () -> DoctorContainerTransactionJournal.applyOnce(
                 data, operator, journal.id(), location, chest, ignored -> {
                     throw new AssertionError("Consumed intent must refuse before resolving any template");
                 }));

@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -220,7 +221,10 @@ final class DoctorContainerTransactionJournal {
         // Refuse prior or indeterminate attempts before inventory and template
         // work. Exclusive creation below remains the actual race-safe gate.
         if (!Files.notExists(marker, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Private container execution intent already exists or cannot be checked");
+            if (Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) {
+                throw new FileAlreadyExistsException(marker.toString());
+            }
+            throw new IOException("Private container execution intent cannot be checked");
         }
         Journal validated = revalidate(pluginFolder, operator, journalId, binding, inventory, templates);
         byte[] intent = ("SFL_CONTAINER_ATTEMPT_V1\n" + operator + "\n" + journalId + "\n"

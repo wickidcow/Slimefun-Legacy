@@ -149,6 +149,48 @@ def test_pinned_candidate_install_avoids_plugin_prefix_resolution() -> None:
         assert "-DgeneratePom=true" in command
 
 
+def test_legacy_runtime_builder_uses_pinned_goal_and_fails_closed() -> None:
+    import build_addon_against_local_slimefun as builder
+
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        candidate = root / "candidate.jar"
+        calls = []
+
+        def capture(command, *, cwd, env, log):
+            calls.append(list(command))
+            assert cwd == root
+            assert Path(log.name).is_file()
+            return 0
+
+        with patch.object(builder, "patch_maven_dependencies", return_value=True), patch.object(
+            builder, "stream_maven_command", side_effect=capture
+        ):
+            builder.build_maven(root, candidate)
+        assert len(calls) == 2
+        assert calls[0][:4] == [
+            "mvn", "-B", "-Dmaven.wagon.http.retryHandler.count=3",
+            "org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file",
+        ]
+        assert f"-Dfile={candidate}" in calls[0]
+        assert "-Dversion=Legacy-CI" in calls[0]
+        assert calls[1] == [
+            "mvn", "-B", "-Dmaven.wagon.http.retryHandler.count=3", "-DskipTests", "package",
+        ]
+
+        # Exhausted install failures must never run the addon build.
+        with patch.object(builder, "patch_maven_dependencies", return_value=True), patch.object(
+            builder, "stream_maven_command", return_value=17
+        ) as failing:
+            try:
+                builder.build_maven(root, candidate)
+            except subprocess.CalledProcessError as error:
+                assert error.returncode == 17
+            else:
+                raise AssertionError("Failed candidate install must stop the build")
+        assert failing.call_count == 1
+
+
 def test_maven_property_rewrite() -> None:
     with tempfile.TemporaryDirectory() as raw:
         root = Path(raw)
@@ -452,6 +494,7 @@ def main() -> int:
     test_transient_repository_classification()
     test_maven_retry_backoff_remains_fail_closed()
     test_pinned_candidate_install_avoids_plugin_prefix_resolution()
+    test_legacy_runtime_builder_uses_pinned_goal_and_fails_closed()
     test_maven_property_rewrite()
     test_maven_rewrites_legacy_fork_coordinate()
     test_maven_injects_missing_direct_dependencies()
