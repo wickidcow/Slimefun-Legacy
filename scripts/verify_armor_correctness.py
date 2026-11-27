@@ -74,7 +74,10 @@ def main() -> int:
     solar = read(root, "src/main/java/io/github/thebusybiscuit/slimefun4/implementation/tasks/armor/SolarHelmetTask.java")
     require(solar, "ItemStack helmet = p.getInventory().getHelmet();", "current Solar Helmet lookup")
     require(solar, "SlimefunItem item = SlimefunItem.getByItem(helmet);", "current Solar Helmet item resolution")
-    require(solar, "item instanceof SolarHelmet solarHelmet && item.canUse(p, true)", "Solar Helmet permission gate")
+    require(solar, "item instanceof SolarHelmet solarHelmet", "Solar Helmet type gate")
+    require(solar, "&& item.canUse(p, true)", "Solar Helmet permission gate")
+    require(solar, "helmet == null || helmet.getType().isAir() || !hasDaylight(p)", "empty helmet and daylight fast path")
+    require(solar, "&& p.getEyeLocation().getBlock().getLightFromSky() == 15", "solar-only skylight check")
 
     config = read(root, "src/main/resources/config.yml")
     require(config, "armor-update-interval: 10", "documented periodic armor cache interval")
