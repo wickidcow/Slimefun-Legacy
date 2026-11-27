@@ -991,3 +991,28 @@ any world, player inventory, Fluffy Barrel or QuickShop rewrite.
 and exact-head CI, original quantities, typed data, durable receipts and
 two-version restart evidence pass.** Do not conceal the baseline failure by
 renormalizing private receipts or relabeling it as a passing migration.
+
+## Internal single-use container attempt gate (2026-11-26)
+
+`DoctorContainerTransactionJournal.applyOnce` is internal and has no live
+command caller. Its immutable `.attempt` file prevents the same journal
+from executing twice, including after failed execution or when original
+stock returns. This records execution intent, not a successful world save
+or permission to resume an interrupted transaction.
+
+`ContainerAttemptProbe` exercises the actual wrapper on a separate physical
+chest in the disposable native Doctor world. It requires the marker before
+each setter, injects an unrelated stock change, checks conditional rollback
+and typed-owner conservation, and applies a separate successful proposal.
+After a normal JVM restart, both markers must retain their original bytes.
+Restoring an original stock image **inside this fixture only** must still
+refuse both journals without any setter calls. The runner requires exactly
+one `SFL_PHYSICAL_CHEST_SINGLE_USE_SEED_PASS` and one
+`SFL_PHYSICAL_CHEST_SINGLE_USE_RESTART_PASS` from their respective boot logs.
+Missing, duplicated or wrong-boot markers fail the gate.
+
+This is synthetic native stock and a normal shutdown/restart with controlled
+fault injection. It does not certify abrupt process loss, filesystem power
+loss, non-Linux directory flush behavior, AlbionMC historical items, live
+operator authorization, or QuickShop transactions. New source must pass
+its own native checks before this gate can be reported as successful.

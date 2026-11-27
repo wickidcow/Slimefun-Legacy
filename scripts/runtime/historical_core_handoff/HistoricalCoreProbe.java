@@ -113,6 +113,22 @@ public final class HistoricalCoreProbe extends JavaPlugin {
         return plugin.getDescription().getVersion();
     }
 
+    private static void requireCandidateVersionFloor() throws IOException {
+        String actual = version();
+        // The workflow pins the candidate JAR to its source commit and digest.
+        // Unlike the two published historical inputs, its version advances.
+        var match = java.util.regex.Pattern.compile("^4\\.1\\.([0-9]+)(?:[-+].+)?$").matcher(actual);
+        boolean supported = false;
+        if (match.matches()) {
+            try {
+                supported = Integer.parseInt(match.group(1)) >= 81;
+            } catch (NumberFormatException ignored) {
+                // Refuse malformed or overflowing patch versions.
+            }
+        }
+        require(supported, "Candidate Doctor is not built on the expected version floor: " + actual);
+    }
+
     private static ItemStack fresh(String id) throws Exception {
         Class<?> cls = Class.forName("io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem");
         Object entry = cls.getMethod("getById", String.class).invoke(null, id);
@@ -343,7 +359,7 @@ public final class HistoricalCoreProbe extends JavaPlugin {
      * modified, even when the candidate would pass.
      */
     private void candidate() throws Exception {
-        require(version().contains("4.1.81"), "Candidate Doctor is not built on the expected version floor");
+        requireCandidateVersionFloor();
         Path data = folder();
         require(Files.isRegularFile(data.resolve("seed.pass"))
                         && Files.isRegularFile(data.resolve("verify.pass")),
@@ -588,7 +604,7 @@ public final class HistoricalCoreProbe extends JavaPlugin {
      * intact after a clean restart. Do not write to the chest at any phase.
      */
     private void replay() throws Exception {
-        require(version().contains("4.1.81"), "Fourth JVM did not load candidate Doctor");
+        requireCandidateVersionFloor();
         Path data = folder();
         require(Files.isRegularFile(data.resolve("candidate.pass")),
                 "Fourth JVM missing candidate native validation");
