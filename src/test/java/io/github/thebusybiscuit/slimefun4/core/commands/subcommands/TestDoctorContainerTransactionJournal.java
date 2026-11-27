@@ -131,6 +131,44 @@ class TestDoctorContainerTransactionJournal {
     }
 
     @Test
+    void savedProposalMustReproduceExactCurrentTemplatesAndOriginalStock() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        chest.setItem(0, historical(template, 63));
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] oldBytes = chest.getItem(0).serializeAsBytes();
+        byte[] stoneBytes = chest.getItem(26).serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+
+        assertEquals(journal, DoctorContainerTransactionJournal.revalidate(
+                data, operator, journal.id(), location, chest, ignored -> template));
+
+        ItemStack changedStyle = template.clone();
+        changedStyle.editMeta(meta -> meta.displayName(
+                meta.displayName().decoration(TextDecoration.ITALIC, false)));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.revalidate(
+                data, operator, journal.id(), location, chest, ignored -> changedStyle));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.revalidate(
+                data, operator, journal.id(), location, chest, ignored -> null));
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.revalidate(
+                data, UUID.randomUUID(), journal.id(), location, chest, ignored -> template));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
+
+        chest.setItem(26, new ItemStack(Material.STONE, 16));
+        byte[] changedStone = chest.getItem(26).serializeAsBytes();
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.revalidate(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(changedStone, chest.getItem(26).serializeAsBytes());
+        assertFalse(Files.exists(data.resolve("recovery/transaction-commits")));
+    }
+
+    @Test
     void exactNativeInterruptedCandidateSubsetRemainsDivergedAndUnexpectedStockIsFlagged() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);
         ItemStack template = current();

@@ -167,6 +167,42 @@ final class DoctorContainerTransactionJournal {
     }
 
     /**
+     * Re-prove an immutable proposal against the current registry and exact
+     * original stock. A successful check is not a write authorization.
+     */
+    static Journal revalidate(
+            Path pluginFolder, UUID operator, UUID journalId,
+            DoctorContainerEvidenceEnvelope.Binding binding, Inventory inventory,
+            java.util.function.Function<ItemStack, ItemStack> templates) throws IOException {
+        if (binding == null || inventory == null || inventory.getSize() != binding.slots()) {
+            throw new IOException("Invalid physical container revalidation binding");
+        }
+        Stored stored = read(pluginFolder, operator, journalId);
+        Journal journal = stored.journal();
+        if (!journal.binding().equals(binding)) {
+            throw new IOException("Journal is bound to a different physical container");
+        }
+        verifySourceAndProposed(pluginFolder, stored);
+        var current = DoctorContainerMigrationPreflight.prepareSnapshot(
+                pluginFolder, operator, journal.originalReceipt(), binding, inventory, templates);
+        var draft = current.draft();
+        if (!journal.beforeSha256().equals(draft.beforeSha256())
+                || !journal.afterSha256().equals(draft.proposedSha256())
+                || journal.beforeItems() != draft.originalItems()
+                || journal.afterItems() != draft.proposedItems()
+                || !journal.changedSlots().equals(draft.changedSlots())
+                || !sameSlots(stored.proposedSlots(), current.proposedSlots())) {
+            throw new IOException("Current registered templates no longer reproduce the saved proposal");
+        }
+        if (!DoctorContainerEvidenceEnvelope.verify(
+                        pluginFolder, operator, journal.originalReceipt(), binding, inventory)
+                .unchanged()) {
+            throw new IOException("Physical container changed during proposal revalidation");
+        }
+        return journal;
+    }
+
+    /**
      * A valid checksum alone does not bind this transaction to its source.
      * Require the owner-scoped original receipt to still encode the exact
      * before-hash and item total saved when the proposal was created. Every

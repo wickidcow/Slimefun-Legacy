@@ -95,16 +95,25 @@ final class DoctorLiveItemUpdate {
         if (args.length == 5 && args[3].equalsIgnoreCase("journal-container-full")) {
             PLANS.remove(player.getUniqueId());
             try {
-                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), true);
+                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), true, false);
             } catch (IllegalArgumentException exception) {
                 send(player, "&cProvide your own private full-container receipt UUID.");
+            }
+            return;
+        }
+        if (args.length == 5 && args[3].equalsIgnoreCase("validate-container-journal")) {
+            PLANS.remove(player.getUniqueId());
+            try {
+                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), false, true);
+            } catch (IllegalArgumentException exception) {
+                send(player, "&cProvide your own private proposed-container journal UUID.");
             }
             return;
         }
         if (args.length == 5 && args[3].equalsIgnoreCase("inspect-container-journal")) {
             PLANS.remove(player.getUniqueId());
             try {
-                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), false);
+                inspectContainerJournal(plugin, player, UUID.fromString(args[4]), false, false);
             } catch (IllegalArgumentException exception) {
                 send(player, "&cProvide your own private proposed-container journal UUID.");
             }
@@ -273,6 +282,7 @@ final class DoctorLiveItemUpdate {
         send(sender, "&e/sf doctor identity live preview-container-full <receipt> &8(read-only, NO confirm)");
         send(sender, "&e/sf doctor identity live journal-container-full <receipt> &8(private read-only proposal)");
         send(sender, "&e/sf doctor identity live inspect-container-journal <journal> &8(read-only state)");
+        send(sender, "&e/sf doctor identity live validate-container-journal <journal> &8(read-only revalidation)");
         send(sender, "&e/sf doctor identity live verify-evidence <old-receipt> <template-receipt>");
         send(sender, "&e/sf doctor identity live confirm");
         send(sender, "&e/sf doctor identity live rollback-preview <original-receipt> <slot> &8(OP-only)");
@@ -353,7 +363,8 @@ final class DoctorLiveItemUpdate {
      * proposal, not a write authorization. There is NO confirmation, apply,
      * rollback, QuickShop mutation, or hidden automatic repair.
      */
-    private static void inspectContainerJournal(Slimefun plugin, Player player, UUID reference, boolean create) {
+    private static void inspectContainerJournal(
+            Slimefun plugin, Player player, UUID reference, boolean create, boolean revalidate) {
         Block target = player.getTargetBlockExact(6);
         if (target == null || target.getType().isAir()) {
             send(player, "&eLook directly at a loaded single chest or barrel within six blocks.");
@@ -385,6 +396,13 @@ final class DoctorLiveItemUpdate {
                             + " &8| &7Original items: &e" + proposal.beforeItems()
                             + " &8| &7Proposed items: &e" + proposal.afterItems()
                             + " &8| &cNO chest writes, apply or confirm are available.";
+                } else if (revalidate) {
+                    var proposal = DoctorContainerTransactionJournal.revalidate(
+                            pluginFolder, operator, reference, binding, inventory,
+                            DoctorLiveItemUpdate::registeredTemplate);
+                    message = "&aSaved proposal still matches current templates and ALL original slots."
+                            + " &8| &7Candidates: &e" + proposal.changedSlots()
+                            + " &8| &cREAD-ONLY; no chest writes authorized.";
                 } else {
                     var report = DoctorContainerTransactionJournal.inspect(
                             pluginFolder, operator, reference, binding, inventory);
