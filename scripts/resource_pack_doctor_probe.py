@@ -13,6 +13,16 @@ import subprocess
 import time
 
 
+def require_container_attempt_marker(output: str, phase: str) -> None:
+    """Require native single-use execution proof from the actual server boot log."""
+    if phase not in ("SEED", "RESTART"):
+        raise ValueError("Unsupported single-use container proof phase")
+    marker = "SFL_PHYSICAL_CHEST_SINGLE_USE_" + phase + "_PASS"
+    pattern = r"^\[[^\]\r\n]+ INFO\]: " + re.escape(marker) + r"$"
+    if len(re.findall(pattern, output, re.MULTILINE)) != 1:
+        raise RuntimeError("Missing or duplicate native single-use container proof: " + phase)
+
+
 
 def confirmed_retirement_reset(exit_code: int, client_output: str, server_output: str, proof_text: str) -> bool:
     """Only accept a TCP reset when a specific server-side Doctor retirement is proven.
@@ -341,6 +351,8 @@ def main() -> None:
         if (root / "console-1.log").read_text(encoding="utf-8", errors="replace").count(
                 "SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_SEED_PASS") != 1:
             raise RuntimeError("Native disposable interrupted two-stack chest did not pass seed boot")
+        require_container_attempt_marker(
+            (root / "console-1.log").read_text(encoding="utf-8", errors="replace"), "SEED")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -383,6 +395,8 @@ def main() -> None:
         if (root / "console-2.log").read_text(encoding="utf-8", errors="replace").count(
                 "SFL_PHYSICAL_CHEST_PARTIAL_JOURNAL_RESTART_PASS") != 1:
             raise RuntimeError("Native disposable interrupted two-stack chest did not pass after JVM restart")
+        require_container_attempt_marker(
+            (root / "console-2.log").read_text(encoding="utf-8", errors="replace"), "RESTART")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
         time.sleep(4)
@@ -436,6 +450,7 @@ def main() -> None:
         evidence = {
             "result": "PASS", "boots": 3, "folia_ownership_checks": args.expect_folia,
             "connected_player_checks": bool(args.protocol_module),
+            "container_single_use_attempt_restart": "PASS",
             "doctor_owner_receipt_postrestart": "PASS" if args.protocol_module else "NOT_TESTED",
             "core_paxel_player_craft": "PASS" if args.verify_paxel_player else "NOT_TESTED",
             "core_paxel_survival_guide": "PASS" if args.verify_paxel_player else "NOT_TESTED",
