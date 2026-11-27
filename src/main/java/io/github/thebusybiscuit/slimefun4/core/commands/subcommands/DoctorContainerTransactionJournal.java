@@ -202,6 +202,48 @@ final class DoctorContainerTransactionJournal {
     }
 
     /**
+     * Internal single-use execution gate. Once an attempt marker exists,
+     * even ORIGINAL stock is not permission to repeat the same proposal.
+     * A failed or incomplete marker is deliberately never removed.
+     *
+     * <p>This persists intent, not a world-save or successful commit record.
+     * No live command calls this method; platform-specific directory flush
+     * and native interruption/restart behavior must be verified first.
+     */
+    static Journal applyOnce(
+            Path pluginFolder, UUID operator, UUID journalId,
+            DoctorContainerEvidenceEnvelope.Binding binding, Inventory inventory,
+            java.util.function.Function<ItemStack, ItemStack> templates) throws IOException {
+        Journal validated = revalidate(pluginFolder, operator, journalId, binding, inventory, templates);
+        Path dir = directory(pluginFolder);
+        Path marker = dir.resolve(operator + "-" + journalId + ".attempt");
+        byte[] intent = ("SFL_CONTAINER_ATTEMPT_V1\n" + operator + "\n" + journalId + "\n"
+                + validated.originalReceipt() + "\n" + validated.beforeSha256() + "\n"
+                + validated.afterSha256() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // Exclusive creation is the gate, not parsing a previous marker.
+        // Any existing file, symlink or truncated intent refuses replay.
+        try (FileChannel channel = FileChannel.open(
+                marker, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+            writeAll(channel, intent);
+            channel.force(true);
+        }
+        // Fail closed on filesystems/providers that cannot flush a directory.
+        // Intent must be persisted before any inventory setter is invoked.
+        try (FileChannel directoryChannel = FileChannel.open(
+                dir, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            directoryChannel.force(true);
+        }
+        if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)
+                || Files.size(marker) != intent.length
+                || !Arrays.equals(intent, Files.readAllBytes(marker))) {
+            throw new IOException("Private container execution intent did not survive exact readback");
+        }
+        // The underlying engine independently re-proves all source and
+        // current-template identities after the intent has been persisted.
+        return applyVerifiedProposal(pluginFolder, operator, journalId, binding, inventory, templates);
+    }
+
+    /**
      * Internal apply engine for controlled fixtures only until native region,
      * interruption and restart tests permit an explicit operator command.
      * A caller must already own the inventory's region and exclude shops,
