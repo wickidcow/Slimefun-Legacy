@@ -174,8 +174,24 @@ public abstract class Network {
         return null;
     }
 
+    /**
+     * Count only as much of the current frontier as this tick can process.
+     * ConcurrentLinkedQueue.size() traverses the entire queue, even when
+     * only a small discovery batch is allowed. Like size(), this count is
+     * weakly consistent when producers concurrently enqueue locations.
+     */
+    static int boundedDiscoverySteps(Queue<?> queue, int maximum) {
+        int count = 0;
+        var iterator = queue.iterator();
+        while (count < maximum && iterator.hasNext()) {
+            iterator.next();
+            count++;
+        }
+        return count;
+    }
+
     private void discoverStep() {
-        int maxSteps = Math.min(manager.getMaxSize(), nodeQueue.size());
+        int maxSteps = boundedDiscoverySteps(nodeQueue, manager.getMaxSize());
         int steps = 0;
 
         while (steps < maxSteps) {
