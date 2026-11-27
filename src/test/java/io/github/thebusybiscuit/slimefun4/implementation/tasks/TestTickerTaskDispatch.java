@@ -199,6 +199,33 @@ class TestTickerTaskDispatch {
     }
 
     @Test
+    void manualRetryDoesNotReleaseAnAcceptedMachineDispatch() throws Exception {
+        profiler.startTelemetry();
+        dispatch = callback -> new Handle(false);
+        tick();
+        assertTrue(queued.contains(position));
+        assertEquals(1, profilerQueued.get());
+
+        // The administrative retry resets the failure state, not the scheduler.
+        task.retryMachine(location);
+        tick();
+
+        assertEquals(1, callbacks.size());
+        assertTrue(queued.contains(position));
+        assertEquals(1, profilerQueued.get());
+        callbacks.getFirst().run();
+        assertEquals(1, ticks.get());
+        assertFalse(queued.contains(position));
+        assertEquals(0, profilerQueued.get());
+
+        tick();
+        assertEquals(2, callbacks.size());
+        callbacks.getLast().run();
+        assertEquals(2, ticks.get());
+        assertFalse(queued.contains(position));
+    }
+
+    @Test
     void completedCallbackAndCancelledHandleDoNotCancelAnotherProfilerEntry() throws Exception {
         profiler.startTelemetry();
         profiler.scheduleEntries(1);
