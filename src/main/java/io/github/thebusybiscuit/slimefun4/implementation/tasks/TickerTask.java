@@ -670,7 +670,8 @@ public class TickerTask implements Runnable {
     public boolean retryMachine(@Nonnull Location location) {
         BlockPosition position = new BlockPosition(location);
         bugs.remove(position);
-        queuedSynchronousTicks.remove(position);
+        // Retrying a circuit breaker does not cancel an accepted scheduler callback.
+        // Only that dispatch's completion or rejection may release its queue claim.
         failureTracker.clear(position);
         return circuitBreaker.clear(position);
     }
