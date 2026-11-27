@@ -131,6 +131,90 @@ class TestDoctorContainerTransactionJournal {
     }
 
     @Test
+    void internalApplyConservesExactStockAndRefusesReplay() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        chest.setItem(0, historical(template, 63));
+        chest.setItem(1, historical(template, 8));
+        ItemStack typed = historical(template, 9);
+        typed.editMeta(meta -> meta.getPersistentDataContainer().set(
+                new NamespacedKey("addon", "stored_owner"), PersistentDataType.INTEGER, 787001));
+        chest.setItem(2, typed);
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] typedBytes = chest.getItem(2).serializeAsBytes();
+        byte[] stoneBytes = chest.getItem(26).serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+
+        assertEquals(journal, DoctorContainerTransactionJournal.applyVerifiedProposal(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertEquals(63, chest.getItem(0).getAmount());
+        assertEquals(8, chest.getItem(1).getAmount());
+        assertTrue(chest.getItem(0).isSimilar(template));
+        assertTrue(chest.getItem(1).isSimilar(template));
+        assertArrayEquals(typedBytes, chest.getItem(2).serializeAsBytes());
+        assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
+        var status = DoctorContainerTransactionJournal.inspect(data, operator, journal.id(), location, chest);
+        assertEquals(DoctorContainerTransactionJournal.State.PROPOSED, status.state());
+        assertEquals(2, status.appliedCandidates());
+        assertEquals(0, status.unexpectedSlots());
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyVerifiedProposal(
+                data, operator, journal.id(), location, chest, ignored -> template));
+        assertEquals(DoctorContainerTransactionJournal.State.PROPOSED,
+                DoctorContainerTransactionJournal.inspect(data, operator, journal.id(), location, chest).state());
+    }
+
+    @Test
+    void foreignStockDuringInternalApplyIsPreservedAndOwnWriteRolledBack() throws Exception {
+        Inventory chest = Bukkit.createInventory(null, 27);
+        ItemStack template = current();
+        chest.setItem(0, historical(template, 63));
+        chest.setItem(1, historical(template, 8));
+        chest.setItem(26, new ItemStack(Material.STONE, 17));
+        byte[] first = chest.getItem(0).serializeAsBytes();
+        byte[] second = chest.getItem(1).serializeAsBytes();
+        ItemStack foreign = new ItemStack(Material.DIAMOND, 4);
+        byte[] foreignBytes = foreign.serializeAsBytes();
+        UUID operator = UUID.randomUUID();
+        var location = binding();
+        var original = DoctorContainerEvidenceEnvelope.capture(data, operator, location, chest);
+        var journal = DoctorContainerTransactionJournal.begin(
+                data, operator, original.id(), location, chest, ignored -> template);
+
+        var writes = new java.util.concurrent.atomic.AtomicInteger();
+        Inventory hooked = (Inventory) java.lang.reflect.Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class}, (proxy, method, args) -> {
+                    try {
+                        Object result = method.invoke(chest, args);
+                        if (method.getName().equals("setItem") && writes.incrementAndGet() == 1) {
+                            chest.setItem(26, foreign);
+                        }
+                        return result;
+                    } catch (java.lang.reflect.InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyVerifiedProposal(
+                data, operator, journal.id(), location, hooked, ignored -> template));
+        assertEquals(2, writes.get());
+        assertArrayEquals(first, chest.getItem(0).serializeAsBytes());
+        assertArrayEquals(second, chest.getItem(1).serializeAsBytes());
+        assertArrayEquals(foreignBytes, chest.getItem(26).serializeAsBytes());
+        var status = DoctorContainerTransactionJournal.inspect(data, operator, journal.id(), location, chest);
+        assertEquals(DoctorContainerTransactionJournal.State.DIVERGED, status.state());
+        assertEquals(0, status.appliedCandidates());
+        assertEquals(2, status.originalCandidates());
+        assertEquals(1, status.unexpectedSlots());
+        assertTrue(Files.isRegularFile(data.resolve(
+                "recovery/containers/" + operator + "-" + original.id() + ".bin")));
+        assertTrue(Files.isRegularFile(data.resolve(
+                "recovery/container-journals/" + operator + "-" + journal.id() + ".bin")));
+    }
+
+    @Test
     void savedProposalMustReproduceExactCurrentTemplatesAndOriginalStock() throws Exception {
         Inventory chest = Bukkit.createInventory(null, 27);
         ItemStack template = current();
