@@ -129,10 +129,10 @@ final class ResourcePackDoctorListener implements Listener {
                 return;
             }
             for (BlockState blockState : chunk.getTileEntities()) {
-                if (!(blockState instanceof InventoryHolder)) continue;
-                InventoryHolder holder = (InventoryHolder) blockState;
+                Inventory inventory = DoctorPhysicalInventoryAccess.getInventory(blockState);
+                if (inventory == null) continue;
                 this.inventory(
-                        holder.getInventory(),
+                        inventory,
                         "block:" + String.valueOf(chunk.getWorld().getUID()) + ":" + blockState.getX() + ":"
                                 + blockState.getY() + ":" + blockState.getZ());
             }

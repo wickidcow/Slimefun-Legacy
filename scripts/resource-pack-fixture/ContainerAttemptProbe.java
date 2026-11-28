@@ -29,6 +29,7 @@ final class ContainerAttemptProbe {
 
     static void verify(Path directory, boolean restart, byte[] oldBytes, byte[] freshBytes,
             byte[] registeredBytes) throws Exception {
+        verifyAttachedLootGuard(restart);
         var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 10);
         require(Bukkit.isOwnedByCurrentRegion(block), "Single-use chest probe ran outside its owning region");
         Path fixture = directory.resolve("physical-chest-single-use");
@@ -149,6 +150,52 @@ final class ContainerAttemptProbe {
                 "Single-use replay probe changed persisted stock or registered template");
         Bukkit.getLogger().info(restart
                 ? "SFL_PHYSICAL_CHEST_SINGLE_USE_RESTART_PASS" : "SFL_PHYSICAL_CHEST_SINGLE_USE_SEED_PASS");
+    }
+
+    /**
+     * Seed real untouched lootable blocks, then prove the production metadata
+     * guard still reports their attached table on an independent JVM boot.
+     * Never call getInventory, getBlockInventory or populateLoot on these blocks.
+     */
+    private static void verifyAttachedLootGuard(boolean restart) throws Exception {
+        Class<?> preflight = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerLocalPreflight");
+        Method guard = method(preflight, "hasAttachedLootTable", org.bukkit.block.Container.class);
+        Class<?> background = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.services.stability.DoctorPhysicalInventoryAccess");
+        Method backgroundAccess = method(background, "getInventory", org.bukkit.block.BlockState.class);
+        var table = Bukkit.getLootTable(NamespacedKey.minecraft("chests/simple_dungeon"));
+        require(table != null, "Native dungeon loot table missing");
+        Material[] materials = {Material.CHEST, Material.BARREL};
+        for (int i = 0; i < materials.length; i++) {
+            var block = Bukkit.getWorlds().getFirst().getBlockAt(12 + i, 180, 10);
+            require(Bukkit.isOwnedByCurrentRegion(block), "Loot guard probe outside owning region");
+            if (!restart) {
+                require(block.getType().isAir(), "Disposable loot fixture location already occupied");
+                block.setType(materials[i]);
+                var empty = (org.bukkit.block.Container) block.getState();
+                require(Boolean.FALSE.equals(guard.invoke(null, empty)), "Ordinary container rejected as attached loot");
+                var lootable = (org.bukkit.loot.Lootable) empty;
+                lootable.setLootTable(table);
+                lootable.setSeed(75123L + i);
+                require(empty.update(true, false), "Could not persist attached loot fixture");
+            }
+            require(block.getType() == materials[i], "Loot fixture block changed on restart");
+            var current = (org.bukkit.block.Container) block.getState();
+            var lootable = (org.bukkit.loot.Lootable) current;
+            require(table.equals(lootable.getLootTable()) && lootable.getSeed() == 75123L + i,
+                    "Expected untouched loot table and seed before guard: " + materials[i]
+                            + " restart=" + restart + " tablePresent=" + (lootable.getLootTable() != null)
+                            + " seedMatches=" + (lootable.getSeed() == 75123L + i));
+            require(Boolean.TRUE.equals(guard.invoke(null, current)), "Production guard missed attached loot table");
+            require(backgroundAccess.invoke(null, current) == null,
+                    "Background Doctor obtained an attached-loot inventory");
+            var after = (org.bukkit.loot.Lootable) block.getState();
+            require(table.equals(after.getLootTable()) && after.getSeed() == 75123L + i,
+                    "Read-only loot guard changed attached loot metadata");
+        }
+        Bukkit.getLogger().info(restart
+                ? "SFL_PHYSICAL_CONTAINER_LOOT_GUARD_RESTART_PASS" : "SFL_PHYSICAL_CONTAINER_LOOT_GUARD_SEED_PASS");
     }
 
     private static void refuseReplay(Method apply, Path fixture, UUID owner, UUID journal, Object binding,
