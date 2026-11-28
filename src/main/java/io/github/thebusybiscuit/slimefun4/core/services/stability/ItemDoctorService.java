@@ -43,7 +43,6 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /** Automatic and operator-triggered repair service for localized item and placed-block metadata. */
@@ -361,8 +360,9 @@ public final class ItemDoctorService implements Listener {
             }
         }
         for (Entity entity : chunk.getEntities()) {
-            if (entity instanceof InventoryHolder holder && seen.add(holder.getInventory())) {
-                repairAutomatic(report, holder.getInventory());
+            Inventory inventory = DoctorPhysicalInventoryAccess.getEntityInventory(entity);
+            if (inventory != null && seen.add(inventory)) {
+                repairAutomatic(report, inventory);
             } else if (entity instanceof Item itemEntity) {
                 try {
                     ItemStack item = itemEntity.getItemStack();
@@ -452,8 +452,9 @@ public final class ItemDoctorService implements Listener {
                 }
             }
             for (Entity entity : chunk.getEntities()) {
-                if (entity instanceof InventoryHolder holder) {
-                    addInventory(holder.getInventory(), null, entity, null);
+                Inventory inventory = DoctorPhysicalInventoryAccess.getEntityInventory(entity);
+                if (inventory != null) {
+                    addInventory(inventory, null, entity, null);
                 } else if (entity instanceof Item itemEntity) {
                     droppedItems.add(itemEntity);
                 }
@@ -723,6 +724,10 @@ public final class ItemDoctorService implements Listener {
                 inventoryTargets.remove(target.inventory());
             }
             try {
+                Entity ownerEntity = target.ownerEntity();
+                if (ownerEntity != null && DoctorPhysicalInventoryAccess.hasAttachedLootTable(ownerEntity)) {
+                    return;
+                }
                 Location owner = target.ownerLocation();
                 // Physical tile inventories can wait in the bounded queue.
                 // Recheck loot metadata on the owning region before reading

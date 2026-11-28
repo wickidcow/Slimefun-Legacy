@@ -215,9 +215,9 @@ final class ResourcePackDoctorListener implements Listener {
     }
 
     private void inspectEntity(Entity entity) {
-        if (entity instanceof InventoryHolder) {
-            InventoryHolder holder = (InventoryHolder) entity;
-            this.inventory(holder.getInventory(), "entity:" + String.valueOf(entity.getUniqueId()));
+        Inventory inventory = DoctorPhysicalInventoryAccess.getEntityInventory(entity);
+        if (inventory != null) {
+            this.inventory(inventory, "entity:" + String.valueOf(entity.getUniqueId()));
         } else if (entity instanceof Item) {
             Item dropped = (Item) entity;
             ResourcePackModelExecutor executor = this.service.deferredExecutor();
