@@ -417,6 +417,8 @@ final class DoctorLiveItemUpdate {
                             + (report.expectedOnlyPartial()
                                     ? " &8| &6EXPECTED-ONLY PARTIAL (still DIVERGED)"
                                     : "")
+                            + " &8| &7Execution intent: &e"
+                            + (report.attemptBlocked() ? "BLOCKED (present or unverifiable)" : "NO MARKER")
                             + " &8| &cDiagnostic ONLY; no resume, repair or rollback is authorized.";
                 }
             } catch (IOException | RuntimeException exception) {

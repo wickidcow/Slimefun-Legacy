@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -145,6 +146,8 @@ class TestDoctorContainerTransactionJournal {
                 data, operator, original.id(), location, chest, ignored -> template);
         Path marker = data.resolve("recovery/container-journals/" + operator + "-" + journal.id() + ".attempt");
 
+        assertFalse(DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest).attemptBlocked());
         assertEquals(journal, DoctorContainerTransactionJournal.applyOnce(
                 data, operator, journal.id(), location, chest, ignored -> template));
         assertTrue(chest.getItem(0).isSimilar(template));
@@ -152,20 +155,30 @@ class TestDoctorContainerTransactionJournal {
         assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
         byte[] intent = Files.readAllBytes(marker);
         assertTrue(intent.length > 0);
+        assertTrue(DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest).attemptBlocked());
 
         // Simulate a world save that still contains the original image.
         // There is no in-memory authorization state to reset or reuse.
         chest.setItem(0, ItemStack.deserializeBytes(oldBytes));
-        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+        assertThrows(FileAlreadyExistsException.class, () -> DoctorContainerTransactionJournal.applyOnce(
                 data, operator, journal.id(), location, chest, ignored -> template));
         assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
         assertArrayEquals(stoneBytes, chest.getItem(26).serializeAsBytes());
         assertArrayEquals(intent, Files.readAllBytes(marker));
 
+        var restored = DoctorContainerTransactionJournal.inspect(data, operator, journal.id(), location, chest);
+        assertEquals(DoctorContainerTransactionJournal.State.ORIGINAL, restored.state());
+        assertTrue(restored.attemptBlocked());
+
         // A truncated intent must also refuse, never become a fresh attempt.
         Files.write(marker, new byte[0]);
-        assertThrows(IOException.class, () -> DoctorContainerTransactionJournal.applyOnce(
-                data, operator, journal.id(), location, chest, ignored -> template));
+        assertTrue(DoctorContainerTransactionJournal.inspect(
+                data, operator, journal.id(), location, chest).attemptBlocked());
+        assertThrows(FileAlreadyExistsException.class, () -> DoctorContainerTransactionJournal.applyOnce(
+                data, operator, journal.id(), location, chest, ignored -> {
+                    throw new AssertionError("Consumed intent must refuse before resolving any template");
+                }));
         assertArrayEquals(oldBytes, chest.getItem(0).serializeAsBytes());
         assertEquals(0, Files.size(marker));
     }
