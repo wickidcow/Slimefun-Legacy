@@ -484,6 +484,10 @@ final class DoctorLiveItemUpdate {
                         message = "&eTarget is not a physical chest/barrel/container.";
                     } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                         message = "&cBoundary double chest may span Folia regions; inspection refused. No items changed.";
+                    } else if (state.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE) {
+                        message = "&cDouble chest loot state is unverified; select a single container.";
+                    } else if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                        message = "&cAttached loot table; stock inspection refused before inventory access.";
                     } else {
                         Inventory inventory = container.getInventory();
                         ContainerPreimage preimage = captureContainerPreimage(inventory);
@@ -556,6 +560,10 @@ final class DoctorLiveItemUpdate {
                         message = "&cTarget is not a physical inventory container.";
                     } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                         message = "&cBoundary double chest may span Folia regions; inspection refused. No data changed.";
+                    } else if (state.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE) {
+                        message = "&cDouble chest loot state is unverified; select a single container.";
+                    } else if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                        message = "&cAttached loot table; stock inspection refused before inventory access.";
                     } else {
                         SlotStatus status = classifyStoredSlot(
                                 container.getInventory(), slot, DoctorLiveItemUpdate::registeredTemplate);
@@ -696,6 +704,10 @@ final class DoctorLiveItemUpdate {
                         message = "&cTarget is not a physical inventory container.";
                     } else if (maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                         message = "&cBoundary double chest may span Folia regions; evidence refused. No data changed.";
+                    } else if (state.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE) {
+                        message = "&cDouble chest loot state is unverified; select a single container.";
+                    } else if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                        message = "&cAttached loot table; stock inspection refused before inventory access.";
                     } else {
                         DoctorIdentityEvidenceExport.Evidence evidence = captureContainer(
                                 container.getInventory(),
