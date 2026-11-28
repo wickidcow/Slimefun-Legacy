@@ -100,6 +100,9 @@ class TestDoctorContainerLocalPreflight {
                     case "getLootTable" -> loot ? lootTable : null;
                     default -> throw new AssertionError("Unexpected container access: " + method.getName());
                 });
+        // The early guard uses only block-state metadata. The proxy rejects
+        // getInventory and all other unexpected block access.
+        assertEquals(loot, DoctorContainerLocalPreflight.hasAttachedLootTable(state));
         Inventory inventory = (Inventory) Proxy.newProxyInstance(
                 Inventory.class.getClassLoader(), new Class<?>[] {Inventory.class},
                 (proxy, method, args) -> switch (method.getName()) {
