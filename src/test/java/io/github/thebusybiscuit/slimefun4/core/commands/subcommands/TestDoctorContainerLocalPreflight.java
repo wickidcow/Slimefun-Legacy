@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.inventory.Inventory;
@@ -58,6 +59,32 @@ class TestDoctorContainerLocalPreflight {
         assertEquals(
                 DoctorContainerLocalPreflight.Result.SHOP_INTEGRATION_UNVERIFIED,
                 inspect(Material.CHEST, Chest.Type.SINGLE, 27, false, false, false, false, false, true));
+    }
+
+    @Test
+    void adjacentHoppersAreRefusedInEveryDirection() {
+        for (BlockFace face : List.of(
+                BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)) {
+            assertEquals(
+                    DoctorContainerLocalPreflight.Result.ADJACENT_HOPPER,
+                    DoctorContainerLocalPreflight.inspectAdjacentHoppers(
+                            direction -> direction == face ? Material.HOPPER : Material.AIR));
+        }
+    }
+
+    @Test
+    void missingNeighborCannotProveIsolation() {
+        assertEquals(
+                DoctorContainerLocalPreflight.Result.NEIGHBOR_UNAVAILABLE,
+                DoctorContainerLocalPreflight.inspectAdjacentHoppers(
+                        direction -> direction == BlockFace.WEST ? null : Material.STONE));
+        assertEquals(
+                DoctorContainerLocalPreflight.Result.ADJACENT_HOPPER,
+                DoctorContainerLocalPreflight.inspectAdjacentHoppers(
+                        direction -> direction == BlockFace.UP ? null : Material.HOPPER));
+        assertEquals(
+                DoctorContainerLocalPreflight.Result.LOCAL_CHECKS_ONLY,
+                DoctorContainerLocalPreflight.inspectAdjacentHoppers(direction -> Material.AIR));
     }
 
     private static DoctorContainerLocalPreflight.Result inspect(

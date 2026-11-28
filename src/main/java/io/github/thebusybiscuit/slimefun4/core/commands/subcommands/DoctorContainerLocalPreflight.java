@@ -1,6 +1,8 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import java.util.function.Function;
 import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.inventory.Inventory;
@@ -21,11 +23,30 @@ final class DoctorContainerLocalPreflight {
         LOOT_TABLE_OR_UNKNOWN,
         SLIMEFUN_BLOCK,
         SHOP_INTEGRATION_UNVERIFIED,
+        ADJACENT_HOPPER,
+        NEIGHBOR_UNAVAILABLE,
         LOCAL_CHECKS_ONLY,
         UNAVAILABLE
     }
 
+    private static final BlockFace[] NEIGHBORS = {
+        BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST
+    };
+
     private DoctorContainerLocalPreflight() {}
+
+    /** A null observation means the neighbor could not be checked safely. */
+    static Result inspectAdjacentHoppers(Function<BlockFace, Material> materialAt) {
+        boolean unavailable = false;
+        for (BlockFace face : NEIGHBORS) {
+            Material material = materialAt.apply(face);
+            if (material == Material.HOPPER) {
+                return Result.ADJACENT_HOPPER;
+            }
+            unavailable |= material == null;
+        }
+        return unavailable ? Result.NEIGHBOR_UNAVAILABLE : Result.LOCAL_CHECKS_ONLY;
+    }
 
     // A stock read on a lootable container may cause loot materialization.
     // Check before obtaining or reading the live inventory.

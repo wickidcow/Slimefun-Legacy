@@ -16,6 +16,7 @@ import java.util.function.Function;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -454,8 +455,23 @@ final class DoctorLiveItemUpdate {
             var plugins = Bukkit.getPluginManager();
             boolean shopPresent = plugins.getPlugin("QuickShop-Hikari") != null
                     || plugins.getPlugin("QuickShop") != null;
-            return DoctorContainerLocalPreflight.inspect(
+            var result = DoctorContainerLocalPreflight.inspect(
                     state, inventory, StorageCacheUtils.hasSlimefunBlock(location), shopPresent);
+            if (result != DoctorContainerLocalPreflight.Result.LOCAL_CHECKS_ONLY) {
+                return result;
+            }
+            var world = location.getWorld();
+            return DoctorContainerLocalPreflight.inspectAdjacentHoppers(face -> {
+                Location neighbor = location.clone().add(face.getModX(), face.getModY(), face.getModZ());
+                if (neighbor.getBlockY() < world.getMinHeight() || neighbor.getBlockY() >= world.getMaxHeight()) {
+                    return Material.AIR;
+                }
+                if (!world.isChunkLoaded(neighbor.getBlockX() >> 4, neighbor.getBlockZ() >> 4)
+                        || !Slimefun.getSchedulerService().isOwnedByCurrentRegion(neighbor)) {
+                    return null;
+                }
+                return neighbor.getBlock().getType();
+            });
         } catch (RuntimeException | LinkageError exception) {
             return DoctorContainerLocalPreflight.Result.UNAVAILABLE;
         }
