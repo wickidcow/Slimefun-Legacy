@@ -83,6 +83,8 @@ final class DoctorQuickShopReadOnly {
                             || !(state.getBlockData() instanceof org.bukkit.block.data.type.Chest data)
                             || data.getType() != org.bukkit.block.data.type.Chest.Type.SINGLE) {
                         message = "&cOnly loaded, single physical chests are supported. No shop data changed.";
+                    } else if (DoctorContainerLocalPreflight.hasAttachedLootTable(chest)) {
+                        message = "&cAttached loot table; shop inspection refused before stock access.";
                     } else {
                         message = inspectShop(
                                 location, chest, slot, privateEvidenceFolder, player.getUniqueId());
