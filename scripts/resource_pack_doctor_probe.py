@@ -36,6 +36,18 @@ def require_container_loot_guard_marker(output: str, phase: str) -> None:
         raise RuntimeError("Missing, duplicate or wrong-boot native loot guard proof: " + phase)
 
 
+def require_entity_loot_guard_marker(output: str, phase: str) -> None:
+    """Require native storage minecart proof from the correct independent boot."""
+    if phase not in ("SEED", "RESTART"):
+        raise ValueError("Unsupported native entity loot proof phase")
+    marker = "SFL_ENTITY_LOOT_GUARD_" + phase + "_PASS"
+    other = "SFL_ENTITY_LOOT_GUARD_" + ("RESTART" if phase == "SEED" else "SEED") + "_PASS"
+    pattern = r"^\[[^\]\r\n]+ INFO\]: " + re.escape(marker) + r"$"
+    other_pattern = r"^\[[^\]\r\n]+ INFO\]: " + re.escape(other) + r"$"
+    if len(re.findall(pattern, output, re.MULTILINE)) != 1 or re.search(other_pattern, output, re.MULTILINE):
+        raise RuntimeError("Missing, duplicate or wrong-boot native entity loot proof: " + phase)
+
+
 def confirmed_retirement_reset(exit_code: int, client_output: str, server_output: str, proof_text: str) -> bool:
     """Only accept a TCP reset when a specific server-side Doctor retirement is proven.
 
@@ -367,6 +379,8 @@ def main() -> None:
             (root / "console-1.log").read_text(encoding="utf-8", errors="replace"), "SEED")
         require_container_loot_guard_marker(
             (root / "console-1.log").read_text(encoding="utf-8", errors="replace"), "SEED")
+        require_entity_loot_guard_marker(
+            (root / "console-1.log").read_text(encoding="utf-8", errors="replace"), "SEED")
         subprocess.run(["python3", str(repo / "scripts/identity_coverage.py"),
                         "--registry", str(proof / "identity-registry.json"), "--core", str(core),
                         "--server", str(root / "server.jar"),
@@ -412,6 +426,8 @@ def main() -> None:
         require_container_attempt_marker(
             (root / "console-2.log").read_text(encoding="utf-8", errors="replace"), "RESTART")
         require_container_loot_guard_marker(
+            (root / "console-2.log").read_text(encoding="utf-8", errors="replace"), "RESTART")
+        require_entity_loot_guard_marker(
             (root / "console-2.log").read_text(encoding="utf-8", errors="replace"), "RESTART")
         if args.protocol_module:
             probe(process, 2, "identity-output-restart")
