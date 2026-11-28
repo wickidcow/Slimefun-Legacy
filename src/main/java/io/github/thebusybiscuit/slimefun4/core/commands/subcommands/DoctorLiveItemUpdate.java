@@ -318,6 +318,9 @@ final class DoctorLiveItemUpdate {
                         || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                     throw new IOException("Target is not a supported single physical container");
                 }
+                if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                    throw new IOException("Attached loot table must not be inspected as physical stock");
+                }
                 Inventory inventory = container.getInventory();
                 var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
                 if (receiptId == null) {
@@ -384,6 +387,9 @@ final class DoctorLiveItemUpdate {
                         || (state.getBlockData() instanceof Chest chest && chest.getType() != Chest.Type.SINGLE)
                         || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                     throw new IOException("Unsupported physical chest/barrel or cross-region container");
+                }
+                if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                    throw new IOException("Attached loot table must not be inspected as physical stock");
                 }
                 Inventory inventory = container.getInventory();
                 var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
