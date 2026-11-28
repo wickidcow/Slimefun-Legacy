@@ -27,6 +27,12 @@ final class DoctorContainerLocalPreflight {
 
     private DoctorContainerLocalPreflight() {}
 
+    // A stock read on a lootable container may cause loot materialization.
+    // Check before obtaining or reading the live inventory.
+    static boolean hasAttachedLootTable(Container state) {
+        return state instanceof Lootable lootable && lootable.getLootTable() != null;
+    }
+
     static Result inspect(Container state, Inventory inventory, boolean slimefunBlock, boolean shopPluginPresent) {
         if (state == null || inventory == null || inventory.getSize() != 27) {
             return Result.UNSUPPORTED_LAYOUT;
