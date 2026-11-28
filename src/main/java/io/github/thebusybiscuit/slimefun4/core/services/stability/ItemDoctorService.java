@@ -723,6 +723,15 @@ public final class ItemDoctorService implements Listener {
                 inventoryTargets.remove(target.inventory());
             }
             try {
+                Location owner = target.ownerLocation();
+                // Physical tile inventories can wait in the bounded queue.
+                // Recheck loot metadata on the owning region before reading
+                // slots; do not load a chunk to complete an old scan target.
+                if (owner != null && target.saveAction() == null
+                        && (!owner.getWorld().isChunkLoaded(owner.getBlockX() >> 4, owner.getBlockZ() >> 4)
+                                || DoctorPhysicalInventoryAccess.hasAttachedLootTable(owner.getBlock().getState()))) {
+                    return;
+                }
                 boolean changed = traversalExecutor == null
                         ? doctor.repairInventory(target.inventory(), report.isRepairMode(), report)
                         : traversalExecutor instanceof ResourcePackModelExecutor models && target.identity != null
