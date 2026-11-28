@@ -348,7 +348,7 @@ an item **never overrides** typed-PDC/Slimefun-ID safety classification and
 never creates an update plan. It checks the original shop-item bytes, stock
 bytes, registered template, shop owner identity and price again before
 reporting. Different IDs, unstable serialization, concurrent changes, missing
-or incompatible QuickShop, and double chests are refused. No price/owner,
+or incompatible QuickShop, double chests and attached loot tables are refused. No price/owner,
 shop DB, inventory, or transaction mutation is performed; neither native
 stock nor private owner/PDC bytes are printed. The API's live sale-item
 reference is not by itself evidence that the persisted SQL row is identical.
@@ -396,11 +396,12 @@ evidence, **not permission to repair**. `UNSAFE` also includes serialization
 errors, oversized native items, or a slot/template change during comparison.
 No lore, PDC values, owner data, native bytes, or recovery files are exposed
 by this inspection. On all server types, the read-only scan, targeted inspection
-and evidence export **refuse any double chest at a chunk boundary**, rather than
-risk accessing the other half from a different Folia region. The guard is
-intentionally conservative and may also refuse a same-chunk double chest
-touching an edge. Single chests and barrels on chunk boundaries are unaffected;
-move neither chest nor shop stock simply to bypass this refusal.
+and evidence export **refuse all double chests** until both halves' loot
+metadata and region ownership can be safely verified. This is an intentional
+narrowing of the earlier chunk-boundary refusal. Attached loot tables also
+cause refusal before live inventory access, avoiding potential loot generation.
+Single chests and barrels without attached loot tables remain eligible for
+read-only inspection. Do not move chest or shop stock to bypass these checks.
 
 After a chest export, `/sf doctor identity live verify-evidence
 <old-receipt-uuid> <template-receipt-uuid>` reads the two already-saved
@@ -639,6 +640,12 @@ cross-region containers. They do not update any physical inventory:
    after-state, or `DIVERGED` for anything else. A replaced/tampered
    original receipt causes refusal rather than a misleading state.
    DIVERGED must not be interpreted as permission to restore or update.
+   The execution intent marker is reported independently of stock state;
+   BLOCKED can coexist with ORIGINAL. Local execution preflight may report
+   viewers, locks, tile metadata, loot tables, Slimefun block registration,
+   unresolved QuickShop integration or an unavailable check. LOCAL_CHECKS_ONLY
+   is not authorization or proof of isolation from hoppers, Cargo or other
+   writers.
 
 There is **no** corresponding `confirm`, `apply`, `rollback`,
 chest repair or QuickShop SQL mutation action. The existing
