@@ -30,6 +30,7 @@ final class ContainerAttemptProbe {
     static void verify(Path directory, boolean restart, byte[] oldBytes, byte[] freshBytes,
             byte[] registeredBytes) throws Exception {
         verifyAttachedLootGuard(restart);
+        verifyEntityLootGuard(directory, restart);
         var block = Bukkit.getWorlds().getFirst().getBlockAt(8, 180, 10);
         require(Bukkit.isOwnedByCurrentRegion(block), "Single-use chest probe ran outside its owning region");
         Path fixture = directory.resolve("physical-chest-single-use");
@@ -196,6 +197,48 @@ final class ContainerAttemptProbe {
         }
         Bukkit.getLogger().info(restart
                 ? "SFL_PHYSICAL_CONTAINER_LOOT_GUARD_RESTART_PASS" : "SFL_PHYSICAL_CONTAINER_LOOT_GUARD_SEED_PASS");
+    }
+
+    private static void verifyEntityLootGuard(Path directory, boolean restart) throws Exception {
+        Class<?> background = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.services.stability.DoctorPhysicalInventoryAccess");
+        Method access = method(background, "getEntityInventory", org.bukkit.entity.Entity.class);
+        var table = Bukkit.getLootTable(NamespacedKey.minecraft("chests/simple_dungeon"));
+        require(table != null, "Native minecart loot table missing");
+        var world = Bukkit.getWorlds().getFirst();
+        var location = new org.bukkit.Location(world, 14.5, 180, 10.5);
+        require(Bukkit.isOwnedByCurrentRegion(location), "Minecart probe outside owning region");
+        Path identity = directory.resolve("loot-minecart-uuid.txt");
+        org.bukkit.entity.minecart.StorageMinecart cart;
+        if (restart) {
+            UUID expected = UUID.fromString(Files.readString(identity).trim());
+            cart = null;
+            for (var entity : world.getChunkAt(0, 0).getEntities()) {
+                if (entity.getUniqueId().equals(expected)
+                        && entity instanceof org.bukkit.entity.minecart.StorageMinecart stored) {
+                    cart = stored;
+                    break;
+                }
+            }
+            require(cart != null, "Persisted unopened storage minecart missing");
+        } else {
+            cart = world.spawn(location, org.bukkit.entity.minecart.StorageMinecart.class);
+            cart.setGravity(false);
+            cart.setPersistent(true);
+            cart.setInvulnerable(true);
+            require(access.invoke(null, cart) instanceof Inventory, "Ordinary storage minecart inventory refused");
+            cart.setLootTable(table);
+            cart.setSeed(75139L);
+            Files.writeString(identity, cart.getUniqueId().toString(), StandardOpenOption.CREATE_NEW);
+        }
+        require(Bukkit.isOwnedByCurrentRegion(cart), "Minecart loot check outside entity owner");
+        require(table.equals(cart.getLootTable()) && cart.getSeed() == 75139L,
+                "Minecart loot metadata changed before guard, restart=" + restart);
+        require(access.invoke(null, cart) == null, "Background Doctor obtained unopened minecart inventory");
+        require(table.equals(cart.getLootTable()) && cart.getSeed() == 75139L,
+                "Background guard changed minecart loot metadata");
+        Bukkit.getLogger().info(restart
+                ? "SFL_ENTITY_LOOT_GUARD_RESTART_PASS" : "SFL_ENTITY_LOOT_GUARD_SEED_PASS");
     }
 
     private static void refuseReplay(Method apply, Path fixture, UUID owner, UUID journal, Object binding,
