@@ -6,6 +6,7 @@ from scripts.resource_pack_doctor_probe import (
     confirmed_retirement_reset,
     require_container_attempt_marker,
     require_container_loot_guard_marker,
+    require_entity_loot_guard_marker,
 )
 
 
@@ -119,6 +120,23 @@ class ContainerLootGuardProofTest(unittest.TestCase):
     def test_unknown_phase_rejected(self):
         with self.assertRaises(ValueError):
             require_container_loot_guard_marker("", "UNKNOWN")
+
+
+class EntityLootGuardProofTest(unittest.TestCase):
+    def test_exact_boot_marker_required(self):
+        for phase, other in (("SEED", "RESTART"), ("RESTART", "SEED")):
+            marker = "[23:19:00 INFO]: SFL_ENTITY_LOOT_GUARD_" + phase + "_PASS\n"
+            wrong = marker.replace(phase, other)
+            require_entity_loot_guard_marker(marker, phase)
+            for invalid in ("", marker * 2, wrong, marker + wrong,
+                            marker.replace("_PASS", "_PASS_suffix"), "printed text " + marker):
+                with self.subTest(phase=phase, output=invalid):
+                    with self.assertRaises(RuntimeError):
+                        require_entity_loot_guard_marker(invalid, phase)
+
+    def test_unknown_phase_rejected(self):
+        with self.assertRaises(ValueError):
+            require_entity_loot_guard_marker("", "UNKNOWN")
 
 
 class PaxelPlayerGuardTest(unittest.TestCase):
