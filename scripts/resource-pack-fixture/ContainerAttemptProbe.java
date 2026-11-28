@@ -161,6 +161,9 @@ final class ContainerAttemptProbe {
         Class<?> preflight = Class.forName(
                 "io.github.thebusybiscuit.slimefun4.core.commands.subcommands.DoctorContainerLocalPreflight");
         Method guard = method(preflight, "hasAttachedLootTable", org.bukkit.block.Container.class);
+        Class<?> background = Class.forName(
+                "io.github.thebusybiscuit.slimefun4.core.services.stability.DoctorPhysicalInventoryAccess");
+        Method backgroundAccess = method(background, "getInventory", org.bukkit.block.BlockState.class);
         var table = Bukkit.getLootTable(NamespacedKey.minecraft("chests/simple_dungeon"));
         require(table != null, "Native dungeon loot table missing");
         Material[] materials = {Material.CHEST, Material.BARREL};
@@ -181,8 +184,12 @@ final class ContainerAttemptProbe {
             var current = (org.bukkit.block.Container) block.getState();
             var lootable = (org.bukkit.loot.Lootable) current;
             require(table.equals(lootable.getLootTable()) && lootable.getSeed() == 75123L + i,
-                    "Expected untouched loot table and seed before guard");
+                    "Expected untouched loot table and seed before guard: " + materials[i]
+                            + " restart=" + restart + " tablePresent=" + (lootable.getLootTable() != null)
+                            + " seedMatches=" + (lootable.getSeed() == 75123L + i));
             require(Boolean.TRUE.equals(guard.invoke(null, current)), "Production guard missed attached loot table");
+            require(backgroundAccess.invoke(null, current) == null,
+                    "Background Doctor obtained an attached-loot inventory");
             var after = (org.bukkit.loot.Lootable) block.getState();
             require(table.equals(after.getLootTable()) && after.getSeed() == 75123L + i,
                     "Read-only loot guard changed attached loot metadata");
