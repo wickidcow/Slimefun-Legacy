@@ -355,8 +355,9 @@ public final class ItemDoctorService implements Listener {
     private void repairChunk(Chunk chunk, ItemDoctorReport report) {
         Set<Inventory> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (BlockState state : chunk.getTileEntities()) {
-            if (state instanceof InventoryHolder holder && seen.add(holder.getInventory())) {
-                repairAutomatic(report, holder.getInventory());
+            Inventory inventory = DoctorPhysicalInventoryAccess.getInventory(state);
+            if (inventory != null && seen.add(inventory)) {
+                repairAutomatic(report, inventory);
             }
         }
         for (Entity entity : chunk.getEntities()) {
@@ -445,8 +446,9 @@ public final class ItemDoctorService implements Listener {
 
         private void collectChunk(Chunk chunk) {
             for (BlockState state : chunk.getTileEntities()) {
-                if (state instanceof InventoryHolder holder) {
-                    addInventory(holder.getInventory(), null, null, state.getLocation());
+                Inventory inventory = DoctorPhysicalInventoryAccess.getInventory(state);
+                if (inventory != null) {
+                    addInventory(inventory, null, null, state.getLocation());
                 }
             }
             for (Entity entity : chunk.getEntities()) {
