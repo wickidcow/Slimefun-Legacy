@@ -1,5 +1,6 @@
 package io.github.thebusybiscuit.slimefun4.core.commands.subcommands;
 
+import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
@@ -316,6 +318,9 @@ final class DoctorLiveItemUpdate {
                         || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                     throw new IOException("Target is not a supported single physical container");
                 }
+                if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                    throw new IOException("Attached loot table must not be inspected as physical stock");
+                }
                 Inventory inventory = container.getInventory();
                 var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
                 if (receiptId == null) {
@@ -383,6 +388,9 @@ final class DoctorLiveItemUpdate {
                         || maySpanAnotherChunk(state.getBlockData(), location.getBlockX(), location.getBlockZ())) {
                     throw new IOException("Unsupported physical chest/barrel or cross-region container");
                 }
+                if (DoctorContainerLocalPreflight.hasAttachedLootTable(container)) {
+                    throw new IOException("Attached loot table must not be inspected as physical stock");
+                }
                 Inventory inventory = container.getInventory();
                 var binding = DoctorContainerEvidenceEnvelope.Binding.from(location, state, inventory);
                 Path pluginFolder = plugin.getDataFolder().toPath();
@@ -419,6 +427,7 @@ final class DoctorLiveItemUpdate {
                                     : "")
                             + " &8| &7Execution intent: &e"
                             + (report.attemptBlocked() ? "BLOCKED (present or unverifiable)" : "NO MARKER")
+                            + " &8| &7Local execution preflight: &e" + inspectLocalExecution(location, container, inventory)
                             + " &8| &cDiagnostic ONLY; no resume, repair or rollback is authorized.";
                 }
             } catch (IOException | RuntimeException exception) {
@@ -432,6 +441,24 @@ final class DoctorLiveItemUpdate {
                 }
             });
         });
+    }
+
+    private static DoctorContainerLocalPreflight.Result inspectLocalExecution(
+            Location location, Container state, Inventory inventory) {
+        try {
+            if (!Slimefun.getSchedulerService().isOwnedByCurrentRegion(location)) {
+                return DoctorContainerLocalPreflight.Result.UNAVAILABLE;
+            }
+            // A registered shop integration is unresolved until its exact
+            // location adapter can prove the target has no shop reference.
+            var plugins = Bukkit.getPluginManager();
+            boolean shopPresent = plugins.getPlugin("QuickShop-Hikari") != null
+                    || plugins.getPlugin("QuickShop") != null;
+            return DoctorContainerLocalPreflight.inspect(
+                    state, inventory, StorageCacheUtils.hasSlimefunBlock(location), shopPresent);
+        } catch (RuntimeException | LinkageError exception) {
+            return DoctorContainerLocalPreflight.Result.UNAVAILABLE;
+        }
     }
 
     /**
